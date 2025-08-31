@@ -7,10 +7,8 @@ import io
 import time
 import shutil
 import tempfile
-from .config import (
-    VERSION,
-    GITHUB_API_LATEST,
-)
+
+GITHUB_API_LATEST = "https://api.github.com/repos/Terabase-Studios/fts/releases/latest"
 
 MAX_RETRIES = 5
 RETRY_DELAY = 1  # seconds
@@ -67,8 +65,6 @@ def cmd_update(args, logger, verbose=False):
     """Windows-safe updater using temporary folder and file-by-file replacement."""
     logger.debug(f"Preparing to update")
     logger.debug(f"Options: {vars(args)}\n")
-
-    logger.info(f"Current FTS version: {VERSION}")
 
     install_dir = os.path.dirname(os.path.realpath(__file__)).removesuffix("\\src\\fts")
     backup_dir = install_dir + "_backup"
