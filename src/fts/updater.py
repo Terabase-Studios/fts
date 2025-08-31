@@ -8,10 +8,25 @@ import time
 import shutil
 import tempfile
 from tqdm import tqdm
+import importlib.util
 
 GITHUB_API_LATEST = "https://api.github.com/repos/Terabase-Studios/fts/releases/latest"
 MAX_RETRIES = 5
 RETRY_DELAY = 1  # seconds
+
+def get_local_version(config_path, logger):
+    """Get the VERSION from the FTS config, fallback to 0.0 if broken/missing."""
+    if not os.path.exists(config_path):
+        logger.warning(f"Config file not found at {config_path}, assuming version 0.0")
+        return 0.0
+    try:
+        spec = importlib.util.spec_from_file_location("fts_config", config_path)
+        config = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(config)
+        return getattr(config, "VERSION", 0.0)
+    except Exception as e:
+        logger.warning(f"Failed to load config version: {e}, assuming version 0.0")
+        return 0.0
 
 def safe_copy(src, dst, logger):
     """Copy a file or folder safely, retrying on Windows locks. Skip .git folders."""
@@ -65,8 +80,25 @@ def cmd_update(args, logger):
     logger.debug(f"Preparing to update")
     logger.debug(f"Options: {vars(args)}\n")
 
-    install_dir = os.path.dirname(os.path.realpath(__file__)).removesuffix("\\src\\fts")
+    current_dir = os.path.dirname(os.path.realpath(__file__))
+    install_dir = current_dir.removesuffix("\\src\\fts")
     backup_dir = install_dir + "_backup"
+
+    if not getattr(args, "repair", False):
+        local_version = get_local_version(f"{current_dir}\\config.py", logger)
+        try:
+            r = requests.get(GITHUB_API_LATEST, timeout=15)
+            r.raise_for_status()
+            release = r.json()
+            print(release)
+            latest_version = float(release.get("tag_name") or release.get("name") or 0.0)
+            if local_version >= latest_version:
+                logger.info(f"FTS is up-to-date ({local_version} >= {latest_version}). No update needed.")
+                return
+            else:
+                logger.info(f"Update available: {local_version} -> {latest_version}")
+        except Exception as e:
+            logger.warning(f"Failed to fetch latest release info: {e}. Proceeding with update anyway.")
 
     # --- Fetch latest release ---
     try:
