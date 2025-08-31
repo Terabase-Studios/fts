@@ -3,20 +3,6 @@ import argparse
 import sys
 import logging
 
-from .commands import (
-    cmd_update,
-    cmd_version,
-)
-
-from .server import (
-    cmd_open,
-    cmd_close,
-)
-
-from .sender import (
-    cmd_send,
-    cmd_send_dir,
-)
 
 # --- Logging setup ---
 def setup_logging(verbose=False, quiet=False, logfile=None):
@@ -74,7 +60,7 @@ def main():
     open_parser.add_argument("-x", "--extract", action="store_true", help="auto-extract transferred directories")
     add_common_flags(open_parser)
     add_network_flags(open_parser)
-    open_parser.set_defaults(func=cmd_open)
+    open_parser.set_defaults(func=lambda args, logger: __import__('fts.server').server.cmd_open(args, logger))
 
     # --- send ---
     send_parser = subparsers.add_parser("send", help="send file to target")
@@ -83,7 +69,7 @@ def main():
     send_parser.add_argument("-n", "--name", help="name to send file as")
     add_common_flags(send_parser)
     add_network_flags(send_parser)
-    send_parser.set_defaults(func=cmd_send)
+    send_parser.set_defaults(func=lambda args, logger: __import__('fts.sender').sender.cmd_send(args, logger))
 
     # --- send-dir ---
     send_dir_parser = subparsers.add_parser("send-dir", help="send directory to target")
@@ -93,20 +79,20 @@ def main():
     send_dir_parser.add_argument("--py-zip", action="store_true", help="use python when compressing. helpful for large directories when native compression fails")
     add_common_flags(send_dir_parser)
     add_network_flags(send_dir_parser)
-    send_dir_parser.set_defaults(func=cmd_send_dir)
+    send_dir_parser.set_defaults(func=lambda args, logger: __import__('fts.sender').sender.cmd_send_dir(args, logger))
 
     # --- close ---
     close_parser = subparsers.add_parser("close", help="close detached server")
     add_common_flags(close_parser)
-    close_parser.set_defaults(func=cmd_close)
+    open_parser.set_defaults(func=lambda args, logger: __import__('fts.server').server.cmd_close(args, logger))
 
     # --- update ---
     update_parser = subparsers.add_parser("update", help="update to the newest version")
-    update_parser.set_defaults(func=cmd_update)
+    update_parser.set_defaults(func=lambda args, logger: __import__('fts.commands').commands.cmd_update(args, logger))
 
     # --- version ---
     version_parser = subparsers.add_parser("version", help="show version information")
-    version_parser.set_defaults(func=cmd_version)
+    version_parser.set_defaults(func=lambda args, logger: __import__('fts.commands').commands.cmd_version(args, logger))
 
     # --- parse args ---
     args = parser.parse_args()
