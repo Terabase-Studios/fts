@@ -16,6 +16,9 @@ from .config import (
 
 def cmd_open(args, logger, shutdown_event=None):
     """Start TLS receiver server safely with dynamic port handling."""
+    logger.debug(f"Preparing to open server")
+    logger.debug(f"Options: {vars(args)}\n")
+
     host = args.ip or '0.0.0.0'
     output_dir = os.path.abspath(args.output or ".")
     os.makedirs(output_dir, exist_ok=True)

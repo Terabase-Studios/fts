@@ -65,6 +65,9 @@ def safe_remove(path, logger):
 
 def cmd_update(args, logger, verbose=False):
     """Windows-safe updater using temporary folder and file-by-file replacement."""
+    logger.debug(f"Preparing to update")
+    logger.debug(f"Options: {vars(args)}\n")
+
     logger.info(f"Current FTS version: {VERSION}")
 
     install_dir = os.path.dirname(os.path.realpath(__file__)).removesuffix("\\src\\fts")
