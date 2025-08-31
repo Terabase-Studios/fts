@@ -148,10 +148,18 @@ def cmd_update(args, logger):
         requirements_path = os.path.join(install_dir, "requirements.txt")
         if os.path.exists(requirements_path):
             logger.info("Installing/updating dependencies...")
-            subprocess.run([sys.executable, "-m", "pip", "install", "-r", requirements_path, "--upgrade"], check=True)
+            cmd = [sys.executable, "-m", "pip", "install", "-r", requirements_path, "--upgrade"]
         else:
             logger.info("Upgrading FTS via pip...")
-            subprocess.run([sys.executable, "-m", "pip", "install", "-e", "install_dir"], check=True)
+            cmd = [sys.executable, "-m", "pip", "install", "-e", install_dir]
+
+        if args.verbose:
+            # Print pip output directly
+            subprocess.run(cmd, check=True)
+        else:
+            # Suppress output
+            subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
         logger.debug("Dependencies updated successfully!")
     except subprocess.CalledProcessError as e:
         logger.warning(f"Dependency installation may be inconsistent: {e}")
