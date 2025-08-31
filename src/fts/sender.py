@@ -61,11 +61,13 @@ def send_file(file_path: str, host: str, port: int, logger, progress_bar: bool =
         # --- secure connection with TOFU ---
         with secure.connect_with_tofu(host, port, logger) as ssock:
 
-            logger.info(f"Connected securely to {host}:{port}")
+            logger.info(f"Secure connection to ('{host}', {port})")
 
             # Build and send header
             header = build_header(filename, filesize)
             ssock.sendall(header)
+
+            logger.info(f"Sending '{filename}' ({filesize} bytes) from {file_path}")
 
             # Send file in chunks with retries
             sent = 0
@@ -75,7 +77,7 @@ def send_file(file_path: str, host: str, port: int, logger, progress_bar: bool =
                 unit_scale=True,
                 unit_divisor=1024,
                 disable=not progress_bar,
-                desc=f"Sending {filename}"
+                leave=False,
             )
 
             with open(file_path, "rb") as f:
@@ -89,6 +91,7 @@ def send_file(file_path: str, host: str, port: int, logger, progress_bar: bool =
                             logger.warning(f"Send attempt {attempt+1} failed: {e}")
                             time.sleep(1)
                     else:
+                        progress.close()
                         logger.error("Failed to send chunk after retries\n")
                         sys.exit(1)
 
@@ -111,7 +114,8 @@ def send_file(file_path: str, host: str, port: int, logger, progress_bar: bool =
                 logger.error(f"Failed to receive acknowledgment: {e}\n")
                 sys.exit(1)
 
-            logger.info(f"File sent successfully: {filename}\n")
+            logger.info(f"File sent successfully: {filename}")
+            logger.info("Server connection closed\n")
 
     except KeyboardInterrupt as e:
         sys.exit(130)
@@ -154,7 +158,7 @@ def cmd_send_dir(args, logger):
     try:
         os.remove(zip_path)
         logger.debug(f"Temporary zip removed: {zip_path}")
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"Failed to remove temporary zip: {e}")
 
     print('')

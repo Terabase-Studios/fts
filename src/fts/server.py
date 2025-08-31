@@ -51,8 +51,7 @@ def cmd_open(args, logger, shutdown_event=None):
 
         port = sock.getsockname()[1]  # actual port used
         sock.listen(5)
-        logger.info(f"Receiver listening on {host}:{port}, saving to {output_dir}")
-        logger.info("Waiting for incoming connections...\n")
+        logger.info(f"Receiver listening on {host}:{port}, saving to {output_dir}\n")
 
         sock.settimeout(1.0)  # allows periodic shutdown check
 
@@ -70,7 +69,7 @@ def cmd_open(args, logger, shutdown_event=None):
                         logger.info(f"Secure connection from {addr}")
                         threading.Thread(
                             target=_handle_client,
-                            args=(ssock, output_dir, logger, args.extract, args.progress),
+                            args=(ssock, output_dir, logger, args.extract, args.progress, host, port),
                             daemon=True
                         ).start()
                     except Exception as e:
@@ -87,25 +86,30 @@ def cmd_open(args, logger, shutdown_event=None):
             logger.critical(f"Server error: {e}")
 
 
-def _handle_client(ssock, output_dir, logger, extract, progress):
-    """Handle a single client in a separate thread safely."""
+def _handle_client(ssock, output_dir, logger, extract, progress, host=None, port=None):
+    """
+    Handle a single client in a separate thread safely.
+    Automatically closes the socket and cleans up progress bar.
+    """
     try:
         receive_file(ssock, output_dir, logger, extract, progress_bar=progress)
 
-        # After successful file transfer, send acknowledgment
-        try:
-            ssock.sendall(b"OKAY")
-        except Exception as e:
-            logger.warning(f"Failed to send acknowledgment: {e}")
-
     except Exception as e:
         logger.error(f"Client handling error: {e}")
+
     finally:
+        # Ensure socket is closed
         try:
             ssock.close()
         except Exception:
             pass
-        logger.info("Client connection closed.\n")
+
+        # Log connection closed
+        logger.info("Client connection closed\n")
+
+        # Log listening status if host and port are provided
+        if host and port:
+            logger.info(f"Receiver listening on {host}:{port}, saving to {output_dir}\n")
 
 
 def parse_header(ssock):
@@ -170,36 +174,49 @@ def receive_file(ssock, output_dir, logger, extract=False, progress_bar: bool = 
         unit_scale=True,
         unit_divisor=1024,
         disable=not progress_bar,
-        desc=f"Receiving {filename}"
+        leave=False,
     )
 
     try:
         with open(out_path, "wb") as f:
             while received < filesize:
-                chunk = ssock.recv(min(BUFFER_SIZE, filesize - received))
+                try:
+                    chunk = ssock.recv(min(BUFFER_SIZE, filesize - received))
+                except Exception as e:
+                    logger.error(f"Error receiving data: {e}")
+                    break
+
                 if not chunk:
+                    # Connection closed by peer
                     logger.warning(
                         f"Connection closed before full file received ({received}/{filesize} bytes)"
                     )
                     break
+
                 f.write(chunk)
                 received += len(chunk)
                 progress.update(len(chunk))
 
-        progress.close()
 
     except Exception as e:
         logger.error(f"Error writing file: {e}")
         return
 
-    if received == filesize:
-        logger.info(f"File saved: {out_path}")
+    progress.close()
+
+    # Final check after loop
+    if received < filesize:
+        logger.warning(f"Incomplete file received ({received}/{filesize} bytes of {filesize})")
+        return
+
+    else:
+        logger.info(f"File received successfully: {filename}")
+        logger.debug(f"File saved: {out_path}")
         try:
+            logger.debug(f"Sending acknowledgement")
             ssock.sendall(b"OKAY")
         except Exception as e:
             logger.warning(f"Failed to send acknowledgment: {e}")
-    else:
-        logger.warning(f"Incomplete file saved ({received}/{filesize} bytes): {out_path}")
 
     # Optional extraction for zip files
     if extract and zipfile.is_zipfile(out_path):
