@@ -151,7 +151,7 @@ def cmd_update(args, logger):
             subprocess.run([sys.executable, "-m", "pip", "install", "-r", requirements_path, "--upgrade"], check=True)
         else:
             logger.info("Upgrading FTS via pip...")
-            subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "fts"], check=True)
+            subprocess.run([sys.executable, "-m", "pip", "install", "-e", "install_dir"], check=True)
         logger.debug("Dependencies updated successfully!")
     except subprocess.CalledProcessError as e:
         logger.warning(f"Dependency installation may be inconsistent: {e}")
