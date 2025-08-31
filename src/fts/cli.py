@@ -89,6 +89,7 @@ def main():
     # --- update ---
     update_parser = subparsers.add_parser("update", help="update to the newest version")
     update_parser.set_defaults(func=lambda args, logger: __import__('fts.updater').updater.cmd_update(args, logger))
+    add_common_flags(update_parser)
 
     # --- version ---
     version_parser = subparsers.add_parser("version", help="show version information")

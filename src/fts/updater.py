@@ -63,7 +63,7 @@ def safe_remove(path, logger):
     logger.error(f"Failed to remove {path} after {MAX_RETRIES} attempts")
     return False
 
-def cmd_update(args, logger):
+def cmd_update(args, logger, verbose=False):
     """Windows-safe updater using temporary folder and file-by-file replacement."""
     logger.info(f"Current FTS version: {VERSION}")
 
