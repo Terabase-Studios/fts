@@ -16,7 +16,10 @@ MAX_RETRIES = 5
 RETRY_DELAY = 1  # seconds
 
 def safe_copy(src, dst, logger):
-    """Copy a file or folder safely, retrying on Windows locks."""
+    """Copy a file or folder safely, retrying on Windows locks. Skip .git folders."""
+    if ".git" in src.split(os.sep):
+        logger.debug(f"Skipping .git folder/file: {src}")
+        return True
     for attempt in range(MAX_RETRIES):
         try:
             if os.path.isdir(src):
@@ -34,6 +37,7 @@ def safe_copy(src, dst, logger):
             time.sleep(RETRY_DELAY)
     logger.error(f"Failed to copy {src} -> {dst} after {MAX_RETRIES} attempts")
     return False
+
 
 def safe_remove(path, logger):
     """Remove files or folders, skipping locked files like .git."""
@@ -104,7 +108,7 @@ def cmd_update(args, logger):
     tmp_dir = tempfile.mkdtemp(prefix="fts_update_")
     try:
         zf.extractall(tmp_dir)
-        logger.info(f"Extracted update to temporary folder {tmp_dir}")
+        logger.debug(f"Extracted update to temporary folder {tmp_dir}")
     except Exception as e:
         logger.error(f"Failed to extract update: {e}")
         shutil.rmtree(tmp_dir, ignore_errors=True)
@@ -118,7 +122,7 @@ def cmd_update(args, logger):
             logger.error("Cannot backup current installation. Update aborted.")
             shutil.rmtree(tmp_dir, ignore_errors=True)
             return
-        logger.info(f"Backup of current installation created at {backup_dir}")
+        logger.debug(f"Backup of current installation created at {backup_dir}")
 
     # --- Replace files individually ---
     try:
@@ -128,7 +132,7 @@ def cmd_update(args, logger):
             src_item = os.path.join(top_level, item)
             dst_item = os.path.join(install_dir, item)
             safe_copy(src_item, dst_item, logger)
-        logger.info("Files replaced successfully.")
+        logger.debug("Files replaced successfully.")
     except Exception as e:
         logger.error(f"Failed during file replacement: {e}")
         logger.info("Attempting rollback...")
@@ -148,7 +152,7 @@ def cmd_update(args, logger):
         else:
             logger.info("Upgrading FTS via pip...")
             subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "fts"], check=True)
-        logger.info("Dependencies updated successfully!")
+        logger.debug("Dependencies updated successfully!")
     except subprocess.CalledProcessError as e:
         logger.warning(f"Dependency installation may be inconsistent: {e}")
 
