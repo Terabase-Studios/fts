@@ -7,30 +7,53 @@ import io
 import shutil
 from .config import (
     VERSION,
-    GITHUB_RELEASE_URL,
+    GITHUB_API_LATEST,
 )
 
+MAX_RETRIES = 5
+RETRY_DELAY = 1  # seconds
 
-import os
-import sys
-import io
-import shutil
-import zipfile
-import subprocess
-import requests
-from .config import VERSION
+def safe_remove(path, logger):
+    """Remove a file or directory safely, with retries on Windows."""
+    for attempt in range(MAX_RETRIES):
+        try:
+            if os.path.isdir(path):
+                shutil.rmtree(path)
+            elif os.path.isfile(path):
+                os.remove(path)
+            return True
+        except PermissionError as e:
+            logger.warning(f"PermissionError removing {path}, attempt {attempt+1}: {e}")
+            time.sleep(RETRY_DELAY)
+    logger.error(f"Failed to remove {path} after {MAX_RETRIES} attempts")
+    return False
 
-GITHUB_API_LATEST = "https://api.github.com/repos/Terabase-Studios/fts/releases/latest"
+def safe_rename(src, dst, logger):
+    """Rename a file or directory safely, with fallback if Windows blocks it."""
+    for attempt in range(MAX_RETRIES):
+        try:
+            os.rename(src, dst)
+            return True
+        except PermissionError as e:
+            logger.warning(f"PermissionError renaming {src} -> {dst}, attempt {attempt+1}: {e}")
+            time.sleep(RETRY_DELAY)
+    # Fallback: copy + remove
+    try:
+        shutil.copytree(src, dst)
+        safe_remove(src, logger)
+        return True
+    except Exception as e:
+        logger.error(f"Failed fallback copy/move for {src} -> {dst}: {e}")
+        return False
 
 def cmd_update(args, logger):
-    """Update FTS CLI: download latest GitHub release, then upgrade dependencies via pip."""
+    """Update FTS CLI: download latest release, backup, extract, and upgrade dependencies."""
     logger.info(f"Current FTS version: {VERSION}")
 
-    # Determine install directory
-    install_dir = os.path.dirname(os.path.realpath(__file__))
+    install_dir = os.path.dirname(os.path.realpath(__file__)).removesuffix("\\src\\fts")
     backup_dir = install_dir + "_backup"
 
-    # --- Step 1: Get latest release zip URL from GitHub API ---
+    # --- Fetch latest release ---
     logger.info("Fetching latest release info from GitHub...")
     try:
         r = requests.get(GITHUB_API_LATEST, timeout=15)
@@ -38,7 +61,7 @@ def cmd_update(args, logger):
         release = r.json()
         zip_url = None
         for asset in release.get("assets", []):
-            if asset["name"].endswith(".zip"):
+            if asset["name"].lower().endswith(".zip"):
                 zip_url = asset["browser_download_url"]
                 break
         if not zip_url:
@@ -50,7 +73,7 @@ def cmd_update(args, logger):
         logger.error(f"Failed to fetch latest release info: {e}")
         return
 
-    # --- Download the zip ---
+    # --- Download zip ---
     logger.info(f"Downloading latest release from {zip_url}...")
     try:
         r = requests.get(zip_url, timeout=30)
@@ -66,24 +89,27 @@ def cmd_update(args, logger):
 
     # --- Backup current installation ---
     if os.path.exists(backup_dir):
-        shutil.rmtree(backup_dir)
+        safe_remove(backup_dir, logger)
     if os.path.exists(install_dir):
-        os.rename(install_dir, backup_dir)
+        if not safe_rename(install_dir, backup_dir, logger):
+            logger.error("Cannot backup current installation. Aborting update.")
+            return
 
     # --- Extract new release ---
     try:
+        os.makedirs(install_dir, exist_ok=True)
         zf.extractall(install_dir)
         logger.info("FTS updated from GitHub successfully!")
     except Exception as e:
         logger.error(f"Failed to extract update: {e}")
         # Rollback
-        if os.path.exists(install_dir):
-            shutil.rmtree(install_dir)
-        os.rename(backup_dir, install_dir)
+        safe_remove(install_dir, logger)
+        if os.path.exists(backup_dir):
+            safe_rename(backup_dir, install_dir, logger)
         logger.info("Rollback completed.")
         return
 
-    # --- Step 2: Upgrade dependencies ---
+    # --- Upgrade dependencies ---
     try:
         requirements_path = os.path.join(install_dir, "requirements.txt")
         if os.path.exists(requirements_path):
@@ -96,12 +122,12 @@ def cmd_update(args, logger):
     except subprocess.CalledProcessError as e:
         logger.error(f"Dependency installation failed: {e}")
         logger.warning("FTS updated, but dependencies may be inconsistent.")
-        return
 
-    # Cleanup backup if everything succeeded
+    # --- Cleanup backup ---
     if os.path.exists(backup_dir):
-        shutil.rmtree(backup_dir)
+        safe_remove(backup_dir, logger)
     logger.info("FTS update complete!")
+
 
 
 def cmd_version(args, logger):
