@@ -7,6 +7,7 @@ import zlib
 import struct
 from . import secure as secure
 from tqdm import tqdm
+import math
 from .config import (
     DEFAULT_PORT,
     MAGIC,
@@ -83,7 +84,7 @@ def cmd_open(args, logger, shutdown_event=None):
         except KeyboardInterrupt:
             sys.exit(130)
         except Exception as e:
-            logger.error(f"Critical server error: {e}")
+            logger.critical(f"Server error: {e}")
 
 
 def _handle_client(ssock, output_dir, logger, extract, progress):
@@ -109,8 +110,8 @@ def _handle_client(ssock, output_dir, logger, extract, progress):
 
 def parse_header(ssock):
     """Receive and parse structured header from socket."""
-    # First, receive fixed 20-byte header (magic + version + flags + fname_len + filesize + checksum)
-    fixed_header_size = 16 + 4  # 16 bytes before checksum + 4 bytes checksum
+    # Fixed header size: 4s (magic) + f (4) + B (1) + H (2) + Q (8) + I (4)
+    fixed_header_size = 4 + 4 + 1 + 2 + 8 + 4
     header = b""
     while len(header) < fixed_header_size:
         chunk = ssock.recv(fixed_header_size - len(header))
@@ -118,16 +119,16 @@ def parse_header(ssock):
             raise ConnectionError("Connection closed while receiving header")
         header += chunk
 
-    # Unpack fixed header
     try:
-        magic, version, flags, fname_len, filesize = struct.unpack(">4sBBHQ", header[:16])
-        checksum = struct.unpack(">I", header[16:20])[0]
+        # Unpack: magic, version, flags, fname_len, filesize, checksum
+        magic, version, flags, fname_len, filesize = struct.unpack(">4sfBHQ", header[:19])
+        checksum = struct.unpack(">I", header[19:23])[0]
     except Exception as e:
         raise ValueError(f"Failed to unpack header: {e}")
 
     if magic != MAGIC:
         raise ValueError(f"Invalid magic number: {magic}")
-    if version != VERSION:
+    if not math.isclose(version, VERSION, rel_tol=1e-6):
         raise ValueError(f"Incompatible version: {version}")
 
     # Receive filename

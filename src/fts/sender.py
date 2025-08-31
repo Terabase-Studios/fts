@@ -32,7 +32,17 @@ def build_header(filename: str, filesize: int, flags: int = 0) -> bytes:
     if fname_len > 65535:
         raise ValueError("Filename too long")
 
-    header_without_checksum = struct.pack(">4sBBHQ", MAGIC, VERSION, flags, fname_len, filesize)
+    # Pack version as 32-bit float
+    # Format: >4s f B H Q
+    header_without_checksum = struct.pack(
+        ">4sfBHQ",
+        MAGIC,
+        VERSION,
+        flags,
+        fname_len,
+        filesize
+    )
+
     checksum = zlib.crc32(filename_bytes + struct.pack(">Q", filesize)) & 0xFFFFFFFF
     return header_without_checksum + struct.pack(">I", checksum) + filename_bytes
 
@@ -50,6 +60,7 @@ def send_file(file_path: str, host: str, port: int, logger, progress_bar: bool =
     try:
         # --- secure connection with TOFU ---
         with secure.connect_with_tofu(host, port, logger) as ssock:
+
             logger.info(f"Connected securely to {host}:{port}")
 
             # Build and send header
@@ -76,9 +87,9 @@ def send_file(file_path: str, host: str, port: int, logger, progress_bar: bool =
 
                         except (OSError, socket.error) as e:
                             logger.warning(f"Send attempt {attempt+1} failed: {e}")
-                            time.sleep(0.5)
+                            time.sleep(1)
                     else:
-                        logger.error("Failed to send chunk after retries")
+                        logger.error("Failed to send chunk after retries\n")
                         sys.exit(1)
 
                     sent += len(chunk)
@@ -87,26 +98,26 @@ def send_file(file_path: str, host: str, port: int, logger, progress_bar: bool =
             progress.close()
 
             if sent == 0:
-                logger.error("No bytes were sent")
+                logger.error("No bytes were sent\n")
                 sys.exit(1)
 
             # --- Wait for confirmation from receiver ---
             try:
                 ack = ssock.recv(4)
                 if ack != b"OKAY":
-                    logger.error("Did not receive confirmation from receiver")
+                    logger.error("Did not receive confirmation from receiver\n")
                     sys.exit(1)
             except Exception as e:
-                logger.error(f"Failed to receive acknowledgment: {e}")
+                logger.error(f"Failed to receive acknowledgment: {e}\n")
                 sys.exit(1)
 
-            logger.info(f"File sent successfully: {filename}")
+            logger.info(f"File sent successfully: {filename}\n")
 
     except KeyboardInterrupt as e:
         sys.exit(130)
 
     except Exception as e:
-        logger.error(f"Error sending file: {e}")
+        logger.error(f"Error sending file: {e}\n")
         sys.exit(1)
 
 
@@ -145,3 +156,5 @@ def cmd_send_dir(args, logger):
         logger.debug(f"Temporary zip removed: {zip_path}")
     except Exception:
         pass
+
+    print('')

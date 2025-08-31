@@ -1,4 +1,5 @@
 import ssl
+import sys
 import socket
 import hashlib
 import os
@@ -134,11 +135,31 @@ def connect_with_tofu(server_host, server_port, logger):
     else:
         if known[server_host] != fingerprint:
             ssock.close()
-            raise ssl.SSLError(
-                f"Server certificate for {server_host} changed!\n"
-                f"Expected {known[server_host]}, got {fingerprint}"
-            )
+            logger.error(f"Server certificate for {server_host} changed\nIf this is expected, run `fts trust {server_host}` to accept the new certificate.\n")
+            sys.exit(1)
+
         else:
             logger.info(f"[TOFU] Verified pinned certificate {fingerprint}")
 
     return ssock
+
+def cmd_clear_fingerprint(args, logger=None):
+    """
+    Remove the saved fingerprint for the given IP from FINGERPRINT_FILE.
+    If the IP does not exist, does nothing.
+    """
+    ip = args.ip
+
+    fps = load_known_fingerprints()
+    if ip in fps:
+        del fps[ip]
+        save_known_fingerprints(fps)
+        if logger:
+            logger.info(f"Cleared stored fingerprint for {ip}")
+        else:
+            print(f"Cleared stored fingerprint for {ip}")
+    else:
+        if logger:
+            logger.info(f"No stored fingerprint found for {ip}")
+        else:
+            print(f"No stored fingerprint found for {ip}")
