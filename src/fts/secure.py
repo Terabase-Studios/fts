@@ -52,9 +52,9 @@ def generate_self_signed_cert(cert_file=CERT_FILE, key_file=KEY_FILE) -> bool:
         try:
             cert_pem = cert_path.read_bytes()
             cert = x509.load_pem_x509_certificate(cert_pem)
-            if cert.not_valid_after > now:
+            if cert.not_valid_after_utc > now:
                 return False  # Cert is still valid
-            print(f"Certificate expired on {cert.not_valid_after}, regenerating...")
+            print(f"Certificate expired on {cert.not_valid_after_utc}, regenerating...")
         except Exception as e:
             print(f"Failed to read existing certificate: {e}, regenerating...")
 

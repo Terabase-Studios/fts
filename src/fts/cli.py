@@ -10,13 +10,38 @@ except ImportError:
     import logging
 
     def setup_logging(verbose=False, quiet=False, logfile=None):
-        logging.basicConfig(
-            level=logging.DEBUG if verbose else logging.INFO,
-            filename=logfile,
-            format="%(asctime)s [%(levelname)s] %(message)s",
-        )
-        return logging.getLogger("fts")
+        """
+        Fallback logger if the main logger fails to import.
+        Prints to console and optionally writes to a file.
+        """
+        logger = logging.getLogger("fts")
+        logger.handlers.clear()
 
+        # Determine log level
+        if verbose:
+            level = logging.DEBUG
+        elif quiet:
+            level = logging.WARNING
+        else:
+            level = logging.INFO
+
+        logger.setLevel(level)
+
+        # Console handler
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setLevel(level)
+        console_formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
+        console_handler.setFormatter(console_formatter)
+        logger.addHandler(console_handler)
+
+        # Optional file handler
+        if logfile:
+            file_handler = logging.FileHandler(logfile, encoding="utf-8")
+            file_handler.setLevel(level)
+            file_handler.setFormatter(console_formatter)
+            logger.addHandler(file_handler)
+
+        return logger
 
 # --- Reusable argument groups ---
 def add_common_flags(parser):
