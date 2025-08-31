@@ -7,9 +7,9 @@ import io
 import time
 import shutil
 import tempfile
+from tqdm import tqdm
 
 GITHUB_API_LATEST = "https://api.github.com/repos/Terabase-Studios/fts/releases/latest"
-
 MAX_RETRIES = 5
 RETRY_DELAY = 1  # seconds
 
@@ -36,7 +36,6 @@ def safe_copy(src, dst, logger):
     logger.error(f"Failed to copy {src} -> {dst} after {MAX_RETRIES} attempts")
     return False
 
-
 def safe_remove(path, logger):
     """Remove files or folders, skipping locked files like .git."""
     for attempt in range(MAX_RETRIES):
@@ -61,7 +60,7 @@ def safe_remove(path, logger):
     logger.error(f"Failed to remove {path} after {MAX_RETRIES} attempts")
     return False
 
-def cmd_update(args, logger, verbose=False):
+def cmd_update(args, logger):
     """Windows-safe updater using temporary folder and file-by-file replacement."""
     logger.debug(f"Preparing to update")
     logger.debug(f"Options: {vars(args)}\n")
@@ -89,16 +88,24 @@ def cmd_update(args, logger, verbose=False):
         logger.error(f"Failed to fetch release info: {e}")
         return
 
-    # --- Download and check zip ---
+    # --- Download with progress bar ---
     try:
         logger.info(f"Downloading latest release from {zip_url}...")
-        r = requests.get(zip_url, timeout=30)
-        r.raise_for_status()
-        zf = zipfile.ZipFile(io.BytesIO(r.content))
-        bad_file = zf.testzip()
-        if bad_file:
-            logger.error(f"Downloaded zip is corrupted, bad file: {bad_file}")
-            return
+        with requests.get(zip_url, stream=True, timeout=30) as r:
+            r.raise_for_status()
+            total = int(r.headers.get("Content-Length", 0))
+            chunks = []
+            with tqdm(total=total, unit='B', unit_scale=True, desc="Downloading", disable=not args.progress) as pbar:
+                for chunk in r.iter_content(chunk_size=8192):
+                    if chunk:
+                        chunks.append(chunk)
+                        pbar.update(len(chunk))
+            r_content = b"".join(chunks)
+            zf = zipfile.ZipFile(io.BytesIO(r_content))
+            bad_file = zf.testzip()
+            if bad_file:
+                logger.error(f"Downloaded zip is corrupted, bad file: {bad_file}")
+                return
     except Exception as e:
         logger.error(f"Failed to download or read zip: {e}")
         return
@@ -123,11 +130,11 @@ def cmd_update(args, logger, verbose=False):
             return
         logger.debug(f"Backup of current installation created at {backup_dir}")
 
-    # --- Replace files individually ---
+    # --- Replace files individually with progress ---
     try:
-        # GitHub zip usually has a single top-level folder, get its name
         top_level = next(os.scandir(tmp_dir)).path
-        for item in os.listdir(top_level):
+        items = os.listdir(top_level)
+        for item in tqdm(items, desc="Updating files", disable=not args.progress):
             src_item = os.path.join(top_level, item)
             dst_item = os.path.join(install_dir, item)
             safe_copy(src_item, dst_item, logger)
@@ -153,10 +160,8 @@ def cmd_update(args, logger, verbose=False):
             cmd = [sys.executable, "-m", "pip", "install", "-e", install_dir]
 
         if args.verbose:
-            # Print pip output directly
-            subprocess.run(cmd, check=True)
+            subprocess.run(cmd, check=True)  # prints output directly
         else:
-            # Suppress output
             subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
         logger.debug("Dependencies updated successfully!")
