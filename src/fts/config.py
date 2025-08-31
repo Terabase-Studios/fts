@@ -6,7 +6,7 @@ MAX_SEND_RETRIES = 3
 
 MAGIC = b'FTS1'
 VERSION = 1
-GITHUB_RELEASE_URL = "https://github.com/yourusername/fts/releases/latest/download/fts.zip"
+GITHUB_RELEASE_URL = "https://github.com/Terabase-Studios/fts/releases/latest/"
 
 APP_DIR = os.path.expanduser("~/.fts")
 os.makedirs(APP_DIR, exist_ok=True)
