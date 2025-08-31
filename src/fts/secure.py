@@ -145,7 +145,7 @@ def connect_with_tofu(server_host: str, server_port: int, logger):
                 f"If this is expected, run `fts trust {server_host}` to accept the new certificate."
             )
         else:
-            logger.info(f"[TOFU] Verified pinned certificate {fingerprint[:16]}...")
+            logger.info(f"[TOFU] Verified pinned certificate {fingerprint[:16]}...\n")
 
     return ssock
 
