@@ -77,7 +77,7 @@ def safe_remove(path, logger):
 
 def cmd_update(args, logger):
     """Windows-safe updater using temporary folder and file-by-file replacement."""
-    logger.debug(f"Preparing to update")
+    logger.info(f"Preparing to update")
     logger.debug(f"Options: {vars(args)}\n")
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
@@ -90,7 +90,6 @@ def cmd_update(args, logger):
             r = requests.get(GITHUB_API_LATEST, timeout=15)
             r.raise_for_status()
             release = r.json()
-            print(release)
             latest_version = float(release.get("tag_name") or release.get("name") or 0.0)
             if local_version >= latest_version:
                 logger.info(f"FTS is up-to-date ({local_version} >= {latest_version}). No update needed.")
