@@ -10,7 +10,7 @@ from cryptography import x509
 from cryptography.x509.oid import NameOID
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import rsa
-from .config import CERT_FILE, KEY_FILE, FINGERPRINT_FILE
+from src.fts.config import CERT_FILE, KEY_FILE, FINGERPRINT_FILE
 
 
 # --------------------------

@@ -5,10 +5,10 @@ import zipfile
 import threading
 import zlib
 import struct
-from . import secure as secure
+from src.fts.core import secure as secure
 from tqdm import tqdm
 import math
-from .config import (
+from src.fts.config import (
     DEFAULT_PORT,
     MAGIC,
     VERSION,

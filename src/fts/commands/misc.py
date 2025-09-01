@@ -1,4 +1,4 @@
-from .config import VERSION
+from src.fts.config import VERSION
 
 def cmd_version(args, logger):
     print(f"fts version {VERSION}")
