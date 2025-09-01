@@ -5,18 +5,17 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "fts"
 version = "0.1.0"
-description = "Fake Tool Suite CLI"
+description = "Peer to peer file and directory tranfer system"
 authors = [
-  { name = "Your Name", email = "you@example.com" }
+  { name = "Terabase Studios", email = "terabasestudios@gmail.com" }
 ]
 readme = "README.md"
 requires-python = ">=3.8"
 
-# <-- Add dependencies here
 dependencies = [
-    "cryptography>=41.0",  # replace with the version you want
-    # add any other packages your project needs
+    "cryptography>=41.0",
 ]
 
 [project.scripts]
 fts = "fts.cli:main"
+
