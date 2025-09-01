@@ -1,6 +1,27 @@
 #!/usr/bin/env python3
-import argparse
+# PYTHON_ARGCOMPLETE_OK
+import argparse, argcomplete
+import os
+from fts.core.aliases import resolve_alias,  _load_aliases
 import sys
+
+
+# --- Alias Arg Completion Setup ---
+def dir_alias_completer(prefix, parsed_args, **kwargs):
+    """
+    Suggest only directory aliases that start with the prefix.
+    """
+    aliases = _load_aliases(logger=None)
+    return [a for a in aliases["dir"] if a.startswith(prefix)]
+
+
+def ip_alias_completer(prefix, parsed_args, **kwargs):
+    """
+    Suggest only IP aliases that start with the prefix.
+    """
+    aliases = _load_aliases(logger=None)
+    return [a for a in aliases["ip"] if a.startswith(prefix)]
+
 
 # --- Logger setup ---
 try:
@@ -50,12 +71,12 @@ def add_common_flags(parser):
     group.add_argument("-v", "--verbose", action="store_true", help="enable verbose output")
 
     parser.add_argument("--progress", action="store_true", help="show progress")
-    parser.add_argument("--logfile", metavar="FILE", help="log output to a file")
+    parser.add_argument("--logfile", metavar="FILE", help="log output to a file").completer = dir_alias_completer
 
 
 def add_network_flags(parser):
     parser.add_argument("-p", "--port", type=int, help="port number to use")
-    parser.add_argument("--ip", metavar="ADDR", help="restrict to this IP address")
+    parser.add_argument("--ip", metavar="ADDR", help="restrict to this IP address").completer = ip_alias_completer
 
 
 # --- Lazy command loader with caching ---
@@ -88,12 +109,15 @@ def main():
     parser = argparse.ArgumentParser(prog="fts", description="Fake Tool Suite CLI")
     subparsers = parser.add_subparsers(dest="command")
 
+    # --- Enable tab completion ---
+    argcomplete.autocomplete(parser)
+
     # --- open ---
     open_parser = subparsers.add_parser(
         "open", aliases=["o", "listen"], help="start a server and listen for transfers"
     )
     open_parser.add_argument("-d", "--detached", action="store_true", help="run server in the background")
-    open_parser.add_argument("-o", "--output", metavar="OUTPUT_PATH", help="where to save incoming file transfers")
+    open_parser.add_argument("-o", "--output", metavar="OUTPUT_PATH", help="where to save incoming file transfers").completer = dir_alias_completer
     open_parser.add_argument("-t", "--timeout", type=int, help="operation timeout in seconds")
     open_parser.add_argument("-x", "--extract", action="store_true", help="auto-extract transferred directories")
     add_common_flags(open_parser)
@@ -102,8 +126,8 @@ def main():
 
     # --- send ---
     send_parser = subparsers.add_parser("send", aliases=["s"], help="send file to target")
-    send_parser.add_argument("path", help="path of file to send")
-    send_parser.add_argument("ip", help="target IP address")
+    send_parser.add_argument("path", help="path of file to send").completer = dir_alias_completer
+    send_parser.add_argument("ip", help="target IP address").completer = ip_alias_completer
     send_parser.add_argument("-n", "--name", help="name to send file as")
     add_common_flags(send_parser)
     add_network_flags(send_parser)
@@ -111,8 +135,8 @@ def main():
 
     # --- send-dir ---
     send_dir_parser = subparsers.add_parser("send-dir", aliases=["sd", "dir"], help="send directory to target")
-    send_dir_parser.add_argument("path", help="path of directory to send")
-    send_dir_parser.add_argument("ip", help="target IP address")
+    send_dir_parser.add_argument("path", help="path of directory to send").completer = dir_alias_completer
+    send_dir_parser.add_argument("ip", help="target IP address").completer = ip_alias_completer
     send_dir_parser.add_argument("-n", "--name", help="name to send dir as")
     send_dir_parser.add_argument("--py-zip", action="store_true", help="use python when compressing")
     add_common_flags(send_dir_parser)
@@ -139,18 +163,38 @@ def main():
     trust_parser.add_argument("ip", help="IP address to trust")
     trust_parser.set_defaults(func=load_cmd("fts.core.secure", "cmd_clear_fingerprint"))
 
+    # --- alias ---
+    alias_parser = subparsers.add_parser("alias", aliases=["a"], help="manage aliases")
+    alias_parser.add_argument("action", choices=["add", "remove", "list"], help="action to perform")
+    alias_parser.add_argument("name", nargs="?", help="alias name")
+    alias_parser.add_argument("value", nargs="?", help="alias value")
+    alias_parser.add_argument("-t", "--type", choices=["ip", "dir"], help="type of alias when adding")
+    alias_parser.set_defaults(func=load_cmd("fts.core.aliases", "cmd_alias"))
+
     # --- Parse arguments ---
+    argcomplete.autocomplete(parser)
     args = parser.parse_args()
     if not args.command:
         parser.print_help(sys.stderr)
         sys.exit(1)
 
     # --- Setup logger ---
+    logfile = getattr(args, "logfile", None)
+    if logfile:
+        logfile = resolve_alias(logfile, "dir", logger=None)
     logger = setup_logging(
         verbose=getattr(args, "verbose", False),
         quiet=getattr(args, "quiet", False),
-        logfile=getattr(args, "logfile", None),
+        logfile=logfile,
     )
+
+    # --- Resolve paths and IPs automatically ---
+    if hasattr(args, "output") and args.output:
+        args.output = resolve_alias(args.output, type_="dir", logger=logger)
+    if hasattr(args, "path") and args.path:
+        args.path = resolve_alias(args.path, type_="dir", logger=logger)
+    if hasattr(args, "ip") and args.ip:
+        args.ip = resolve_alias(args.ip, type_="ip", logger=logger)
 
     # --- Run the selected command ---
     args.func(args, logger)
