@@ -1,14 +1,14 @@
 import os
 import sys
 import socket
-from src.fts.core.zipper import zip_directory
-from src.fts.core import secure as secure
+from .zipper import zip_directory
+from . import secure as secure
 import struct
 import zlib
 import time
 from tqdm import tqdm
 
-from src.fts.config import (
+from .config import (
     DEFAULT_PORT,
     MAGIC,
     VERSION,

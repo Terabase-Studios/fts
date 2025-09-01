@@ -14,19 +14,18 @@ GITHUB_API_LATEST = "https://api.github.com/repos/Terabase-Studios/fts/releases/
 MAX_RETRIES = 5
 RETRY_DELAY = 1  # seconds
 
-def get_local_version(logger):
-    """Read version from exe metadata (or fallback file)."""
-    # Simplest approach: store version in a text file next to the exe
-    exe_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
-    version_file = os.path.join(exe_dir, "version.txt")
-    if not os.path.exists(version_file):
-        logger.warning("No version.txt found, assuming 0.0")
+def get_local_version(config_path, logger):
+    """Get the VERSION from the FTS config, fallback to 0.0 if broken/missing."""
+    if not os.path.exists(config_path):
+        logger.warning(f"Config file not found at {config_path}, assuming version 0.0")
         return 0.0
     try:
-        with open(version_file, "r") as f:
-            return float(f.read().strip())
+        spec = importlib.util.spec_from_file_location("fts_config", config_path)
+        config = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(config)
+        return getattr(config, "VERSION", 0.0)
     except Exception as e:
-        logger.warning(f"Failed to read version file: {e}")
+        logger.warning(f"Failed to load config version: {e}, assuming version 0.0")
         return 0.0
 
 def safe_copy(src, dst, logger):
@@ -86,7 +85,7 @@ def cmd_update(args, logger):
     backup_dir = install_dir + "_backup"
 
     if not getattr(args, "repair", False):
-        local_version = get_local_version(f"{current_dir.removesuffix("")}\\config.py", logger)
+        local_version = get_local_version(f"{current_dir}\\config.py", logger)
         try:
             r = requests.get(GITHUB_API_LATEST, timeout=15)
             r.raise_for_status()
@@ -108,11 +107,14 @@ def cmd_update(args, logger):
         release = r.json()
         zip_url = None
         for asset in release.get("assets", []):
-            if asset["name"].lower().endswith(".exe"):
+            if asset["name"].lower().endswith(".zip"):
                 zip_url = asset["browser_download_url"]
                 break
         if not zip_url:
-            raise RuntimeError("No .exe asset found in latest release!")
+            zip_url = release.get("zipball_url", None)
+            if not zip_url:
+                logger.error("No zip asset found in latest release!")
+                return
     except Exception as e:
         logger.error(f"Failed to fetch release info: {e}")
         return
@@ -178,6 +180,24 @@ def cmd_update(args, logger):
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
+    # --- Upgrade dependencies ---
+    try:
+        requirements_path = os.path.join(install_dir, "requirements.txt")
+        if os.path.exists(requirements_path):
+            logger.info("Installing/updating dependencies...")
+            cmd = [sys.executable, "-m", "pip", "install", "-r", requirements_path, "--upgrade"]
+        else:
+            logger.info("Upgrading FTS via pip...")
+            cmd = [sys.executable, "-m", "pip", "install", "-e", install_dir]
+
+        if args.verbose:
+            subprocess.run(cmd, check=True)  # prints output directly
+        else:
+            subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        logger.debug("Dependencies updated successfully!")
+    except subprocess.CalledProcessError as e:
+        logger.warning(f"Dependency installation may be inconsistent: {e}")
 
     # --- Cleanup backup if everything succeeded ---
     if os.path.exists(backup_dir):

@@ -4,7 +4,7 @@ import sys
 
 # --- Logger setup ---
 try:
-    from src.fts.core.logger import setup_logging
+    from .logger import setup_logging
 except ImportError:
     # Fallback if logger fails
     import logging
@@ -98,7 +98,7 @@ def main():
     open_parser.add_argument("-x", "--extract", action="store_true", help="auto-extract transferred directories")
     add_common_flags(open_parser)
     add_network_flags(open_parser)
-    open_parser.set_defaults(func=load_cmd("commands.server", "cmd_open"))
+    open_parser.set_defaults(func=load_cmd("fts.server", "cmd_open"))
 
     # --- send ---
     send_parser = subparsers.add_parser("send", aliases=["s"], help="send file to target")
@@ -107,7 +107,7 @@ def main():
     send_parser.add_argument("-n", "--name", help="name to send file as")
     add_common_flags(send_parser)
     add_network_flags(send_parser)
-    send_parser.set_defaults(func=load_cmd("commands.sender", "cmd_send"))
+    send_parser.set_defaults(func=load_cmd("fts.sender", "cmd_send"))
 
     # --- send-dir ---
     send_dir_parser = subparsers.add_parser("send-dir", aliases=["sd", "dir"], help="send directory to target")
@@ -117,27 +117,27 @@ def main():
     send_dir_parser.add_argument("--py-zip", action="store_true", help="use python when compressing")
     add_common_flags(send_dir_parser)
     add_network_flags(send_dir_parser)
-    send_dir_parser.set_defaults(func=load_cmd("commands.sender", "cmd_send_dir"))
+    send_dir_parser.set_defaults(func=load_cmd("fts.sender", "cmd_send_dir"))
 
     # --- close ---
     close_parser = subparsers.add_parser("close", aliases=["c", "stop"], help="close detached server")
     add_common_flags(close_parser)
-    close_parser.set_defaults(func=load_cmd("commands.server", "cmd_close"))
+    close_parser.set_defaults(func=load_cmd("fts.server", "cmd_close"))
 
     # --- update ---
     update_parser = subparsers.add_parser("update", aliases=["u", "upgrade"], help="update to the newest version")
     update_parser.add_argument("-r", "--repair", action="store_true", help="force update")
     add_common_flags(update_parser)
-    update_parser.set_defaults(func=load_cmd("commands.updater", "cmd_update"))
+    update_parser.set_defaults(func=load_cmd("fts.updater", "cmd_update"))
 
     # --- version ---
     version_parser = subparsers.add_parser("version", aliases=["v"], help="show version information")
-    version_parser.set_defaults(func=load_cmd("commands.misc", "cmd_version"))
+    version_parser.set_defaults(func=load_cmd("fts.commands", "cmd_version"))
 
     # --- trust ---
     trust_parser = subparsers.add_parser("trust", aliases=["allow"], help="allow a new certificate to be registered to this IP")
     trust_parser.add_argument("ip", help="IP address to trust")
-    trust_parser.set_defaults(func=load_cmd("core.secure", "cmd_clear_fingerprint"))
+    trust_parser.set_defaults(func=load_cmd("fts.secure", "cmd_clear_fingerprint"))
 
     # --- Parse arguments ---
     args = parser.parse_args()
