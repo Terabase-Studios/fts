@@ -69,36 +69,7 @@ def send_file(file_path: str, host: str, port: int, logger, progress_bar: bool =
 
             logger.info(f"Sending '{filename}' ({filesize} bytes) from {file_path}")
 
-            # Send file in chunks with retries
-            sent = 0
-            progress = tqdm(
-                total=filesize,
-                unit="B",
-                unit_scale=True,
-                unit_divisor=1024,
-                disable=not progress_bar,
-                leave=False,
-            )
-
-            with open(file_path, "rb") as f:
-                while chunk := f.read(BUFFER_SIZE):
-                    for attempt in range(MAX_SEND_RETRIES):
-                        try:
-                            ssock.sendall(chunk)
-                            break
-
-                        except (OSError, socket.error) as e:
-                            logger.warning(f"Send attempt {attempt+1} failed: {e}")
-                            time.sleep(1)
-                    else:
-                        progress.close()
-                        logger.error("Failed to send chunk after retries\n")
-                        sys.exit(1)
-
-                    sent += len(chunk)
-                    progress.update(len(chunk))
-
-            progress.close()
+            send_data(file_path, filesize, ssock, progress_bar, logger)
 
             if sent == 0:
                 logger.error("No bytes were sent\n")
@@ -124,10 +95,46 @@ def send_file(file_path: str, host: str, port: int, logger, progress_bar: bool =
         logger.error(f"Error sending file: {e}\n")
         sys.exit(1)
 
+def send_data(file_path, filesize, ssock, progress_bar, logger):
+    # Send file in chunks with retries
+    sent = 0
+    progress = tqdm(
+        total=filesize,
+        unit="B",
+        unit_scale=True,
+        unit_divisor=1024,
+        disable=not progress_bar,
+        leave=False,
+    )
+
+    with open(file_path, "rb") as f:
+        while chunk := f.read(BUFFER_SIZE):
+            for attempt in range(MAX_SEND_RETRIES):
+                try:
+                    ssock.sendall(chunk)
+                    break
+
+                except (OSError, socket.error) as e:
+                    logger.warning(f"Send attempt {attempt + 1} failed: {e}")
+                    time.sleep(1)
+            else:
+                progress.close()
+                logger.error("Failed to send chunk after retries\n")
+                sys.exit(1)
+
+            sent += len(chunk)
+            progress.update(len(chunk))
+
+    progress.close()
 
 def cmd_send(args, logger):
     """Send a single file."""
-    path = resolve_path(args.path)
+    try:
+        path = resolve_path(args.path)
+    except Exception as e:
+        logger.error(f"Error finding path: {e}\n")
+        sys.exit(1)
+
     logger.debug(f"Preparing to send file '{path}' to {args.ip}")
     logger.debug(f"Options: {vars(args)}\n")
 
@@ -136,7 +143,12 @@ def cmd_send(args, logger):
 
 def cmd_send_dir(args, logger):
     """Send a directory by zipping it first."""
-    path = resolve_path(args.path)
+    try:
+        path = resolve_path(args.path)
+    except Exception as e:
+        logger.error(f"Error finding path: {e}\n")
+        sys.exit(1)
+
     logger.debug(f"Preparing to send directory '{path}' to {args.ip}")
     logger.debug(f"Options: {vars(args)}")
 

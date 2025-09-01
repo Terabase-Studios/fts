@@ -5,7 +5,7 @@ BUFFER_SIZE = 1024 * 128
 MAX_SEND_RETRIES = 5
 
 MAGIC = b'FTS1'
-VERSION = 1.2
+VERSION = 1.1
 
 APP_DIR = os.path.expanduser("~/.fts")
 os.makedirs(APP_DIR, exist_ok=True)

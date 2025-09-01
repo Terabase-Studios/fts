@@ -132,8 +132,8 @@ def parse_header(ssock):
 
     if magic != MAGIC:
         raise ValueError(f"Invalid magic number: {magic}")
-    if not math.isclose(version, VERSION, rel_tol=1e-6):
-        raise ValueError(f"Incompatible version: {version}")
+    if int(VERSION*1000) != int(version*1000):
+        raise ValueError(f"Incompatible version( Server{VERSION} | Sender: {version} )")
 
     # Receive filename
     filename_bytes = b""
