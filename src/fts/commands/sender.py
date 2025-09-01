@@ -69,7 +69,7 @@ def send_file(file_path: str, host: str, port: int, logger, progress_bar: bool =
 
             logger.info(f"Sending '{filename}' ({filesize} bytes) from {file_path}")
 
-            send_data(file_path, filesize, ssock, progress_bar, logger)
+            sent = send_linear(file_path, filesize, ssock, progress_bar, logger)
 
             if sent == 0:
                 logger.error("No bytes were sent\n")
@@ -95,9 +95,7 @@ def send_file(file_path: str, host: str, port: int, logger, progress_bar: bool =
         logger.error(f"Error sending file: {e}\n")
         sys.exit(1)
 
-def send_data(file_path, filesize, ssock, progress_bar, logger):
-    # Send file in chunks with retries
-    sent = 0
+def send_linear(file_path, filesize, ssock, progress_bar, logger):
     progress = tqdm(
         total=filesize,
         unit="B",
@@ -106,26 +104,36 @@ def send_data(file_path, filesize, ssock, progress_bar, logger):
         disable=not progress_bar,
         leave=False,
     )
+    try:
+        # Send file in chunks with retries
+        sent = 0
 
-    with open(file_path, "rb") as f:
-        while chunk := f.read(BUFFER_SIZE):
-            for attempt in range(MAX_SEND_RETRIES):
-                try:
-                    ssock.sendall(chunk)
-                    break
+        with open(file_path, "rb") as f:
+            while chunk := f.read(BUFFER_SIZE):
+                for attempt in range(MAX_SEND_RETRIES):
+                    try:
+                        ssock.sendall(chunk)
+                        break
 
-                except (OSError, socket.error) as e:
-                    logger.warning(f"Send attempt {attempt + 1} failed: {e}")
-                    time.sleep(1)
-            else:
-                progress.close()
-                logger.error("Failed to send chunk after retries\n")
-                sys.exit(1)
+                    except (OSError, socket.error) as e:
+                        logger.warning(f"Send attempt {attempt + 1} failed: {e}")
+                        time.sleep(1)
+                else:
+                    progress.close()
+                    logger.error("Failed to send chunk after retries\n")
+                    sys.exit(1)
 
-            sent += len(chunk)
-            progress.update(len(chunk))
+                sent += len(chunk)
+                progress.update(len(chunk))
+    except KeyboardInterrupt as e:
+        print('')
+        sys.exit(130)
+    except Exception as e:
+        logger.error(f"Error sending file: {e}\n")
+        return 0
 
     progress.close()
+    return sent
 
 def cmd_send(args, logger):
     """Send a single file."""
