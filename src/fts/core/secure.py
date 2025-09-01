@@ -156,12 +156,16 @@ def cmd_clear_fingerprint(args, logger=None):
     """
     host_port = args.ip
     fps = load_known_fingerprints()
-    if host_port in fps:
-        del fps[host_port]
+    keys_to_delete = [fp for fp in fps if host_port in fp]
+
+    if keys_to_delete:
+        for key in keys_to_delete:
+            del fps[key]
         save_known_fingerprints(fps)
         msg = f"Cleared stored fingerprint for {host_port}"
     else:
         msg = f"No stored fingerprint found for {host_port}"
+
     if logger:
         logger.info(msg)
     else:
