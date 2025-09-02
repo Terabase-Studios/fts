@@ -6,6 +6,8 @@ from fts.core import secure as secure
 import struct
 import zlib
 import time
+import threading
+import queue
 from tqdm import tqdm
 
 from fts.config import (
@@ -14,6 +16,8 @@ from fts.config import (
     VERSION,
     BUFFER_SIZE,
     MAX_SEND_RETRIES,
+    FLUSH_SIZE,
+    QUEUE_SIZE
 )
 
 # -------------------------
@@ -104,36 +108,70 @@ def send_linear(file_path, filesize, ssock, progress_bar, logger):
         disable=not progress_bar,
         leave=False,
     )
-    try:
-        # Send file in chunks with retries
-        sent = 0
 
-        with open(file_path, "rb") as f:
-            while chunk := f.read(BUFFER_SIZE):
-                for attempt in range(MAX_SEND_RETRIES):
-                    try:
-                        ssock.sendall(chunk)
+    q = queue.Queue(maxsize=QUEUE_SIZE)
+    stop_event = threading.Event()
+    sent = 0
+
+    # Producer: read from SSD into RAM
+    def reader():
+        try:
+            with open(file_path, "rb", buffering=FLUSH_SIZE) as f:
+                while not stop_event.is_set():
+                    data = f.read(FLUSH_SIZE)
+                    if not data:
                         break
+                    q.put(data)  # blocks if queue is full
+        except Exception as e:
+            logger.error(f"Reader error: {e}")
+        finally:
+            q.put(None)  # sentinel for end-of-file
 
-                    except (OSError, socket.error) as e:
-                        logger.warning(f"Send attempt {attempt + 1} failed: {e}")
-                        time.sleep(1)
-                else:
-                    progress.close()
-                    logger.error("Failed to send chunk after retries\n")
-                    sys.exit(1)
+    # Consumer: send from RAM to socket
+    def sender():
+        nonlocal sent
+        try:
+            while True:
+                data = q.get()
+                if data is None:
+                    break
 
-                sent += len(chunk)
-                progress.update(len(chunk))
-    except KeyboardInterrupt as e:
-        print('')
-        sys.exit(130)
-    except Exception as e:
-        logger.error(f"Error sending file: {e}\n")
-        return 0
+                view = memoryview(data)
+                while view:
+                    chunk, view = view[:BUFFER_SIZE], view[BUFFER_SIZE:]
+                    for attempt in range(MAX_SEND_RETRIES):
+                        try:
+                            ssock.sendall(chunk)
+                            break
+                        except (OSError, socket.error) as e:
+                            logger.warning(f"Send attempt {attempt + 1} failed: {e}")
+                            time.sleep(1)
+                    else:
+                        stop_event.set()
+                        logger.error("Failed to send chunk after retries\n")
+                        progress.close()
+                        sys.exit(1)
+
+                    sent += len(chunk)
+                    progress.update(len(chunk))
+        except Exception as e:
+            logger.error(f"Sender error: {e}")
+            stop_event.set()
+
+    # Launch both threads
+    t_reader = threading.Thread(target=reader, daemon=True)
+    t_sender = threading.Thread(target=sender, daemon=True)
+
+    t_reader.start()
+    t_sender.start()
+
+    # Wait until both finish
+    t_reader.join()
+    t_sender.join()
 
     progress.close()
     return sent
+
 
 def cmd_send(args, logger):
     """Send a single file."""

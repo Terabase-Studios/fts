@@ -167,42 +167,7 @@ def receive_file(ssock, output_dir, logger, extract=False, progress_bar: bool = 
     out_path = os.path.join(output_dir, filename)
     logger.info(f"Receiving '{filename}' ({filesize} bytes) into {output_dir}")
 
-    received = 0
-    progress = tqdm(
-        total=filesize,
-        unit="B",
-        unit_scale=True,
-        unit_divisor=1024,
-        disable=not progress_bar,
-        leave=False,
-    )
-
-    try:
-        with open(out_path, "wb") as f:
-            while received < filesize:
-                try:
-                    chunk = ssock.recv(min(BUFFER_SIZE, filesize - received))
-                except Exception as e:
-                    logger.error(f"Error receiving data: {e}")
-                    break
-
-                if not chunk:
-                    # Connection closed by peer
-                    logger.warning(
-                        f"Connection closed before full file received ({received}/{filesize} bytes)"
-                    )
-                    break
-
-                f.write(chunk)
-                received += len(chunk)
-                progress.update(len(chunk))
-
-
-    except Exception as e:
-        logger.error(f"Error writing file: {e}")
-        return
-
-    progress.close()
+    received = receive_linear(out_path, filesize, ssock, progress_bar, logger)
 
     # Final check after loop
     if received < filesize:
@@ -258,6 +223,48 @@ def receive_file(ssock, output_dir, logger, extract=False, progress_bar: bool = 
 
         except Exception as e:
             logger.error(f"Zip extraction error: {e}")
+
+
+def receive_linear(out_path, filesize, ssock, progress_bar, logger):
+    received = 0
+    progress = tqdm(
+        total=filesize,
+        unit="B",
+        unit_scale=True,
+        unit_divisor=1024,
+        disable=not progress_bar,
+        leave=False,
+    )
+
+    try:
+        with open(out_path, "wb") as f:
+            while received < filesize:
+                try:
+                    chunk = ssock.recv(min(BUFFER_SIZE, filesize - received))
+                except Exception as e:
+                    logger.error(f"Error receiving data: {e}")
+                    break
+
+                if not chunk:
+                    # Connection closed by peer
+                    logger.warning(
+                        f"Connection closed before full file received ({received}/{filesize} bytes)"
+                    )
+                    break
+
+                f.write(chunk)
+                received += len(chunk)
+                progress.update(len(chunk))
+
+    except KeyboardInterrupt:
+        os.remove(out_path)
+        sys.exit(130)
+    except Exception as e:
+        logger.error(f"Error writing file: {e}")
+        return 0
+
+    progress.close()
+    return received
 
 
 def cmd_close(args, logging):

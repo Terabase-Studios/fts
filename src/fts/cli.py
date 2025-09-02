@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # PYTHON_ARGCOMPLETE_OK
 import argparse, argcomplete
-import os
 from fts.core.aliases import resolve_alias,  _load_aliases
 import sys
 
