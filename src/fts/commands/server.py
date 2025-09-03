@@ -9,8 +9,10 @@ from fts.core import secure as secure
 from tqdm import tqdm
 import time
 import shutil
+import tempfile
 import subprocess
 import psutil
+import fts.flags as transferflags
 from fts.config import (
     DEFAULT_PORT,
     MAGIC,
@@ -239,6 +241,54 @@ def parse_header(ssock):
     filename = os.path.basename(filename_bytes.decode("utf-8"))
     return filename, filesize, flags
 
+def decompress_file(file_path: str, logger) -> str:
+    """
+    Decompress a file compressed with zlib (.zlib) and return the path to the decompressed file.
+    The original compressed file is removed after decompression.
+
+    Args:
+        file_path (str): Path to the compressed file.
+        logger (logging.Logger): Logger instance.
+
+    Returns:
+        str: Path to the decompressed file.
+    """
+    if not os.path.isfile(file_path):
+        raise FileNotFoundError(f"File not found: {file_path}")
+
+    # Create a temporary file for decompression
+    temp_dir = tempfile.mkdtemp()
+    decompressed_path = os.path.join(temp_dir, os.path.basename(file_path).removesuffix(".zlib"))
+
+    try:
+        logger.info(f"Decompressing file...")
+        logger.debug(f"'Compressing {file_path}' to '{decompressed_path}'")
+
+        with open(file_path, "rb") as f_in, open(decompressed_path, "wb") as f_out:
+            decompressor = zlib.decompressobj()
+            while chunk := f_in.read(64 * 1024):
+                f_out.write(decompressor.decompress(chunk))
+            f_out.write(decompressor.flush())
+
+        # Remove original compressed file
+        try:
+            os.remove(file_path)
+        except Exception as e:
+            logger.warning(f"Failed to remove compressed file '{file_path}': {e}")
+
+        # Move decompressed file to original directory
+        final_path = os.path.join(os.path.dirname(file_path), os.path.basename(decompressed_path))
+        shutil.move(decompressed_path, final_path)
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+        logger.info(f'Decompressed file successfully')
+        return final_path
+
+    except Exception as e:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        logger.error(f"Failed to decompress file '{file_path}': {e}")
+        raise
+
 
 def receive_file(ssock, output_dir, logger, extract=False, progress_bar: bool = False, stop_event=None):
     output_dir = os.path.abspath(output_dir)
@@ -268,6 +318,14 @@ def receive_file(ssock, output_dir, logger, extract=False, progress_bar: bool = 
         ssock.sendall(b"OKAY")
     except Exception as e:
         logger.warning(f"Failed to send acknowledgment: {e}")
+
+    is_compressed = bool(flags & transferflags.FLAG_COMPRESSED)
+    if is_compressed:
+        try:
+            out_path = decompress_file(out_path, logger)
+        except Exception as e:
+            logger.error(f"Failed to decompress '{filename}': {e}")
+            return
 
     # Optional extraction
     if extract and zipfile.is_zipfile(out_path):

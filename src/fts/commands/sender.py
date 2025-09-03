@@ -17,7 +17,7 @@ import queue
 from tqdm import tqdm
 import zlib
 
-import fts.flags
+import fts.flags as transferflags
 
 from fts.config import (
     DEFAULT_PORT,
@@ -89,13 +89,12 @@ def should_compress(file_path: str) -> bool:
 
 def compress_file(file_path, filename, filesize, logger, compress=True):
     temp_dir = None
-    logging.warning("Compression not implemented yet")
 
     try:
-        if compress and False:
+        if compress:
             if not should_compress(file_path):
                 logger.info("This file is already compressed, skipping compression")
-                return file_path, filesize
+                return file_path, filesize, False
             else:
                 temp_dir = tempfile.mkdtemp()
                 temp_path = os.path.join(temp_dir, filename + ".zlib")
@@ -121,9 +120,9 @@ def compress_file(file_path, filename, filesize, logger, compress=True):
                 logger.info(
                     f"Compressed '{filename}' from {format_bytes(old_filesize)} -> {format_bytes(filesize)}"
                 )
-                return temp_path, filesize
+                return temp_path, filesize, True
         else:
-            return file_path, filesize
+            return file_path, filesize, False
 
     except KeyboardInterrupt:
         # cleanup on user exit
@@ -150,11 +149,12 @@ def send_file(file_path: str, host: str, port: int, logger, progress_bar: bool =
 
     # Compress to temporary file if needed
     try:
-        compress_file(file_path, filename, filesize, logger, compress)
-        flags |= flags.FLAG_COMPRESSED
-    except:
-        print('')
-        return bytes()
+        file_path, filesize, compressed = compress_file(file_path, filename, filesize, logger, compress)
+        if compressed:
+            flags |= transferflags.FLAG_COMPRESSED
+    except Exception as e:
+        logger.error(f"Compression failed: {e}\n")
+        sys.exit(1)
 
     port = port or DEFAULT_PORT
 
