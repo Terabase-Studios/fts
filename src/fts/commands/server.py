@@ -7,28 +7,111 @@ import zlib
 import struct
 from fts.core import secure as secure
 from tqdm import tqdm
-import math
+import time
+import shutil
+import subprocess
+import psutil
 from fts.config import (
     DEFAULT_PORT,
     MAGIC,
     VERSION,
     BUFFER_SIZE,
+    PID_FILE,
 )
 
-def cmd_open(args, logger, shutdown_event=None):
-    """Start TLS receiver server safely with dynamic port handling."""
-    logger.debug(f"Preparing to open server")
-    logger.debug(f"Options: {vars(args)}\n")
+
+def start_detached(args, logger) -> bool:
+    """
+    Start in detached mode (completely detached: no console, no I/O).
+    Returns True if parent should exit, False otherwise.
+    """
+    if not getattr(args, "detached", False):
+        return False
+
+
+    # Check for existing PID
+    if os.path.exists(PID_FILE):
+        try:
+            with open(PID_FILE, "r") as f:
+                old_pid = int(f.read().strip())
+            if psutil.pid_exists(old_pid):
+                p = psutil.Process(old_pid)
+                logger.info(f"Server already running (PID {old_pid})")
+                logger.info("Run 'fts close' to end current server")
+                logger.debug(f"cmd: {' '.join(p.cmdline())}")
+                return True
+            else:
+                logger.warning("Stale PID file found, removing")
+                os.remove(PID_FILE)
+        except Exception as e:
+            logger.warning(f"Failed to read PID file: {e}")
+            os.remove(PID_FILE)
+
+    # Copy args but remove -d/--detached
+    arguments = sys.argv[1:].copy()
+    for flag in ("-d", "--detached"):
+        if flag in arguments:
+            arguments.remove(flag)
+
+    # Prefer installed CLI script, fallback to -m
+    fts_executable = shutil.which("fts")
+    if fts_executable:
+        cmd = [fts_executable] + arguments
+    else:
+        cmd = [sys.executable, "-m", "fts"] + arguments
+
+    # Prepare kwargs for Popen
+    startupinfo = subprocess.STARTUPINFO() if os.name == "nt" else None
+    if startupinfo:
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startupinfo.wShowWindow = subprocess.SW_HIDE
+
+    kwargs = dict(
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        stdin=subprocess.DEVNULL,
+        close_fds=True,
+    )
+
+    if os.name == "nt":
+        kwargs["creationflags"] = (
+            subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+        )
+        kwargs["startupinfo"] = startupinfo
+    else:
+        kwargs["start_new_session"] = True
+
+    try:
+        proc = subprocess.Popen(cmd, **kwargs, shell=False)
+        # Write PID to file
+        with open(PID_FILE, "w") as f:
+            f.write(str(proc.pid))
+        logger.info(f"Server started in detached mode (PID {proc.pid})")
+    except Exception as e:
+        logger.error(f"Error launching server: {e}")
+        return True
+
+    # Parent should exit
+    return True
+
+
+
+
+def cmd_open(args, logger):
+    """Start TLS receiver server safely with dynamic port handling and shutdown support."""
+
+    if start_detached(args, logger):
+        print('')
+        return
 
     host = args.ip or '0.0.0.0'
     output_dir = os.path.abspath(args.output or ".")
     os.makedirs(output_dir, exist_ok=True)
 
-    # Determine port (0 = let OS pick free port)
     port = args.port or DEFAULT_PORT
-
-    # Prepare TLS context (certs created if missing)
     context = secure.get_server_context()
+
+    shutdown_event = threading.Event()
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -46,69 +129,74 @@ def cmd_open(args, logger, shutdown_event=None):
                     logger.error(f"Failed to bind socket: {e}")
                     raise
         else:
-            logger.error("Could not bind socket after 5 attempts.")
+            logger.critical("Could not bind socket after 5 attempts.")
             sys.exit(1)
 
-        port = sock.getsockname()[1]  # actual port used
+        port = sock.getsockname()[1]
         sock.listen(5)
+        sock.settimeout(1.0)
         logger.info(f"Receiver listening on {host}:{port}, saving to {output_dir}\n")
 
-        sock.settimeout(1.0)  # allows periodic shutdown check
-
+        # ------------------------
+        # Main server loop
         try:
-            while True:
-                if shutdown_event and shutdown_event.is_set():
-                    logger.info("Shutdown signal received. Exiting server.")
-                    break
-
+            while not shutdown_event.is_set():
                 try:
                     client_sock, addr = sock.accept()
-                    try:
-                        # Upgrade raw TCP socket to TLS
-                        ssock = context.wrap_socket(client_sock, server_side=True)
-                        logger.info(f"Secure connection from {addr}")
-                        threading.Thread(
-                            target=_handle_client,
-                            args=(ssock, output_dir, logger, args.extract, args.progress, host, port),
-                            daemon=True
-                        ).start()
-                    except Exception as e:
-                        logger.error(f"TLS handshake failed from {addr}: {e}")
-                        client_sock.close()
                 except socket.timeout:
                     continue
                 except Exception as e:
-                    logger.error(f"Accept error: {e}, continuing to listen...")
+                    logger.error(f"Accept error: {e}")
                     continue
+
+                # ------------------------
+                # Wrap TLS and start handler thread
+                try:
+                    ssock = context.wrap_socket(client_sock, server_side=True)
+                    ssock.settimeout(1.0)
+                    logger.info(f"Secure connection from {addr}")
+
+                    threading.Thread(
+                        target=_handle_client,
+                        args=(ssock, output_dir, logger, args.extract, args.progress, host, port, shutdown_event),
+                        daemon=True
+                    ).start()
+
+                except Exception as e:
+                    logger.error(f"TLS handshake failed from {addr}: {e}")
+                    client_sock.close()
+
         except KeyboardInterrupt:
-            sys.exit(130)
+            shutdown_event.set()
+            time.sleep(1)
         except Exception as e:
             logger.critical(f"Server error: {e}")
 
 
-def _handle_client(ssock, output_dir, logger, extract, progress, host=None, port=None):
-    """
-    Handle a single client in a separate thread safely.
-    Automatically closes the socket and cleans up progress bar.
-    """
+def _handle_client(ssock, output_dir, logger, extract, progress, host=None, port=None, stop_event=None):
     try:
-        receive_file(ssock, output_dir, logger, extract, progress_bar=progress)
+        if stop_event and stop_event.is_set():
+            logger.info("Stop event set, skipping client.")
+            return
+
+        receive_file(
+            ssock, output_dir, logger,
+            extract, progress_bar=progress,
+            stop_event=stop_event
+        )
 
     except Exception as e:
         logger.error(f"Client handling error: {e}")
 
     finally:
-        # Ensure socket is closed
         try:
             ssock.close()
         except Exception:
             pass
 
-        # Log connection closed
         logger.info("Client connection closed\n")
 
-        # Log listening status if host and port are provided
-        if host and port:
+        if host and port and (not stop_event or not stop_event.is_set()):
             logger.info(f"Receiver listening on {host}:{port}, saving to {output_dir}\n")
 
 
@@ -152,80 +240,56 @@ def parse_header(ssock):
     return filename, filesize, flags
 
 
-def receive_file(ssock, output_dir, logger, extract=False, progress_bar: bool = False):
-    """Receive a file from a TLS socket with structured header and safe logging."""
+def receive_file(ssock, output_dir, logger, extract=False, progress_bar: bool = False, stop_event=None):
     output_dir = os.path.abspath(output_dir)
     os.makedirs(output_dir, exist_ok=True)
 
-    # Parse structured header
+    # Parse header
     try:
         filename, filesize, flags = parse_header(ssock)
     except Exception as e:
         logger.error(f"Failed to parse header: {e}")
-        return  # exit early if header invalid
-
-    out_path = os.path.join(output_dir, filename)
-    logger.info(f"Receiving '{filename}' ({filesize} bytes) into {output_dir}")
-
-    received = receive_linear(out_path, filesize, ssock, progress_bar, logger)
-
-    # Final check after loop
-    if received < filesize:
-        logger.warning(f"Incomplete file received ({received}/{filesize} bytes of {filesize})")
         return
 
-    else:
-        logger.info(f"File received successfully: {filename}")
-        logger.debug(f"File saved: {out_path}")
-        try:
-            logger.debug(f"Sending acknowledgement")
-            ssock.sendall(b"OKAY")
-        except Exception as e:
-            logger.warning(f"Failed to send acknowledgment: {e}")
+    out_path = os.path.join(output_dir, filename)
+    logger.info(f"Receiving '{filename}' ({format_bytes(filesize)}) into {output_dir}")
 
-    # Optional extraction for zip files
+    received = receive_linear(out_path, filesize, ssock, progress_bar, logger, stop_event=stop_event)
+
+    if received < filesize or (stop_event and stop_event.is_set()):
+        logger.warning(f"Incomplete file received ({format_bytes(received)}/{format_bytes(filesize)} bytes of {filename})")
+        if os.path.exists(out_path):
+            os.remove(out_path)
+        return
+
+    logger.info(f"File received successfully: {filename}")
+
+    try:
+        ssock.sendall(b"OKAY")
+    except Exception as e:
+        logger.warning(f"Failed to send acknowledgment: {e}")
+
+    # Optional extraction
     if extract and zipfile.is_zipfile(out_path):
         try:
-            # Ensure the file ends with .zip
-            if not out_path.lower().endswith(".zip"):
-                new_out_path = out_path + ".zip"
-                try:
-                    os.rename(out_path, new_out_path)
-                    logger.debug(f"Renamed file to have .zip extension: {new_out_path}")
-                    out_path = new_out_path
-                    filename = os.path.basename(out_path)  # refresh filename
-                except Exception as e:
-                    logger.warning(f"Failed to rename file to .zip: {e}")
-
-            # Temporary extraction path
             extract_path = os.path.join(output_dir, os.path.splitext(filename)[0] + "_extracting")
             os.makedirs(extract_path, exist_ok=True)
-
-            # Final target name (same as zip, without .zip extension)
             final_path = os.path.join(output_dir, os.path.splitext(filename)[0])
 
             logger.info(f"Extracting zip to {final_path}")
             with zipfile.ZipFile(out_path, 'r') as zip_ref:
                 zip_ref.extractall(extract_path)
 
-            # Delete the original zip
-            try:
-                os.remove(out_path)
-                logger.debug(f"Original zip removed: {out_path}")
-            except Exception as e:
-                logger.warning(f"Failed to remove original zip: {e}")
+            try: os.remove(out_path)
+            except Exception as e: logger.warning(f"Failed to remove original zip: {e}")
 
-            # Rename extracted folder
             os.rename(extract_path, final_path)
-            logger.debug(f"Renamed extracted folder to: {final_path}")
-
             logger.info("Extracted zip")
-
         except Exception as e:
             logger.error(f"Zip extraction error: {e}")
 
 
-def receive_linear(out_path, filesize, ssock, progress_bar, logger):
+def receive_linear(out_path, filesize, ssock, progress_bar, logger, stop_event=None):
     received = 0
     progress = tqdm(
         total=filesize,
@@ -239,33 +303,76 @@ def receive_linear(out_path, filesize, ssock, progress_bar, logger):
     try:
         with open(out_path, "wb") as f:
             while received < filesize:
+                if stop_event and stop_event.is_set():
+                    break
+
                 try:
                     chunk = ssock.recv(min(BUFFER_SIZE, filesize - received))
+                except socket.timeout:
+                    continue
                 except Exception as e:
                     logger.error(f"Error receiving data: {e}")
                     break
 
                 if not chunk:
-                    # Connection closed by peer
-                    logger.warning(
-                        f"Connection closed before full file received ({received}/{filesize} bytes)"
-                    )
+                    logger.warning(f"Connection closed before full file received ({received}/{filesize} bytes)")
                     break
 
                 f.write(chunk)
                 received += len(chunk)
                 progress.update(len(chunk))
 
-    except KeyboardInterrupt:
-        os.remove(out_path)
-        sys.exit(130)
-    except Exception as e:
-        logger.error(f"Error writing file: {e}")
-        return 0
+    finally:
+        progress.close()
+        if not os.path.exists(out_path):
+            os.remove(out_path)
 
-    progress.close()
     return received
 
+def format_bytes(size: int) -> str:
+    units = ["B", "KB", "MB", "GB", "TB", "PB"]
+    power = 1024
+    n = 0
+    s = float(size)
 
-def cmd_close(args, logging):
-    pass
+    while s >= power and n < len(units) - 1:
+        s /= power
+        n += 1
+
+    return f"{s:.2f} {units[n]}"
+
+
+def cmd_close(args, logger):
+    """
+    Stops the detached FTS server if it's running.
+    """
+    if not os.path.exists(PID_FILE):
+        logger.warning("No PID file found, server may not be running.\n")
+        return
+
+    try:
+        with open(PID_FILE, "r") as f:
+            pid = int(f.read().strip())
+    except Exception as e:
+        logger.error(f"Failed to read PID file: {e}\n")
+        return
+
+    if not psutil.pid_exists(pid):
+        logger.warning(f"No process with PID {pid} found. Removing stale PID file.\n")
+        os.remove(PID_FILE)
+        return
+
+    try:
+        proc = psutil.Process(pid)
+        logger.info(f"Stopping server (PID {pid})")
+        logger.debug(f"cmd: {' '.join(proc.cmdline())}")
+        proc.terminate()  # send SIGTERM on Unix / terminate on Windows
+        try:
+            proc.wait(timeout=5)  # wait up to 5 seconds
+            logger.info("Server stopped successfully.\n")
+        except psutil.TimeoutExpired:
+            logger.warning("Server did not stop in time. Killing forcibly.\n")
+            proc.kill()
+        os.remove(PID_FILE)
+    except Exception as e:
+        logger.error(f"Failed to stop server PID {pid}: {e}\n")

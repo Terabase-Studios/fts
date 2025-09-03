@@ -1,3 +1,5 @@
+import os, sys, zipfile
+from tqdm import tqdm
 import datetime
 import tempfile
 import subprocess
@@ -85,7 +87,6 @@ def _try_native_zip(directory_path, zip_path, logger, quiet, log_permission):
         return False
 
 
-
 def _handle_windows_native_errors(result, log_permission):
     """Parse PowerShell Compress-Archive errors for permission messages."""
     for line in (result.stdout + result.stderr).splitlines():
@@ -108,9 +109,6 @@ def _handle_unix_native_errors(result, cmd, log_permission):
             raise subprocess.CalledProcessError(result.returncode, cmd, result.stdout, result.stderr)
 
 
-import os, sys, zipfile
-from tqdm import tqdm
-
 def _zip_with_python(directory_path, zip_path, progress_bar, logger, quiet, log_permission):
     """Fallback zipping using Python zipfile with accurate per-file progress bar."""
 
@@ -128,7 +126,7 @@ def _zip_with_python(directory_path, zip_path, progress_bar, logger, quiet, log_
 
     with zipfile.ZipFile(zip_path, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=1) as zipf:
         with tqdm(total=total_files, desc="Zipping files", unit="file",
-                  disable=not progress_bar, miniters=50) as pbar:
+                  disable=not progress_bar, miniters=50, leave=False) as pbar:
             for file_path in files:
                 arcname = os.path.relpath(file_path, directory_path)
                 try:

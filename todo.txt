@@ -1,0 +1,12 @@
+file extensions checkup
+mid extraction cancellation
+progress bar when cancelling during warnings (send)
+detached server
+pre compression before sending
+
+MORE FILE TRANSFER SPEED
+
+
+1: specific folder and renames all file types
+2: move to internal hidden folder
+3: hide them - visibility

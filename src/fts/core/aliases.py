@@ -148,9 +148,6 @@ def resolve_alias(path_or_alias: str, type_: str, logger=None):
         resolved_base = Path(aliases["dir"].get(base_alias, base_alias))
         resolved_path = resolved_base / sub_path
 
-        if not resolved_path.exists():
-            logger.warning(f"Directory '{resolved_path}' does not exist.")
-            return None
 
         return str(resolved_path.resolve())
 

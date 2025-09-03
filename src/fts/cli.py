@@ -2,6 +2,7 @@
 # PYTHON_ARGCOMPLETE_OK
 import argparse, argcomplete
 from fts.core.aliases import resolve_alias,  _load_aliases
+import os
 import sys
 
 
@@ -64,12 +65,13 @@ except ImportError:
         return logger
 
 # --- Reusable argument groups ---
-def add_common_flags(parser):
+def add_common_flags(parser, no_progress=False):
     group = parser.add_mutually_exclusive_group()
     group.add_argument("-q", "--quiet", action="store_true", help="suppress output")
     group.add_argument("-v", "--verbose", action="store_true", help="enable verbose output")
 
-    parser.add_argument("--progress", action="store_true", help="show progress")
+    if not no_progress:
+        parser.add_argument("--progress", action="store_true", help="show progress")
     parser.add_argument("--logfile", metavar="FILE", help="log output to a file").completer = dir_alias_completer
 
 
@@ -128,6 +130,7 @@ def main():
     send_parser.add_argument("path", help="path of file to send").completer = dir_alias_completer
     send_parser.add_argument("ip", help="target IP address").completer = ip_alias_completer
     send_parser.add_argument("-n", "--name", help="name to send file as")
+    send_parser.add_argument("--nocompress", action="store_true", help="do not compress before send: this can be faster")
     add_common_flags(send_parser)
     add_network_flags(send_parser)
     send_parser.set_defaults(func=load_cmd("fts.commands.sender", "cmd_send"))
@@ -137,14 +140,14 @@ def main():
     send_dir_parser.add_argument("path", help="path of directory to send").completer = dir_alias_completer
     send_dir_parser.add_argument("ip", help="target IP address").completer = ip_alias_completer
     send_dir_parser.add_argument("-n", "--name", help="name to send dir as")
-    send_dir_parser.add_argument("--py-zip", action="store_true", help="use python when compressing")
+    send_dir_parser.add_argument("--pyzip", action="store_true", help="use python when compressing")
     add_common_flags(send_dir_parser)
     add_network_flags(send_dir_parser)
     send_dir_parser.set_defaults(func=load_cmd("fts.commands.sender", "cmd_send_dir"))
 
     # --- close ---
     close_parser = subparsers.add_parser("close", aliases=["c", "stop"], help="close detached server")
-    add_common_flags(close_parser)
+    add_common_flags(close_parser, no_progress=True)
     close_parser.set_defaults(func=load_cmd("fts.commands.server", "cmd_close"))
 
     # --- update ---
@@ -178,25 +181,49 @@ def main():
         sys.exit(1)
 
     # --- Setup logger ---
+    log_created = False
     logfile = getattr(args, "logfile", None)
     if logfile:
         logfile = resolve_alias(logfile, "dir", logger=None)
+
+        try:
+            # Ensure parent directory exists
+            logdir = os.path.dirname(os.path.abspath(logfile))
+            if logdir:
+                os.makedirs(logdir, exist_ok=True)
+
+            # Ensure log file exists (touch)
+            if not os.path.exists(logfile):
+                open(logfile, "a").close()
+                log_created = True
+
+        except Exception as e:
+            # Fall back to console-only logging if file can't be created
+            print(f"Warning: Could not create logfile '{logfile}': {e}")
+            logfile = None
+
     logger = setup_logging(
         verbose=getattr(args, "verbose", False),
         quiet=getattr(args, "quiet", False),
         logfile=logfile,
     )
 
+    if log_created:
+        logger.info(f"Log file created: {logfile}")
+
     # --- Resolve paths and IPs automatically ---
     if hasattr(args, "output") and args.output:
         args.output = resolve_alias(args.output, type_="dir", logger=logger)
     if hasattr(args, "path") and args.path:
         args.path = resolve_alias(args.path, type_="dir", logger=logger)
-    if hasattr(args, "ip") and args.ip:
+    if (hasattr(args, "ip") or hasattr(args, "--ip") )and args.ip:
         args.ip = resolve_alias(args.ip, type_="ip", logger=logger)
 
     # --- Run the selected command ---
-    args.func(args, logger)
+    try:
+        args.func(args, logger)
+    except KeyboardInterrupt:
+        sys.exit(130)
 
 
 if __name__ == "__main__":
