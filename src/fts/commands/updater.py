@@ -1,6 +1,6 @@
 import subprocess
 import sys
-import logging
+
 
 def cmd_update(args, logger):
     """

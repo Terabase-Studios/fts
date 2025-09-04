@@ -1,9 +1,13 @@
-import os, sys, zipfile
-from tqdm import tqdm
 import datetime
-import tempfile
-import subprocess
+import os
 import re
+import subprocess
+import sys
+import tempfile
+import zipfile
+
+from tqdm import tqdm
+
 
 def zip_directory(directory_path, zip_name=None, logger=None, quiet=False, progress_bar=False, force_python=False):
     """

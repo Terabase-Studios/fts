@@ -1,24 +1,17 @@
-import logging
 import os
-import sys
+import queue
+import shutil
 import socket
+import struct
+import sys
+import tempfile
+import threading
+import zlib
 
 from sympy import false
-
-from fts.core.zipper import zip_directory
-from fts.core import secure as secure
-import struct
-import zlib
-import shutil
-import tempfile
-import time
-import threading
-import queue
 from tqdm import tqdm
-import zlib
 
 import fts.flags as transferflags
-
 from fts.config import (
     DEFAULT_PORT,
     MAGIC,
@@ -29,7 +22,9 @@ from fts.config import (
     QUEUE_SIZE,
     UNCOMPRESSIBLE_EXTS,
 )
-
+from fts.core import secure as secure
+from fts.core.zipper import zip_directory
+from fts.utilities import format_bytes, parse_byte_string
 
 
 # -------------------------
@@ -137,7 +132,7 @@ def compress_file(file_path, filename, filesize, logger, compress=True):
         raise
 
 
-def send_file(file_path: str, host: str, port: int, logger, progress_bar: bool = False, name: str = None, compress: bool = false) -> bytes:
+def send_file(file_path: str, host: str, port: int, logger, progress_bar: bool = False, name: str = None, compress: bool = false, rate_limit: int = 0):
     file_path = os.path.abspath(os.path.expanduser(file_path))
     if not os.path.isfile(file_path):
         logger.error(f"File does not exist: {file_path}")
@@ -170,7 +165,7 @@ def send_file(file_path: str, host: str, port: int, logger, progress_bar: bool =
 
             logger.info(f"Sending '{filename}' ({format_bytes(filesize)}) from {file_path}")
 
-            sent = send_linear(file_path, filesize, ssock, progress_bar, logger)
+            sent = send_linear(file_path, filesize, ssock, progress_bar, logger, rate_limit)
 
             if sent == 0:
                 logger.error("No bytes were sent\n")
@@ -196,7 +191,13 @@ def send_file(file_path: str, host: str, port: int, logger, progress_bar: bool =
         logger.error(f"Error sending file: {e}\n")
         sys.exit(1)
 
-def send_linear(file_path, filesize, ssock, progress_bar, logger):
+import time
+
+def send_linear(file_path, filesize, ssock, progress_bar, logger, rate_limit: int = 0):
+    """
+    Send file over the socket with optional bandwidth limiting.
+    rate_limit: bytes per second. 0 = unlimited.
+    """
     progress = tqdm(
         total=filesize,
         unit="B",
@@ -209,6 +210,8 @@ def send_linear(file_path, filesize, ssock, progress_bar, logger):
     q = queue.Queue(maxsize=QUEUE_SIZE)
     stop_event = threading.Event()
     sent = 0
+    start_time = time.time()
+    bytes_sent_this_second = 0
 
     # ------------------------
     # Producer: read from SSD into RAM
@@ -219,17 +222,18 @@ def send_linear(file_path, filesize, ssock, progress_bar, logger):
                     data = f.read(FLUSH_SIZE)
                     if not data:
                         break
-                    q.put(data)  # blocks if queue is full
+                    q.put(data)
         except Exception as e:
             logger.error(f"Reader error: {e}")
         finally:
-            q.put(None)  # sentinel for end-of-file
+            q.put(None)  # sentinel
 
     # ------------------------
     # Consumer: send from RAM to socket
     def sender():
-        nonlocal sent
+        nonlocal sent, bytes_sent_this_second, start_time
         running = True
+        next_send_time = time.time()
         try:
             while True:
                 try:
@@ -261,7 +265,33 @@ def send_linear(file_path, filesize, ssock, progress_bar, logger):
                         continue
 
                     sent += len(chunk)
+                    bytes_sent_this_second += len(chunk)
                     progress.update(len(chunk))
+
+                    # ------------------------
+                    # Bandwidth limiting
+                    if rate_limit > 0:
+                        # time we should finish sending this chunk
+                        chunk_size = len(chunk)
+                        target_time = chunk_size / rate_limit  # seconds
+
+                        # next_send_time is initialized outside the loop as time.time()
+                        now = time.time()
+                        if now < next_send_time:
+                            # sleep until it's time to send
+                            remaining = next_send_time - now
+                            interval = 0.01  # 10ms increments, interruptible
+                            slept = 0
+                            while slept < remaining:
+                                if stop_event.is_set():
+                                    break
+                                sleep_chunk = min(interval, remaining - slept)
+                                time.sleep(sleep_chunk)
+                                slept += sleep_chunk
+
+                        # update next allowed send time
+                        next_send_time = max(now, next_send_time) + target_time
+
 
         except Exception as e:
             logger.error(f"Sender error: {e}")
@@ -276,7 +306,7 @@ def send_linear(file_path, filesize, ssock, progress_bar, logger):
     t_sender.start()
 
     # ------------------------
-    # Wait until threads finish, handle Ctrl+C
+    # Wait until threads finish
     try:
         while t_reader.is_alive() or t_sender.is_alive():
             t_reader.join(timeout=0.5)
@@ -284,7 +314,6 @@ def send_linear(file_path, filesize, ssock, progress_bar, logger):
     except KeyboardInterrupt:
         print('')
         stop_event.set()
-        # Wait briefly for threads to exit
         t_reader.join()
         t_sender.join()
         progress.close()
@@ -292,25 +321,11 @@ def send_linear(file_path, filesize, ssock, progress_bar, logger):
 
     progress.close()
     if stop_event.is_set():
-        # If any thread signaled stop due to error, exit here
         print('')
         progress.close()
         sys.exit(1)
 
     return sent
-
-
-def format_bytes(size: int) -> str:
-    units = ["B", "KB", "MB", "GB", "TB", "PB"]
-    power = 1024
-    n = 0
-    s = float(size)
-
-    while s >= power and n < len(units) - 1:
-        s /= power
-        n += 1
-
-    return f"{s:.2f} {units[n]}"
 
 
 def cmd_send(args, logger):
@@ -324,7 +339,15 @@ def cmd_send(args, logger):
     logger.debug(f"Preparing to send file '{path}' to {args.ip}")
     logger.debug(f"Options: {vars(args)}\n")
 
-    send_file(path, args.ip, args.port, logger, progress_bar=args.progress, name=args.name, compress=not args.nocompress)
+    limit = 0
+    if args.limit:
+        try:
+            limit = parse_byte_string(args.limit)
+        except Exception as e:
+            logger.error(f"Error parsing limit: {e}\n")
+            sys.exit(1)
+
+    send_file(path, args.ip, args.port, logger, progress_bar=args.progress, name=args.name, compress=not args.nocompress, rate_limit=limit)
 
 
 def cmd_send_dir(args, logger):
@@ -350,7 +373,15 @@ def cmd_send_dir(args, logger):
     else:
         name = args.name
 
-    send_file(zip_path, args.ip, args.port, logger, progress_bar=args.progress, name=name)
+    limit = 0
+    if args.limit:
+        try:
+            limit = parse_byte_string(args.limit)
+        except Exception as e:
+            logger.error(f"Error parsing limit: {e}\n")
+            sys.exit(1)
+
+    send_file(zip_path, args.ip, args.port, logger, progress_bar=args.progress, name=name, rate_limit=limit)
 
     # delete the temp zip after sending
     try:

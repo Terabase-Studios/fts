@@ -1,15 +1,16 @@
-import ssl
-import sys
-import socket
+import datetime
 import hashlib
 import json
-import datetime
+import socket
+import ssl
 from datetime import timezone
 from pathlib import Path
+
 from cryptography import x509
-from cryptography.x509.oid import NameOID
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.x509.oid import NameOID
+
 from fts.config import CERT_FILE, KEY_FILE, FINGERPRINT_FILE
 
 

@@ -1,6 +1,7 @@
 import logging
-import textwrap
 import shutil
+import textwrap
+
 from tqdm import tqdm
 
 # ANSI colors

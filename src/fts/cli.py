@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 # PYTHON_ARGCOMPLETE_OK
-import argparse, argcomplete
-from fts.core.aliases import resolve_alias,  _load_aliases
+import argcomplete
+import argparse
 import os
 import sys
+
+from fts.core.aliases import resolve_alias, _load_aliases
 
 
 # --- Alias Arg Completion Setup ---
@@ -119,7 +121,7 @@ def main():
     )
     open_parser.add_argument("-d", "--detached", action="store_true", help="run server in the background")
     open_parser.add_argument("-o", "--output", metavar="OUTPUT_PATH", help="where to save incoming file transfers").completer = dir_alias_completer
-    open_parser.add_argument("-t", "--timeout", type=int, help="operation timeout in seconds")
+    open_parser.add_argument("-t", "--timeout", type=int, help="time to wait for connection")
     open_parser.add_argument("-x", "--extract", action="store_true", help="auto-extract transferred directories")
     add_common_flags(open_parser)
     add_network_flags(open_parser)
@@ -130,6 +132,7 @@ def main():
     send_parser.add_argument("path", help="path of file to send").completer = dir_alias_completer
     send_parser.add_argument("ip", help="target IP address").completer = ip_alias_completer
     send_parser.add_argument("-n", "--name", help="name to send file as")
+    send_parser.add_argument("-l", "--limit", type=str, help="sending limit in (B KB MG GB TB PB")
     send_parser.add_argument("--nocompress", action="store_true", help="do not compress before send: this can be faster")
     add_common_flags(send_parser)
     add_network_flags(send_parser)
@@ -140,6 +143,7 @@ def main():
     send_dir_parser.add_argument("path", help="path of directory to send").completer = dir_alias_completer
     send_dir_parser.add_argument("ip", help="target IP address").completer = ip_alias_completer
     send_dir_parser.add_argument("-n", "--name", help="name to send dir as")
+    send_dir_parser.add_argument("-l", "--limit", type=int, help="sending limit in (B KB MG GB TB PB")
     send_dir_parser.add_argument("--pyzip", action="store_true", help="use python when compressing")
     add_common_flags(send_dir_parser)
     add_network_flags(send_dir_parser)

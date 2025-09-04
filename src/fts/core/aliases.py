@@ -1,10 +1,9 @@
-import os
-import re
 import json
-import logging
+import os
 import sys
-from pathlib import Path
+
 from fts.config import ALIASES_FILE
+
 
 # --- Load / Save Aliases ---
 def _load_aliases(logger=None):

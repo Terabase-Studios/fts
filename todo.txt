@@ -1,8 +1,6 @@
-file extensions checkup
-mid extraction cancellation
+file extensions checkup - Good?
 progress bar when cancelling during warnings (send)
-detached server
-pre compression before sending
+increase limit accuracy
 
 MORE FILE TRANSFER SPEED
 

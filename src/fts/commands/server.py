@@ -1,17 +1,18 @@
 import os
-import sys
-import socket
-import zipfile
-import threading
-import zlib
-import struct
-from fts.core import secure as secure
-from tqdm import tqdm
-import time
 import shutil
-import tempfile
+import socket
+import struct
 import subprocess
+import sys
+import tempfile
+import threading
+import time
+import zipfile
+import zlib
+
 import psutil
+from tqdm import tqdm
+
 import fts.flags as transferflags
 from fts.config import (
     DEFAULT_PORT,
@@ -20,6 +21,8 @@ from fts.config import (
     BUFFER_SIZE,
     PID_FILE,
 )
+from fts.core import secure as secure
+from fts.utilities import format_bytes
 
 
 def start_detached(args, logger) -> bool:
@@ -386,18 +389,6 @@ def receive_linear(out_path, filesize, ssock, progress_bar, logger, stop_event=N
             os.remove(out_path)
 
     return received
-
-def format_bytes(size: int) -> str:
-    units = ["B", "KB", "MB", "GB", "TB", "PB"]
-    power = 1024
-    n = 0
-    s = float(size)
-
-    while s >= power and n < len(units) - 1:
-        s /= power
-        n += 1
-
-    return f"{s:.2f} {units[n]}"
 
 
 def cmd_close(args, logger):
