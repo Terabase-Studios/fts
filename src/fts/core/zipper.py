@@ -126,7 +126,7 @@ def _zip_with_python(directory_path, zip_path, progress_bar, logger, quiet, log_
 
     with zipfile.ZipFile(zip_path, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=1) as zipf:
         with tqdm(total=total_files, desc="Zipping files", unit="file",
-                  disable=not progress_bar, miniters=50, leave=False) as pbar:
+                  disable=not progress_bar, leave=False) as pbar:
             for file_path in files:
                 arcname = os.path.relpath(file_path, directory_path)
                 try:

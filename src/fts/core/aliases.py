@@ -57,6 +57,7 @@ def cmd_alias(args, logger):
                     logger.info(f"  {k} -> {v}")
             else:
                 logger.info("No folder aliases defined.")
+        print('')
         return
 
     # --- Add ---
@@ -80,7 +81,7 @@ def cmd_alias(args, logger):
                 sys.exit(1)
         elif args.type == "dir":
             # Only check for illegal characters / syntax, not existence
-            invalid_chars = '<>:"|?*'
+            invalid_chars = '<>\"|?*'
             if any(c in args.value for c in invalid_chars):
                 logger.error(f"Directory alias contains invalid characters: {args.value}")
                 sys.exit(1)
@@ -91,6 +92,7 @@ def cmd_alias(args, logger):
         aliases[args.type][args.name] = args.value
         _save_aliases(aliases, logger)
         logger.info(f"Alias added: {args.name} -> {args.value} ({args.type})")
+        print('')
         return
 
     # --- Remove ---
@@ -110,6 +112,7 @@ def cmd_alias(args, logger):
             logger.info(f"Alias '{args.name}' removed")
         else:
             logger.warning(f"No alias named '{args.name}' found")
+        print('')
         return
 
 

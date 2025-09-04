@@ -346,7 +346,7 @@ def cmd_send_dir(args, logger):
         sys.exit(1)
 
     if not args.name:
-        name = os.path.basename(zip_path).removesuffix(".zip")
+        name = os.path.basename(path)
     else:
         name = args.name
 
