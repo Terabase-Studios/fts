@@ -116,20 +116,23 @@ class FingerprintMismatchError(Exception):
 
 def connect_with_tofu(server_host: str, server_port: int, logger):
     """
-    Connect to a TLS server using TOFU (Trust On First Use).
-    Raises FingerprintMismatchError if cert changes unexpectedly.
+    Prepare an SSLContext for asyncio.open_connection, with TOFU verification.
+    Instead of returning an SSLSocket, this verifies the server's fingerprint
+    once synchronously and then returns a configured SSLContext.
     """
+
+    # Step 1: Create SSL context (for asyncio)
     context = ssl.create_default_context()
     context.check_hostname = False
-    context.verify_mode = ssl.CERT_NONE  # Manual verification
+    context.verify_mode = ssl.CERT_NONE  # We'll do TOFU manually
 
+    # Step 2: Connect once synchronously to grab the cert
     raw_sock = socket.create_connection((server_host, server_port))
     ssock = context.wrap_socket(raw_sock, server_hostname=server_host)
 
     der_cert = ssock.getpeercert(binary_form=True)
     fingerprint = get_fingerprint(der_cert)
 
-    # Key on host:port to support multiple services
     host_port = f"{server_host}:{server_port}"
     known = load_known_fingerprints()
 
@@ -148,7 +151,9 @@ def connect_with_tofu(server_host: str, server_port: int, logger):
         else:
             logger.info(f"[TOFU] Verified pinned certificate {fingerprint[:16]}...\n")
 
-    return ssock
+    ssock.close()  # Done with sync check
+
+    return context
 
 
 def cmd_clear_fingerprint(args, logger=None):

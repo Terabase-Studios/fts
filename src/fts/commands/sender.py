@@ -5,10 +5,12 @@ import socket
 import struct
 import sys
 import tempfile
+import asyncio
+import time
+import aiofiles
 import threading
 import zlib
 
-from sympy import false
 from tqdm import tqdm
 
 import fts.flags as transferflags
@@ -132,7 +134,20 @@ def compress_file(file_path, filename, filesize, logger, compress=True):
         raise
 
 
-def send_file(file_path: str, host: str, port: int, logger, progress_bar: bool = False, name: str = None, compress: bool = false, rate_limit: int = 0):
+async def send_file(
+    file_path: str,
+    host: str,
+    port: int,
+    logger,
+    progress_bar: bool = False,
+    name: str = None,
+    compress: bool = False,
+    rate_limit: int = 0,
+):
+    """
+    Asynchronously send a file over a secure socket with optional compression and rate limiting.
+    """
+
     file_path = os.path.abspath(os.path.expanduser(file_path))
     if not os.path.isfile(file_path):
         logger.error(f"File does not exist: {file_path}")
@@ -142,9 +157,11 @@ def send_file(file_path: str, host: str, port: int, logger, progress_bar: bool =
     filename = name or os.path.basename(file_path)
     flags = 0
 
-    # Compress to temporary file if needed
+    # Compress if requested
     try:
-        file_path, filesize, compressed = compress_file(file_path, filename, filesize, logger, compress)
+        file_path, filesize, compressed = compress_file(
+            file_path, filename, filesize, logger, compress
+        )
         if compressed:
             flags |= transferflags.FLAG_COMPRESSED
     except Exception as e:
@@ -155,48 +172,50 @@ def send_file(file_path: str, host: str, port: int, logger, progress_bar: bool =
 
     try:
         # --- secure connection with TOFU ---
-        with secure.connect_with_tofu(host, port, logger) as ssock:
+        ssl_context = await asyncio.to_thread(secure.connect_with_tofu, host, port, logger)
+        reader, writer = await asyncio.open_connection(host, port, ssl=ssl_context, server_hostname=host)
 
-            logger.info(f"Secure connection to ('{host}', {port})")
+        logger.info(f"Secure connection to ('{host}', {port})")
 
-            # Build and send header
-            header = build_header(filename, filesize, flags=flags)
-            ssock.sendall(header)
+        # Build and send header
+        header = build_header(filename, filesize, flags=flags)
+        writer.write(header)
+        await writer.drain()
 
-            logger.info(f"Sending '{filename}' ({format_bytes(filesize)}) from {file_path}")
+        logger.info(f"Sending '{filename}' ({format_bytes(filesize)}) from {file_path}")
 
-            sent = send_linear(file_path, filesize, ssock, progress_bar, logger, rate_limit)
+        # Send file using asyncio-based pipeline
+        sent = await send_linear(file_path, filesize, writer, progress_bar, logger, rate_limit)
 
-            if sent == 0:
-                logger.error("No bytes were sent\n")
-                sys.exit(1)
+        if sent < filesize:
+            logger.error("Not all bytes were sent")
+            return
 
-            # --- Wait for confirmation from receiver ---
-            try:
-                ack = ssock.recv(4)
-                if ack != b"OKAY":
-                    logger.error("Did not receive confirmation from receiver\n")
-                    sys.exit(1)
-            except Exception as e:
-                logger.error(f"Failed to receive acknowledgment: {e}\n")
+        # --- Wait for confirmation ---
+        try:
+            ack = await reader.readexactly(4)
+            if ack != b"OKAY":
+                logger.error("Did not receive confirmation from receiver")
                 sys.exit(1)
 
             logger.info(f"File sent successfully: {filename}")
-            logger.info("Server connection closed\n")
+        except:
+            logger.warning("Confirmation failed")
 
-    except KeyboardInterrupt as e:
-        sys.exit(130)
+        logger.info("Server connection closed")
+        writer.close()
 
+
+    except asyncio.CancelledError:
+        raise KeyboardInterrupt
     except Exception as e:
         logger.error(f"Error sending file: {e}\n")
         sys.exit(1)
 
-import time
 
-def send_linear(file_path, filesize, ssock, progress_bar, logger, rate_limit: int = 0):
+async def send_linear(file_path, filesize, writer, progress_bar, logger, rate_limit: int = 0):
     """
-    Send file over the socket with optional bandwidth limiting.
-    rate_limit: bytes per second. 0 = unlimited.
+    Async file sender with cooperative rate limiting using StreamWriter.
     """
     progress = tqdm(
         total=filesize,
@@ -207,123 +226,42 @@ def send_linear(file_path, filesize, ssock, progress_bar, logger, rate_limit: in
         leave=False,
     )
 
-    q = queue.Queue(maxsize=QUEUE_SIZE)
-    stop_event = threading.Event()
     sent = 0
-    start_time = time.time()
-    bytes_sent_this_second = 0
+    next_send_time = time.monotonic()
 
-    # ------------------------
-    # Producer: read from SSD into RAM
-    def reader():
-        try:
-            with open(file_path, "rb", buffering=FLUSH_SIZE) as f:
-                while not stop_event.is_set():
-                    data = f.read(FLUSH_SIZE)
-                    if not data:
-                        break
-                    q.put(data)
-        except Exception as e:
-            logger.error(f"Reader error: {e}")
-        finally:
-            q.put(None)  # sentinel
-
-    # ------------------------
-    # Consumer: send from RAM to socket
-    def sender():
-        nonlocal sent, bytes_sent_this_second, start_time
-        running = True
-        next_send_time = time.time()
-        try:
+    try:
+        async with aiofiles.open(file_path, "rb") as f:
             while True:
-                try:
-                    data = q.get(timeout=0.5)
-                except queue.Empty:
-                    if stop_event.is_set():
-                        break
-                    continue
-
-                if data is None:
+                data = await f.read(FLUSH_SIZE)
+                if not data:
                     break
 
                 view = memoryview(data)
-                while view and running:
+                while view:
                     chunk, view = view[:BUFFER_SIZE], view[BUFFER_SIZE:]
-                    for attempt in range(MAX_SEND_RETRIES):
-                        try:
-                            ssock.sendall(chunk)
-                            break
-                        except (OSError, socket.error) as e:
-                            if stop_event.is_set():
-                                break
-                            logger.warning(f"Send attempt {attempt + 1} failed: {e}")
-                            time.sleep(1)
-                    else:
-                        stop_event.set()
-                        logger.error("Failed to send chunk after retries")
-                        running = False
-                        continue
+
+                    writer.write(chunk)
+                    await writer.drain()
 
                     sent += len(chunk)
-                    bytes_sent_this_second += len(chunk)
                     progress.update(len(chunk))
 
-                    # ------------------------
-                    # Bandwidth limiting
+                    # --- Bandwidth limiting ---
                     if rate_limit > 0:
-                        # time we should finish sending this chunk
-                        chunk_size = len(chunk)
-                        target_time = chunk_size / rate_limit  # seconds
-
-                        # next_send_time is initialized outside the loop as time.time()
-                        now = time.time()
+                        target_time = len(chunk) / rate_limit
+                        now = time.monotonic()
                         if now < next_send_time:
-                            # sleep until it's time to send
-                            remaining = next_send_time - now
-                            interval = 0.01  # 10ms increments, interruptible
-                            slept = 0
-                            while slept < remaining:
-                                if stop_event.is_set():
-                                    break
-                                sleep_chunk = min(interval, remaining - slept)
-                                time.sleep(sleep_chunk)
-                                slept += sleep_chunk
-
-                        # update next allowed send time
+                            await asyncio.sleep(next_send_time - now)
                         next_send_time = max(now, next_send_time) + target_time
 
-
-        except Exception as e:
-            logger.error(f"Sender error: {e}")
-            stop_event.set()
-
-    # ------------------------
-    # Launch threads
-    t_reader = threading.Thread(target=reader, daemon=True)
-    t_sender = threading.Thread(target=sender, daemon=True)
-
-    t_reader.start()
-    t_sender.start()
-
-    # ------------------------
-    # Wait until threads finish
-    try:
-        while t_reader.is_alive() or t_sender.is_alive():
-            t_reader.join(timeout=0.5)
-            t_sender.join(timeout=0.5)
-    except KeyboardInterrupt:
-        print('')
-        stop_event.set()
-        t_reader.join()
-        t_sender.join()
+    except asyncio.CancelledError:
         progress.close()
-        sys.exit(130)
-
-    progress.close()
-    if stop_event.is_set():
-        print('')
+        raise asyncio.CancelledError
+    except Exception as e:
         progress.close()
-        sys.exit(1)
+        logger.error(f"Error while sending file: {e}")
+    finally:
+        progress.close()
 
     return sent
 
@@ -347,7 +285,10 @@ def cmd_send(args, logger):
             logger.error(f"Error parsing limit: {e}\n")
             sys.exit(1)
 
-    send_file(path, args.ip, args.port, logger, progress_bar=args.progress, name=args.name, compress=not args.nocompress, rate_limit=limit)
+    try:
+        asyncio.run(send_file(path, args.ip, args.port, logger, progress_bar=args.progress, name=args.name, compress=not args.nocompress, rate_limit=limit))
+    except KeyboardInterrupt:
+        logger.error("User interrupt")
 
 
 def cmd_send_dir(args, logger):
@@ -381,7 +322,10 @@ def cmd_send_dir(args, logger):
             logger.error(f"Error parsing limit: {e}\n")
             sys.exit(1)
 
-    send_file(zip_path, args.ip, args.port, logger, progress_bar=args.progress, name=name, rate_limit=limit)
+    try:
+        asyncio.run(send_file(zip_path, args.ip, args.port, logger, progress_bar=args.progress, name=name, rate_limit=limit))
+    except KeyboardInterrupt:
+        logger.error("User interrupt")
 
     # delete the temp zip after sending
     try:
@@ -389,5 +333,3 @@ def cmd_send_dir(args, logger):
         logger.debug(f"Temporary zip removed: {zip_path}")
     except Exception as e:
         logger.warning(f"Failed to remove temporary zip: {e}")
-
-    print('')
