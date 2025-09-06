@@ -7,7 +7,9 @@ import sys
 import tempfile
 import threading
 import time
+import asyncio
 import zipfile
+from ssl import SSLContext
 import zlib
 
 import psutil
@@ -23,6 +25,12 @@ from fts.config import (
 )
 from fts.core import secure as secure
 from fts.utilities import format_bytes
+
+
+class HeaderReadError(Exception):
+    """Exception raised when something specific goes wrong."""
+    def __init__(self, message: str = "The recieved header is invalid"):
+        super().__init__(message)
 
 
 def start_detached(args, logger) -> bool:
@@ -100,295 +108,213 @@ def start_detached(args, logger) -> bool:
     return True
 
 
-
-
 def cmd_open(args, logger):
     """Start TLS receiver server safely with dynamic port handling and shutdown support."""
-
     if start_detached(args, logger):
-        print('')
+        print("")
         return
 
-    host = args.ip or '0.0.0.0'
+    host = args.ip or "0.0.0.0"
     output_dir = os.path.abspath(args.output or ".")
     os.makedirs(output_dir, exist_ok=True)
-
     port = args.port or DEFAULT_PORT
-    context = secure.get_server_context()
 
-    shutdown_event = threading.Event()
-
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-        # Retry binding if port is taken
-        for attempt in range(5):
-            try:
-                sock.bind((host, port))
-                break
-            except OSError as e:
-                if port != 0:
-                    logger.warning(f"Port {port} unavailable, retrying with free port...")
-                    port = 0
-                else:
-                    logger.error(f"Failed to bind socket: {e}")
-                    raise
-        else:
-            logger.critical("Could not bind socket after 5 attempts.")
-            sys.exit(1)
-
-        port = sock.getsockname()[1]
-        sock.listen(5)
-        sock.settimeout(1.0)
-        logger.info(f"Receiver listening on {host}:{port}, saving to {output_dir}\n")
-
-        # ------------------------
-        # Main server loop
+    # Try dynamic port handling BEFORE running asyncio
+    for attempt in range(5):
         try:
-            while not shutdown_event.is_set():
-                try:
-                    client_sock, addr = sock.accept()
-                except socket.timeout:
-                    continue
-                except Exception as e:
-                    logger.error(f"Accept error: {e}")
-                    continue
-
-                # ------------------------
-                # Wrap TLS and start handler thread
-                try:
-                    ssock = context.wrap_socket(client_sock, server_side=True)
-                    ssock.settimeout(1.0)
-                    logger.info(f"Secure connection from {addr}")
-
-                    threading.Thread(
-                        target=_handle_client,
-                        args=(ssock, output_dir, logger, args.extract, args.progress, host, port, shutdown_event),
-                        daemon=True
-                    ).start()
-
-                except Exception as e:
-                    logger.error(f"TLS handshake failed from {addr}: {e}")
-                    client_sock.close()
-
+            server_coro = start_server(host, port, output_dir, logger, args.extract, args.progress)
+            asyncio.run(server_coro)
+            return
+        except OSError as e:
+            if port != 0:
+                logger.warning(f"Port {port} unavailable, retrying with free port...")
+                port = 0
+            else:
+                logger.error(f"Failed to start server: {e}")
+                sys.exit(1)
         except KeyboardInterrupt:
-            shutdown_event.set()
-            time.sleep(1)
+            logger.info("Server shutdown requested by user")
+            return
         except Exception as e:
             logger.critical(f"Server error: {e}")
+            sys.exit(1)
 
 
-def _handle_client(ssock, output_dir, logger, extract, progress, host=None, port=None, stop_event=None):
+
+async def start_server(host: str, port: int, output_dir: str, logger, extract=False, progress_bar=False):
+    """
+    Starts an async SSL server that listens for incoming connections, handles clients,
+    and saves files to output_dir. Logs progress.
+    """
+    from ssl import SSLContext
+    ssl_context: SSLContext = secure.get_server_context()
+
+    # Ensure output directory exists
+    os.makedirs(output_dir, exist_ok=True)
+
+    async def handle_connection(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
+        addr = writer.get_extra_info('peername')
+
+        try:
+            await handle_client(reader, writer, output_dir, logger, extract, progress_bar)
+        except Exception as e:
+            logger.error(f"Unhandled client exception: {e}", exc_info=True)
+        finally:
+            try:
+                writer.close()
+            except Exception as e:
+                pass
+
+            logger.info(f"Connection from {addr} closed\n")
+            logger.info(f"Server listening on {host}:{port}\n")
+
+
+    server = await asyncio.start_server(handle_connection, host, port, ssl=ssl_context)
+    logger.info(f"Server listening on {host}:{port}\n")
+    async with server:
+        await server.serve_forever()
+
+
+async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, output_dir: str, logger, extract=False, progress_bar=False):
+    addr = writer.get_extra_info("peername")
+    logger.info(f"Secure connection from {addr}")
+
     try:
-        if stop_event and stop_event.is_set():
-            logger.info("Stop event set, skipping client.")
+        # --- Parse header ---
+        header_data = await reader.readexactly(19)
+        magic, version, flags, fname_len, filesize = struct.unpack(">4sfBHQ", header_data)
+        checksum_bytes = await reader.readexactly(4)
+        checksum = struct.unpack(">I", checksum_bytes)[0]
+        filename_bytes = await reader.readexactly(fname_len)
+        filename = filename_bytes.decode("utf-8")
+
+        # --- Validate ---
+        if magic != MAGIC:
+            raise ValueError("Invalid magic number")
+        if int(VERSION * 1000) != int(version * 1000):
+            raise ValueError("Version mismatch")
+        if fname_len > 1024:
+            raise ValueError("Filename too long")
+        calc_checksum = zlib.crc32(filename_bytes + struct.pack(">Q", filesize)) & 0xFFFFFFFF
+        if calc_checksum != checksum:
+            raise ValueError("Header checksum mismatch")
+
+        # --- Prepare output ---
+        out_path = os.path.join(output_dir, os.path.basename(filename))
+        os.makedirs(output_dir, exist_ok=True)
+        logger.info(f"Receiving '{filename}' ({format_bytes(filesize)}) into {output_dir}")
+
+        # --- Receive file ---
+        received = 0
+        progress = tqdm(total=filesize, unit="B", unit_scale=True, unit_divisor=1024, disable=not progress_bar, leave=False)
+        try:
+            with open(out_path, "wb") as f:
+                while received < filesize:
+                    chunk_size = min(BUFFER_SIZE, filesize - received)
+                    try:
+                        chunk = await asyncio.wait_for(reader.read(chunk_size), timeout=30)
+                    except (ConnectionResetError, OSError, asyncio.TimeoutError):
+                        logger.warning("Client disconnected or read timeout")
+                        break
+
+                    if not chunk:
+                        break
+
+                    f.write(chunk)
+                    received += len(chunk)
+                    progress.update(len(chunk))
+
+        except HeaderReadError:
+            raise HeaderReadError
+
+        except Exception as e:
+            progress.close()
+            raise e
+        progress.close()
+
+        if received < filesize:
+            logger.warning(f"Incomplete file received: {received}/{filesize}")
+            os.remove(out_path)
             return
 
-        receive_file(
-            ssock, output_dir, logger,
-            extract, progress_bar=progress,
-            stop_event=stop_event
-        )
+        await writer.drain()
+        writer.write(b"OKAY")
+        await writer.drain()
+        logger.info(f"File received successfully: {filename}")
+
+        # --- Decompress if needed ---
+        if flags & transferflags.FLAG_COMPRESSED:
+            out_path = await asyncio.to_thread(decompress_file, out_path, logger)
+
+        # --- Extract zip if requested ---
+        if extract and zipfile.is_zipfile(out_path):
+            await asyncio.to_thread(extract_zip, out_path, logger)
 
     except Exception as e:
-        logger.error(f"Client handling error: {e}")
-
+        logger.exception(f"Error recieving file: {e}")
     finally:
         try:
-            ssock.close()
-        except Exception:
+            writer.close()
+            await asyncio.wait_for(asyncio.shield(writer.wait_closed()), timeout=1)
+        except Exception as e:
             pass
 
-        logger.info("Client connection closed\n")
 
-        if host and port and (not stop_event or not stop_event.is_set()):
-            logger.info(f"Receiver listening on {host}:{port}, saving to {output_dir}\n")
-
-
-def parse_header(ssock):
-    """Receive and parse structured header from socket."""
-    # Fixed header size: 4s (magic) + f (4) + B (1) + H (2) + Q (8) + I (4)
-    fixed_header_size = 4 + 4 + 1 + 2 + 8 + 4
-    header = b""
-    while len(header) < fixed_header_size:
-        chunk = ssock.recv(fixed_header_size - len(header))
-        if not chunk:
-            raise ConnectionError("Connection closed while receiving header")
-        header += chunk
-
-    try:
-        # Unpack: magic, version, flags, fname_len, filesize, checksum
-        magic, version, flags, fname_len, filesize = struct.unpack(">4sfBHQ", header[:19])
-        checksum = struct.unpack(">I", header[19:23])[0]
-    except Exception as e:
-        raise ValueError(f"Failed to unpack header: {e}")
-
-    if magic != MAGIC:
-        raise ValueError(f"Invalid magic number: {magic}")
-    if int(VERSION*1000) != int(version*1000):
-        raise ValueError(f"Incompatible version( Server{VERSION} | Sender: {version} )")
-
-    # Receive filename
-    filename_bytes = b""
-    while len(filename_bytes) < fname_len:
-        chunk = ssock.recv(fname_len - len(filename_bytes))
-        if not chunk:
-            raise ConnectionError("Connection closed while receiving filename")
-        filename_bytes += chunk
-
-    # Validate checksum
-    calc_checksum = zlib.crc32(filename_bytes + struct.pack(">Q", filesize)) & 0xFFFFFFFF
-    if calc_checksum != checksum:
-        raise ValueError("Header checksum mismatch")
-
-    filename = os.path.basename(filename_bytes.decode("utf-8"))
-    return filename, filesize, flags
-
-def decompress_file(file_path: str, logger) -> str:
-    """
-    Decompress a file compressed with zlib (.zlib) and return the path to the decompressed file.
-    The original compressed file is removed after decompression.
-
-    Args:
-        file_path (str): Path to the compressed file.
-        logger (logging.Logger): Logger instance.
-
-    Returns:
-        str: Path to the decompressed file.
-    """
-    if not os.path.isfile(file_path):
-        raise FileNotFoundError(f"File not found: {file_path}")
-
-    # Create a temporary file for decompression
+# --- Sync helper functions for CPU-bound work ---
+def decompress_file(file_path: str, logger):
     temp_dir = tempfile.mkdtemp()
     decompressed_path = os.path.join(temp_dir, os.path.basename(file_path).removesuffix(".zlib"))
-
     try:
-        logger.info(f"Decompressing file...")
-        logger.debug(f"'Compressing {file_path}' to '{decompressed_path}'")
-
+        logger.info(f"Decompressing {file_path}...")
         with open(file_path, "rb") as f_in, open(decompressed_path, "wb") as f_out:
             decompressor = zlib.decompressobj()
             while chunk := f_in.read(64 * 1024):
                 f_out.write(decompressor.decompress(chunk))
             f_out.write(decompressor.flush())
-
-        # Remove original compressed file
-        try:
-            os.remove(file_path)
-        except Exception as e:
-            logger.warning(f"Failed to remove compressed file '{file_path}': {e}")
-
-        # Move decompressed file to original directory
+        os.remove(file_path)
         final_path = os.path.join(os.path.dirname(file_path), os.path.basename(decompressed_path))
         shutil.move(decompressed_path, final_path)
         shutil.rmtree(temp_dir, ignore_errors=True)
-
-        logger.info(f'Decompressed file successfully')
+        logger.info("Decompression complete")
         return final_path
-
     except Exception as e:
         shutil.rmtree(temp_dir, ignore_errors=True)
-        logger.error(f"Failed to decompress file '{file_path}': {e}")
+        logger.error(f"Failed to decompress: {e}")
         raise
 
 
-def receive_file(ssock, output_dir, logger, extract=False, progress_bar: bool = False, stop_event=None):
-    output_dir = os.path.abspath(output_dir)
-    os.makedirs(output_dir, exist_ok=True)
-
-    # Parse header
-    try:
-        filename, filesize, flags = parse_header(ssock)
-    except Exception as e:
-        logger.error(f"Failed to parse header: {e}")
+def extract_zip(zip_path, logger):
+    if not zipfile.is_zipfile(zip_path):
+        logger.error(f"Not a valid zip file: {zip_path}")
         return
 
-    out_path = os.path.join(output_dir, filename)
-    logger.info(f"Receiving '{filename}' ({format_bytes(filesize)}) into {output_dir}")
-
-    received = receive_linear(out_path, filesize, ssock, progress_bar, logger, stop_event=stop_event)
-
-    if received < filesize or (stop_event and stop_event.is_set()):
-        logger.warning(f"Incomplete file received ({format_bytes(received)}/{format_bytes(filesize)} bytes of {filename})")
-        if os.path.exists(out_path):
-            os.remove(out_path)
-        return
-
-    logger.info(f"File received successfully: {filename}")
-
     try:
-        ssock.sendall(b"OKAY")
+        base_path = os.path.splitext(zip_path)[0]
+        extract_path = base_path + "_extracting"
+        final_path = base_path
+
+        os.makedirs(extract_path, exist_ok=True)
+
+        logger.info(f"Extracting zip to {extract_path}")
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(extract_path)
+
+        try:
+            os.remove(zip_path)
+        except Exception as e:
+            logger.warning(f"Failed to remove original zip: {e}")
+
+        if os.path.exists(final_path):
+            logger.warning(f"Final path already exists, overwriting: {final_path}")
+            # Optional: remove or merge existing folder
+            # shutil.rmtree(final_path)
+
+        os.rename(extract_path, final_path)
+        logger.info(f"Extracted zip to {final_path}")
+
     except Exception as e:
-        logger.warning(f"Failed to send acknowledgment: {e}")
-
-    is_compressed = bool(flags & transferflags.FLAG_COMPRESSED)
-    if is_compressed:
-        try:
-            out_path = decompress_file(out_path, logger)
-        except Exception as e:
-            logger.error(f"Failed to decompress '{filename}': {e}")
-            return
-
-    # Optional extraction
-    if extract and zipfile.is_zipfile(out_path):
-        try:
-            extract_path = os.path.join(output_dir, os.path.splitext(filename)[0] + "_extracting")
-            os.makedirs(extract_path, exist_ok=True)
-            final_path = os.path.join(output_dir, os.path.splitext(filename)[0])
-
-            logger.info(f"Extracting zip to {final_path}")
-            with zipfile.ZipFile(out_path, 'r') as zip_ref:
-                zip_ref.extractall(extract_path)
-
-            try: os.remove(out_path)
-            except Exception as e: logger.warning(f"Failed to remove original zip: {e}")
-
-            os.rename(extract_path, final_path)
-            logger.info("Extracted zip")
-        except Exception as e:
-            logger.error(f"Zip extraction error: {e}")
-
-
-def receive_linear(out_path, filesize, ssock, progress_bar, logger, stop_event=None):
-    received = 0
-    progress = tqdm(
-        total=filesize,
-        unit="B",
-        unit_scale=True,
-        unit_divisor=1024,
-        disable=not progress_bar,
-        leave=False,
-    )
-
-    try:
-        with open(out_path, "wb") as f:
-            while received < filesize:
-                if stop_event and stop_event.is_set():
-                    break
-
-                try:
-                    chunk = ssock.recv(min(BUFFER_SIZE, filesize - received))
-                except socket.timeout:
-                    continue
-                except Exception as e:
-                    logger.error(f"Error receiving data: {e}")
-                    break
-
-                if not chunk:
-                    logger.warning(f"Connection closed before full file received ({received}/{filesize} bytes)")
-                    break
-
-                f.write(chunk)
-                received += len(chunk)
-                progress.update(len(chunk))
-
-    finally:
-        progress.close()
-        if not os.path.exists(out_path):
-            os.remove(out_path)
-
-    return received
+        logger.error(f"Zip extraction error: {e}")
+        raise
 
 
 def cmd_close(args, logger):
@@ -396,18 +322,18 @@ def cmd_close(args, logger):
     Stops the detached FTS server if it's running.
     """
     if not os.path.exists(PID_FILE):
-        logger.warning("No PID file found, server may not be running.\n")
+        logger.warning("No PID file found, server may not be running.")
         return
 
     try:
         with open(PID_FILE, "r") as f:
             pid = int(f.read().strip())
     except Exception as e:
-        logger.error(f"Failed to read PID file: {e}\n")
+        logger.error(f"Failed to read PID file: {e}")
         return
 
     if not psutil.pid_exists(pid):
-        logger.warning(f"No process with PID {pid} found. Removing stale PID file.\n")
+        logger.warning(f"No process with PID {pid} found. Removing stale PID file.")
         os.remove(PID_FILE)
         return
 
@@ -420,8 +346,8 @@ def cmd_close(args, logger):
             proc.wait(timeout=5)  # wait up to 5 seconds
             logger.info("Server stopped successfully.\n")
         except psutil.TimeoutExpired:
-            logger.warning("Server did not stop in time. Killing forcibly.\n")
+            logger.warning("Server did not stop in time. Killing forcibly.")
             proc.kill()
         os.remove(PID_FILE)
     except Exception as e:
-        logger.error(f"Failed to stop server PID {pid}: {e}\n")
+        logger.error(f"Failed to stop server PID {pid}: {e}")

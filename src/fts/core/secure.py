@@ -1,7 +1,7 @@
 import datetime
 import hashlib
 import json
-import socket
+import asyncio
 import ssl
 from datetime import timezone
 from pathlib import Path
@@ -114,26 +114,26 @@ class FingerprintMismatchError(Exception):
     """Raised when a TOFU certificate mismatch occurs."""
 
 
-def connect_with_tofu(server_host: str, server_port: int, logger):
+async def connect_with_tofu_async(host: str, port: int, logger):
     """
-    Prepare an SSLContext for asyncio.open_connection, with TOFU verification.
-    Instead of returning an SSLSocket, this verifies the server's fingerprint
-    once synchronously and then returns a configured SSLContext.
+    Async TLS connection with TOFU verification.
+    Returns: (reader, writer)
     """
-
-    # Step 1: Create SSL context (for asyncio)
+    # Create SSL context
     context = ssl.create_default_context()
     context.check_hostname = False
     context.verify_mode = ssl.CERT_NONE  # We'll do TOFU manually
 
-    # Step 2: Connect once synchronously to grab the cert
-    raw_sock = socket.create_connection((server_host, server_port))
-    ssock = context.wrap_socket(raw_sock, server_hostname=server_host)
+    # Open async TLS connection
+    reader, writer = await asyncio.open_connection(host, port, ssl=context, server_hostname=host)
 
-    der_cert = ssock.getpeercert(binary_form=True)
+    # Extract peer certificate
+    ssl_object = writer.get_extra_info("ssl_object")
+    der_cert = ssl_object.getpeercert(binary_form=True)
     fingerprint = get_fingerprint(der_cert)
 
-    host_port = f"{server_host}:{server_port}"
+    # TOFU verification
+    host_port = f"{host}:{port}"
     known = load_known_fingerprints()
 
     if host_port not in known:
@@ -142,19 +142,17 @@ def connect_with_tofu(server_host: str, server_port: int, logger):
         save_known_fingerprints(known)
     else:
         if known[host_port] != fingerprint:
-            ssock.close()
+            writer.close()
+            await writer.wait_closed()
             raise FingerprintMismatchError(
                 f"Server certificate for {host_port} changed!\n"
                 f"Expected {known[host_port][:16]}..., got {fingerprint[:16]}...\n"
-                f"If this is expected, run `fts trust {server_host}` to accept the new certificate."
+                f"If this is expected, run `fts trust {host}` to accept the new certificate."
             )
         else:
-            logger.info(f"[TOFU] Verified pinned certificate {fingerprint[:16]}...\n")
+            logger.info(f"[TOFU] Verified pinned certificate {fingerprint[:16]}...")
 
-    ssock.close()  # Done with sync check
-
-    return context
-
+    return reader, writer
 
 def cmd_clear_fingerprint(args, logger=None):
     """
