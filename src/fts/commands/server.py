@@ -7,6 +7,7 @@ import sys
 import tempfile
 import zipfile
 import zlib
+import time
 
 import psutil
 from tqdm.asyncio import tqdm_asyncio as tqdm
@@ -17,10 +18,12 @@ from fts.config import (
     MAGIC,
     VERSION,
     BUFFER_SIZE,
+    BATCH_SIZE,
+    PROGRESS_INTERVAL,
     PID_FILE,
 )
 from fts.core import secure as secure
-from fts.utilities import format_bytes
+from fts.utilities import format_bytes, parse_byte_string
 
 def start_detached(args, logger) -> bool:
     """
@@ -109,10 +112,18 @@ def cmd_open(args, logger):
     os.makedirs(output_dir, exist_ok=True)
     port = args.port or DEFAULT_PORT
 
+    limit = 0
+    if args.limit:
+        try:
+            limit = parse_byte_string(args.limit)
+        except Exception as e:
+            logger.error(f"Error parsing limit: {e}\n")
+            sys.exit(1)
+
     # Try dynamic port handling BEFORE running asyncio
     for attempt in range(5):
         try:
-            server_coro = start_server(host, port, output_dir, logger, args.extract, args.progress)
+            server_coro = start_server(host, port, output_dir, logger, args.extract, args.progress, rate_limit=limit)
             asyncio.run(server_coro)
             return
         except OSError as e:
@@ -131,7 +142,7 @@ def cmd_open(args, logger):
 
 
 
-async def start_server(host: str, port: int, output_dir: str, logger, extract=False, progress_bar=False):
+async def start_server(host: str, port: int, output_dir: str, logger, extract=False, progress_bar=False, rate_limit: int = 0):
     """
     Starts an async SSL server that listens for incoming connections, handles clients,
     and saves files to output_dir. Logs progress.
@@ -146,7 +157,7 @@ async def start_server(host: str, port: int, output_dir: str, logger, extract=Fa
         addr = writer.get_extra_info('peername')
 
         try:
-            await handle_client(reader, writer, output_dir, logger, extract, progress_bar)
+            await handle_client(reader, writer, output_dir, logger, extract, progress_bar, rate_limit=rate_limit)
         except Exception as e:
             logger.error(f"Unhandled client exception: {e}", exc_info=True)
         finally:
@@ -165,7 +176,7 @@ async def start_server(host: str, port: int, output_dir: str, logger, extract=Fa
         await server.serve_forever()
 
 
-async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, output_dir: str, logger, extract=False, progress_bar=False):
+async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, output_dir: str, logger, extract=False, progress_bar=False, rate_limit: int = 0):
     addr = writer.get_extra_info("peername")
     logger.info(f"Secure connection from {addr}")
 
@@ -195,32 +206,11 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
         logger.info(f"Receiving '{filename}' ({format_bytes(filesize)}) into {output_dir}")
 
         # --- Receive file ---
-        received = 0
-        progress = tqdm(total=filesize, unit="B", unit_scale=True, unit_divisor=1024, disable=not progress_bar, leave=False)
-        try:
-            with open(out_path, "wb") as f:
-                while received < filesize:
-                    chunk_size = min(BUFFER_SIZE, filesize - received)
-                    try:
-                        chunk = await asyncio.wait_for(reader.read(chunk_size), timeout=30)
-                    except (ConnectionResetError, OSError, asyncio.TimeoutError):
-                        logger.warning("Client disconnected or read timeout")
-                        break
+        received = await receive_linear(reader, filesize, out_path, logger, progress_bar=progress_bar, rate_limit=rate_limit)
 
-                    if not chunk:
-                        break
-
-                    f.write(chunk)
-                    received += len(chunk)
-                    progress.update(len(chunk))
-
-        except Exception as e:
-            progress.close()
-            raise e
-        progress.close()
 
         if received < filesize:
-            logger.warning(f"Incomplete file received: {received}/{filesize}")
+            logger.warning(f"Incomplete file received: {format_bytes(received)}/{format_bytes(filesize)}")
             os.remove(out_path)
             return
 
@@ -245,6 +235,71 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
             await asyncio.wait_for(asyncio.shield(writer.wait_closed()), timeout=1)
         except Exception:
             pass
+
+async def receive_linear(reader, filesize, out_path, logger, progress_bar=False, rate_limit: int = 0):
+    """
+    High-performance async file receiver using batch reads and memoryview,
+    with thread-based file writes to avoid blocking the event loop and optional rate limiting.
+    """
+    received = 0
+    last_progress_update = time.monotonic()
+    next_recv_time = time.monotonic()
+    progress = tqdm(
+        total=filesize,
+        unit="B",
+        unit_scale=True,
+        unit_divisor=1024,
+        disable=not progress_bar,
+        leave=False
+    )
+
+    # Helper function to write a chunk in a thread
+    def write_chunk(f1, mv1):
+        f1.write(mv1)
+
+    try:
+        with open(out_path, "wb") as f:  # regular file
+            while received < filesize:
+                chunk_size = min(BUFFER_SIZE * BATCH_SIZE, filesize - received)
+                if chunk_size <= 0:
+                    break
+
+                try:
+                    chunk = await asyncio.wait_for(reader.read(chunk_size), timeout=30)
+                except (ConnectionResetError, OSError, asyncio.TimeoutError):
+                    logger.warning("Client disconnected or read timeout")
+                    break
+
+                if not chunk:
+                    break
+
+                mv = memoryview(chunk)
+                await asyncio.to_thread(write_chunk, f, mv)
+
+                received += len(chunk)
+
+                # Bandwidth limiting
+                if rate_limit > 0:
+                    now = time.monotonic()
+                    target_time = len(chunk) / rate_limit
+                    if now < next_recv_time:
+                        await asyncio.sleep(next_recv_time - now)
+                    next_recv_time = max(now, next_recv_time) + target_time
+
+                # Periodic progress update
+                now = time.monotonic()
+                if progress_bar and now - last_progress_update >= PROGRESS_INTERVAL:
+                    progress.n = received
+                    progress.refresh()
+                    last_progress_update = now
+
+    finally:
+        # Final progress update
+        if progress_bar:
+            progress.n = received
+            progress.refresh()
+        progress.close()
+        return received
 
 
 # --- Sync helper functions for CPU-bound work ---

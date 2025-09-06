@@ -17,6 +17,8 @@ from fts.config import (
     VERSION,
     BUFFER_SIZE,
     FLUSH_SIZE,
+    BATCH_SIZE,
+    PROGRESS_INTERVAL,
     UNCOMPRESSIBLE_EXTS,
 )
 from fts.core import secure as secure
@@ -205,10 +207,10 @@ async def send_file(
         logger.error(f"Error sending file: {e}\n")
         sys.exit(1)
 
-
 async def send_linear(file_path, filesize, writer, progress_bar, logger, rate_limit: int = 0):
     """
-    Async file sender with cooperative rate limiting using StreamWriter.
+    Ultra-fast async file sender using thread-based blocking file reads.
+    Avoids blocking event loop and unnecessary memory copies.
     """
     progress = tqdm(
         total=filesize,
@@ -221,41 +223,59 @@ async def send_linear(file_path, filesize, writer, progress_bar, logger, rate_li
 
     sent = 0
     next_send_time = time.monotonic()
+    last_progress_update = time.monotonic()
+
+    # Helper function to read a chunk in a thread
+    def read_chunk(f, size):
+        return f.read(size)
 
     try:
-        async with aiofiles.open(file_path, "rb") as f:
+        with open(file_path, "rb") as f:  # regular blocking file
             while True:
-                data = await f.read(FLUSH_SIZE)
-                if not data:
+                # Read a large chunk in a thread to avoid blocking event loop
+                chunk = await asyncio.to_thread(read_chunk, f, BUFFER_SIZE * BATCH_SIZE)
+                if not chunk:
                     break
 
-                view = memoryview(data)
-                while view:
-                    chunk, view = view[:BUFFER_SIZE], view[BUFFER_SIZE:]
+                mv = memoryview(chunk)
+                batch_size_bytes = len(mv)
 
-                    writer.write(chunk)
+                writer.write(mv)
+
+                # Bandwidth limiting
+                if rate_limit > 0:
+                    now = time.monotonic()
+                    target_time = batch_size_bytes / rate_limit
+                    if now < next_send_time:
+                        await asyncio.sleep(next_send_time - now)
+                    next_send_time = max(now, next_send_time) + target_time
+
+                sent += batch_size_bytes
+
+                # Only drain if buffer is large
+                if writer.transport.get_write_buffer_size() > FLUSH_SIZE:
                     await writer.drain()
 
-                    sent += len(chunk)
-                    progress.update(len(chunk))
+                # Update progress periodically
+                now = time.monotonic()
+                if progress_bar and now - last_progress_update >= PROGRESS_INTERVAL:
+                    progress.n = sent
+                    progress.refresh()
+                    last_progress_update = now
 
-                    # --- Bandwidth limiting ---
-                    if rate_limit > 0:
-                        target_time = len(chunk) / rate_limit
-                        now = time.monotonic()
-                        if now < next_send_time:
-                            await asyncio.sleep(next_send_time - now)
-                        next_send_time = max(now, next_send_time) + target_time
+        # Final drain
+        await writer.drain()
+        if progress_bar:
+            progress.n = sent
+            progress.refresh()
 
     except asyncio.CancelledError:
-        progress.close()
-        raise asyncio.CancelledError
+        raise
     except Exception as e:
+        logger.error(f"{e}")
+    finally:
         progress.close()
-        logger.error(f"Error while sending file: {e}")
-
-    progress.close()
-    return sent
+        return sent
 
 
 def cmd_send(args, logger):

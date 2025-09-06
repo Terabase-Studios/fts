@@ -6,10 +6,11 @@ VERSION = 0.3
 DEFAULT_PORT = 5064
 
 # Send/Receive
-BUFFER_SIZE = 1024 * 64
-FLUSH_SIZE = 1024 * 1024
-QUEUE_SIZE = 16
+BUFFER_SIZE =  (1024 * 1024) * 4 # MB
+BATCH_SIZE = 4  # number of chunks per batch
+FLUSH_SIZE =  (1024 * 1024) * 16 # MB
 MAX_SEND_RETRIES = 5
+PROGRESS_INTERVAL = 10       # update progress every 0.1s
 
 # Compression
 UNCOMPRESSIBLE_EXTS = {".zip", ".gz", ".bz2", ".xz", ".rar", ".7z", ".jpg", ".jpeg", ".png", ".mp4", ".mp3"}

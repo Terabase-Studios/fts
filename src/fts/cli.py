@@ -96,6 +96,7 @@ def main():
     open_parser = subparsers.add_parser("open", aliases=["o", "listen"], help="start a server and listen for transfers")
     open_parser.add_argument("-d", "--detached", action="store_true", help="run server in the background")
     open_parser.add_argument("-o", "--output", metavar="OUTPUT_PATH", help="where to save incoming transfers").completer = dir_alias_completer
+    open_parser.add_argument("-l", "--limit", type=str, help="sending limit (B KB MB GB TB PB)")
     open_parser.add_argument("-t", "--timeout", type=int, help="time to wait for connection")
     open_parser.add_argument("-x", "--extract", action="store_true", help="auto-extract transferred directories")
     add_common_flags(open_parser)

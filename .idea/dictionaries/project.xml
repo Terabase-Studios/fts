@@ -4,6 +4,8 @@
       <w>creationflags</w>
       <w>filesize</w>
       <w>fname</w>
+      <w>memoryview</w>
+      <w>memoryviews</w>
       <w>peername</w>
       <w>transferflags</w>
       <w>uncompressible</w>
