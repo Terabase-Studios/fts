@@ -2,7 +2,7 @@ import logging
 import shutil
 import textwrap
 
-from tqdm import tqdm
+from tqdm.asyncio import tqdm_asyncio as tqdm
 
 # ANSI colors
 RESET = "\033[0m"

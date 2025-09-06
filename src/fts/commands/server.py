@@ -1,19 +1,15 @@
+import asyncio
 import os
 import shutil
-import socket
 import struct
 import subprocess
 import sys
 import tempfile
-import threading
-import time
-import asyncio
 import zipfile
-from ssl import SSLContext
 import zlib
 
 import psutil
-from tqdm import tqdm
+from tqdm.asyncio import tqdm_asyncio as tqdm
 
 import fts.flags as transferflags
 from fts.config import (
@@ -26,13 +22,6 @@ from fts.config import (
 from fts.core import secure as secure
 from fts.utilities import format_bytes
 
-
-class HeaderReadError(Exception):
-    """Exception raised when something specific goes wrong."""
-    def __init__(self, message: str = "The recieved header is invalid"):
-        super().__init__(message)
-
-
 def start_detached(args, logger) -> bool:
     """
     Start in detached mode (completely detached: no console, no I/O).
@@ -40,7 +29,6 @@ def start_detached(args, logger) -> bool:
     """
     if not getattr(args, "detached", False):
         return False
-
 
     # Check for existing PID
     if os.path.exists(PID_FILE):
@@ -74,7 +62,7 @@ def start_detached(args, logger) -> bool:
         cmd = [sys.executable, "-m", "fts"] + arguments
 
     # Prepare kwargs for Popen
-    startupinfo = subprocess.STARTUPINFO() if os.name == "nt" else None
+    startupinfo = subprocess.STARTUPINFO() if os.name == "nt" else False
     if startupinfo:
         startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
         startupinfo.wShowWindow = subprocess.SW_HIDE
@@ -111,8 +99,10 @@ def start_detached(args, logger) -> bool:
 def cmd_open(args, logger):
     """Start TLS receiver server safely with dynamic port handling and shutdown support."""
     if start_detached(args, logger):
-        print("")
         return
+
+    logger.debug(f"Preparing to receive file '{args.output}' from {args.ip}")
+    logger.debug(f"Options: {vars(args)}")
 
     host = args.ip or "0.0.0.0"
     output_dir = os.path.abspath(args.output or ".")
@@ -162,7 +152,7 @@ async def start_server(host: str, port: int, output_dir: str, logger, extract=Fa
         finally:
             try:
                 writer.close()
-            except Exception as e:
+            except Exception:
                 pass
 
             logger.info(f"Connection from {addr} closed\n")
@@ -224,9 +214,6 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
                     received += len(chunk)
                     progress.update(len(chunk))
 
-        except HeaderReadError:
-            raise HeaderReadError
-
         except Exception as e:
             progress.close()
             raise e
@@ -251,12 +238,12 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
             await asyncio.to_thread(extract_zip, out_path, logger)
 
     except Exception as e:
-        logger.exception(f"Error recieving file: {e}")
+        logger.exception(f"Error receiving file: {e}")
     finally:
         try:
             writer.close()
             await asyncio.wait_for(asyncio.shield(writer.wait_closed()), timeout=1)
-        except Exception as e:
+        except Exception:
             pass
 
 
@@ -321,6 +308,10 @@ def cmd_close(args, logger):
     """
     Stops the detached FTS server if it's running.
     """
+
+    logger.debug(f"Preparing to close server")
+    logger.debug(f"Options: {vars(args)}")
+
     if not os.path.exists(PID_FILE):
         logger.warning("No PID file found, server may not be running.")
         return
@@ -344,7 +335,7 @@ def cmd_close(args, logger):
         proc.terminate()  # send SIGTERM on Unix / terminate on Windows
         try:
             proc.wait(timeout=5)  # wait up to 5 seconds
-            logger.info("Server stopped successfully.\n")
+            logger.info("Server stopped successfully.")
         except psutil.TimeoutExpired:
             logger.warning("Server did not stop in time. Killing forcibly.")
             proc.kill()

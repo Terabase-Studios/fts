@@ -1,7 +1,7 @@
+import asyncio
 import datetime
 import hashlib
 import json
-import asyncio
 import ssl
 from datetime import timezone
 from pathlib import Path
@@ -89,8 +89,8 @@ def generate_self_signed_cert(cert_file=CERT_FILE, key_file=KEY_FILE) -> bool:
         .issuer_name(issuer)
         .public_key(key.public_key())
         .serial_number(x509.random_serial_number())
-        .not_valid_before(datetime.datetime.utcnow())
-        .not_valid_after(datetime.datetime.utcnow() + datetime.timedelta(days=365))
+        .not_valid_before(datetime.datetime.now())
+        .not_valid_after(datetime.datetime.now() + datetime.timedelta(days=365))
         .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
         .sign(key, hashes.SHA256())
     )

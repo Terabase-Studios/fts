@@ -1,17 +1,14 @@
+import asyncio
 import os
-import queue
 import shutil
-import socket
 import struct
 import sys
 import tempfile
-import asyncio
 import time
-import aiofiles
-import threading
 import zlib
 
-from tqdm import tqdm
+import aiofiles
+from tqdm.asyncio import tqdm_asyncio as tqdm
 
 import fts.flags as transferflags
 from fts.config import (
@@ -19,9 +16,7 @@ from fts.config import (
     MAGIC,
     VERSION,
     BUFFER_SIZE,
-    MAX_SEND_RETRIES,
     FLUSH_SIZE,
-    QUEUE_SIZE,
     UNCOMPRESSIBLE_EXTS,
 )
 from fts.core import secure as secure
@@ -172,9 +167,7 @@ async def send_file(
 
     try:
         # --- secure connection with TOFU ---
-        ssl_context = await asyncio.to_thread(secure.connect_with_tofu, host, port, logger)
-        reader, writer = await asyncio.open_connection(host, port, ssl=ssl_context, server_hostname=host)
-
+        reader, writer = await secure.connect_with_tofu_async(host, port, logger)
         logger.info(f"Secure connection to ('{host}', {port})")
 
         # Build and send header
@@ -202,7 +195,7 @@ async def send_file(
         except:
             logger.warning("Confirmation failed")
 
-        logger.info("Server connection closed")
+        logger.info(f"Secure connection to ('{host}', {port}) closed")
         writer.close()
 
 
@@ -260,9 +253,8 @@ async def send_linear(file_path, filesize, writer, progress_bar, logger, rate_li
     except Exception as e:
         progress.close()
         logger.error(f"Error while sending file: {e}")
-    finally:
-        progress.close()
 
+    progress.close()
     return sent
 
 

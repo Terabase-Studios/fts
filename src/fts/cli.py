@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 # PYTHON_ARGCOMPLETE_OK
+import argparse
 import os
 import sys
-import argparse
+
 import argcomplete
 
 from fts.core.aliases import resolve_alias, _load_aliases
+
 
 # --- Alias Arg Completion ---
 def dir_alias_completer(prefix, parsed_args, **kwargs):
