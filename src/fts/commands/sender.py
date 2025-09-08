@@ -286,7 +286,7 @@ def cmd_send(args, logger):
         logger.error(f"Error finding path: {e}\n")
         sys.exit(1)
 
-    logger.debug(f"Preparing to send file '{path}' to {args.ip}")
+    logger.info(f"Preparing to send file '{path}' to {args.ip}")
     logger.debug(f"Options: {vars(args)}\n")
 
     limit = 0
@@ -311,7 +311,7 @@ def cmd_send_dir(args, logger):
         logger.error(f"Error finding path: {e}\n")
         sys.exit(1)
 
-    logger.debug(f"Preparing to send directory '{path}' to {args.ip}")
+    logger.info(f"Preparing to send directory '{path}' to {args.ip}")
     logger.debug(f"Options: {vars(args)}")
 
     try:

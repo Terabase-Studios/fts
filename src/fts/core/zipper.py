@@ -20,11 +20,10 @@ def zip_directory(directory_path, zip_name=None, logger=None, quiet=False, progr
     log_permission = lambda path: _log_permission(path, logger, quiet)
 
     # Try native zipping first
-    if not force_python and _try_native_zip(directory_path, zip_path, logger, quiet, log_permission):
-        return zip_path
+    if force_python or not _try_native_zip(directory_path, zip_path, logger, quiet, log_permission):
+        # Fallback to Python zipfile
+        _zip_with_python(directory_path, zip_path, progress_bar, logger, quiet, log_permission)
 
-    # Fallback to Python zipfile
-    _zip_with_python(directory_path, zip_path, progress_bar, logger, quiet, log_permission)
     return zip_path
 
 
@@ -115,6 +114,7 @@ def _handle_unix_native_errors(result, cmd, log_permission):
 
 def _zip_with_python(directory_path, zip_path, progress_bar, logger, quiet, log_permission):
     """Fallback zipping using Python zipfile with accurate per-file progress bar."""
+    logger.info(f"Zipping using Python zipfile: {zip_path}")
 
     # Gather all files once
     files = []

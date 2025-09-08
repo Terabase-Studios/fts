@@ -108,7 +108,7 @@ def cmd_open(args, logger):
     if start_detached(args, logger):
         return
 
-    logger.debug(f"Preparing to receive file '{args.output}' from {args.ip}")
+    logger.info(f"Preparing to receive files to '{args.output}'")
     logger.debug(f"Options: {vars(args)}")
 
     host = args.ip or "0.0.0.0"
