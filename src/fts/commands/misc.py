@@ -1,4 +1,4 @@
-from fts.config import VERSION
+import fts
 
 def cmd_version(args, logger):
-    print(f"fts version {VERSION}")
+    print(f"fts version {fts.__version__}")

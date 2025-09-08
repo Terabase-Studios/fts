@@ -8,6 +8,7 @@ import tempfile
 import zipfile
 import zlib
 import time
+import itertools
 
 import psutil
 from tqdm.asyncio import tqdm_asyncio as tqdm
@@ -24,6 +25,9 @@ from fts.config import (
 )
 from fts.core import secure as secure
 from fts.utilities import format_bytes, parse_byte_string
+
+# Incrementing IDs for each client connection
+_client_ids = itertools.count(1)
 
 def start_detached(args, logger) -> bool:
     """
@@ -154,20 +158,20 @@ async def start_server(host: str, port: int, output_dir: str, logger, extract=Fa
     os.makedirs(output_dir, exist_ok=True)
 
     async def handle_connection(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
+        client_id = next(_client_ids)
         addr = writer.get_extra_info('peername')
 
         try:
-            await handle_client(reader, writer, output_dir, logger, extract, progress_bar, rate_limit=rate_limit)
+            await handle_client(reader, writer, output_dir, client_id, logger, extract, progress_bar, rate_limit=rate_limit)
         except Exception as e:
-            logger.error(f"Unhandled client exception: {e}", exc_info=True)
+            logger.error(f"{client_id}: Unhandled client exception: {e}", exc_info=True)
         finally:
             try:
                 writer.close()
             except Exception:
                 pass
 
-            logger.info(f"Connection from {addr} closed\n")
-            logger.info(f"Server listening on {host}:{port}\n")
+            logger.info(f"{client_id}: Connection from {addr} closed\n")
 
 
     server = await asyncio.start_server(handle_connection, host, port, ssl=ssl_context)
@@ -176,9 +180,9 @@ async def start_server(host: str, port: int, output_dir: str, logger, extract=Fa
         await server.serve_forever()
 
 
-async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, output_dir: str, logger, extract=False, progress_bar=False, rate_limit: int = 0):
+async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, output_dir: str, client_id, logger, extract=False, progress_bar=False, rate_limit: int = 0):
     addr = writer.get_extra_info("peername")
-    logger.info(f"Secure connection from {addr}")
+    logger.info(f"{client_id}: Secure connection from {addr}")
 
     try:
         # --- Parse header ---
@@ -203,21 +207,21 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
         # --- Prepare output ---
         out_path = os.path.join(output_dir, os.path.basename(filename))
         os.makedirs(output_dir, exist_ok=True)
-        logger.info(f"Receiving '{filename}' ({format_bytes(filesize)}) into {output_dir}")
+        logger.info(f"{client_id}: Receiving '{filename}' ({format_bytes(filesize)}) into {output_dir}")
 
         # --- Receive file ---
-        received = await receive_linear(reader, filesize, out_path, logger, progress_bar=progress_bar, rate_limit=rate_limit)
+        received = await receive_linear(reader, filesize, out_path, client_id, logger, progress_bar=progress_bar, rate_limit=rate_limit)
 
 
         if received < filesize:
-            logger.warning(f"Incomplete file received: {format_bytes(received)}/{format_bytes(filesize)}")
+            logger.warning(f"{client_id}: Incomplete file received: {format_bytes(received)}/{format_bytes(filesize)}")
             os.remove(out_path)
             return
 
         await writer.drain()
         writer.write(b"OKAY")
         await writer.drain()
-        logger.info(f"File received successfully: {filename}")
+        logger.info(f"{client_id}: File received successfully: {filename}")
 
         # --- Decompress if needed ---
         if flags & transferflags.FLAG_COMPRESSED:
@@ -228,7 +232,7 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
             await asyncio.to_thread(extract_zip, out_path, logger)
 
     except Exception as e:
-        logger.exception(f"Error receiving file: {e}")
+        logger.exception(f"{client_id}: Error receiving file: {e}")
     finally:
         try:
             writer.close()
@@ -236,7 +240,7 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
         except Exception:
             pass
 
-async def receive_linear(reader, filesize, out_path, logger, progress_bar=False, rate_limit: int = 0):
+async def receive_linear(reader, filesize, out_path, client_id, logger, progress_bar=False, rate_limit: int = 0):
     """
     High-performance async file receiver using batch reads and memoryview,
     with thread-based file writes to avoid blocking the event loop and optional rate limiting.
@@ -250,7 +254,8 @@ async def receive_linear(reader, filesize, out_path, logger, progress_bar=False,
         unit_scale=True,
         unit_divisor=1024,
         disable=not progress_bar,
-        leave=False
+        leave=False,
+        desc = f"{client_id}",
     )
 
     # Helper function to write a chunk in a thread
@@ -267,7 +272,7 @@ async def receive_linear(reader, filesize, out_path, logger, progress_bar=False,
                 try:
                     chunk = await asyncio.wait_for(reader.read(chunk_size), timeout=30)
                 except (ConnectionResetError, OSError, asyncio.TimeoutError):
-                    logger.warning("Client disconnected or read timeout")
+                    logger.warning(f"{client_id}: Client disconnected or read timeout")
                     break
 
                 if not chunk:
@@ -303,11 +308,11 @@ async def receive_linear(reader, filesize, out_path, logger, progress_bar=False,
 
 
 # --- Sync helper functions for CPU-bound work ---
-def decompress_file(file_path: str, logger):
+def decompress_file(file_path: str, client_id, logger):
     temp_dir = tempfile.mkdtemp()
     decompressed_path = os.path.join(temp_dir, os.path.basename(file_path).removesuffix(".zlib"))
     try:
-        logger.info(f"Decompressing {file_path}...")
+        logger.info(f"{client_id}: Decompressing {file_path}...")
         with open(file_path, "rb") as f_in, open(decompressed_path, "wb") as f_out:
             decompressor = zlib.decompressobj()
             while chunk := f_in.read(64 * 1024):
@@ -317,17 +322,17 @@ def decompress_file(file_path: str, logger):
         final_path = os.path.join(os.path.dirname(file_path), os.path.basename(decompressed_path))
         shutil.move(decompressed_path, final_path)
         shutil.rmtree(temp_dir, ignore_errors=True)
-        logger.info("Decompression complete")
+        logger.info(f"{client_id}: Decompression complete")
         return final_path
     except Exception as e:
         shutil.rmtree(temp_dir, ignore_errors=True)
-        logger.error(f"Failed to decompress: {e}")
+        logger.error(f"{client_id}: Failed to decompress: {e}")
         raise
 
 
-def extract_zip(zip_path, logger):
+def extract_zip(zip_path, client_id, logger):
     if not zipfile.is_zipfile(zip_path):
-        logger.error(f"Not a valid zip file: {zip_path}")
+        logger.error(f"{client_id}: Not a valid zip file: {zip_path}")
         return
 
     try:
@@ -337,25 +342,25 @@ def extract_zip(zip_path, logger):
 
         os.makedirs(extract_path, exist_ok=True)
 
-        logger.info(f"Extracting zip to {extract_path}")
+        logger.info(f"{client_id}: Extracting zip to {extract_path}")
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
             zip_ref.extractall(extract_path)
 
         try:
             os.remove(zip_path)
         except Exception as e:
-            logger.warning(f"Failed to remove original zip: {e}")
+            logger.warning(f"{client_id}: Failed to remove original zip: {e}")
 
         if os.path.exists(final_path):
-            logger.warning(f"Final path already exists, overwriting: {final_path}")
+            logger.warning(f"{client_id}: Final path already exists, overwriting: {final_path}")
             # Optional: remove or merge existing folder
             # shutil.rmtree(final_path)
 
         os.rename(extract_path, final_path)
-        logger.info(f"Extracted zip to {final_path}")
+        logger.info(f"{client_id}: Extracted zip to {final_path}")
 
     except Exception as e:
-        logger.error(f"Zip extraction error: {e}")
+        logger.error(f"{client_id}: Zip extraction error: {e}")
         raise
 
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fts"
-version = "0.3.0"
+version = "0.4.0"
 description = "Peer to peer file and directory tranfer system"
 authors = [
   { name = "Terabase Studios", email = "terabasestudios@gmail.com" }
@@ -13,12 +13,15 @@ readme = "README.md"
 requires-python = ">=3.8"
 
 dependencies = [
-    "cryptography>=41.0",
-    "argcomplete>=3.1.0",
-    "tqdm>=4.65.0",
-    "psutil>=5.9.0",
-    "sympy>=1.12",  # add the version you want
+    "aiofiles==24.1.0",
+    "argcomplete==3.6.2",
+    "cryptography==45.0.7",
+    "psutil==7.0.0",
+    "tqdm==4.67.1",
+    "prompt_toolkit==3.0.52"
 ]
+
+
 
 [project.scripts]
 fts = "fts.cli:main"

@@ -3,6 +3,7 @@
 import argparse
 import os
 import sys
+import pathlib
 
 import argcomplete
 
@@ -57,11 +58,11 @@ def add_common_flags(parser, no_progress=False):
 
     if not no_progress:
         parser.add_argument("--progress", action="store_true", help="show progress")
-    parser.add_argument("--logfile", metavar="FILE", help="log output to a file").completer = dir_alias_completer
+    parser.add_argument("--logfile", metavar="FILE", type=str, help="log output to a file").completer = dir_alias_completer
 
 def add_network_flags(parser):
     parser.add_argument("-p", "--port", type=int, help="port number to use")
-    parser.add_argument("--ip", metavar="ADDR", help="restrict to this IP address").completer = ip_alias_completer
+    parser.add_argument("--ip", metavar="ADDR", help="IP address to connect to").completer = ip_alias_completer
 
 # --- Lazy command loader with caching ---
 _command_cache = {}
@@ -86,7 +87,7 @@ def load_cmd(module_path, func_name):
 
 # --- Main CLI setup ---
 def main():
-    parser = argparse.ArgumentParser(prog="fts", description="Fake Tool Suite CLI")
+    parser = argparse.ArgumentParser(prog="fts", description="File transferring, chatroom's, and more!")
     subparsers = parser.add_subparsers(dest="command")
 
     # Enable tab completion
@@ -95,7 +96,7 @@ def main():
     # --- open ---
     open_parser = subparsers.add_parser("open", aliases=["o", "listen"], help="start a server and listen for transfers")
     open_parser.add_argument("-d", "--detached", action="store_true", help="run server in the background")
-    open_parser.add_argument("-o", "--output", metavar="OUTPUT_PATH", help="where to save incoming transfers").completer = dir_alias_completer
+    open_parser.add_argument("-o", "--output", type=pathlib.Path, metavar="OUTPUT_PATH", help="where to save incoming transfers").completer = dir_alias_completer
     open_parser.add_argument("-l", "--limit", type=str, help="sending limit (B KB MB GB TB PB)")
     open_parser.add_argument("-t", "--timeout", type=int, help="time to wait for connection")
     open_parser.add_argument("-x", "--extract", action="store_true", help="auto-extract transferred directories")
@@ -107,22 +108,22 @@ def main():
     send_parser = subparsers.add_parser("send", aliases=["s"], help="send a file")
     send_parser.add_argument("path", help="file to send").completer = dir_alias_completer
     send_parser.add_argument("ip", help="target IP address").completer = ip_alias_completer
-    send_parser.add_argument("-n", "--name", help="name to send file as")
+    send_parser.add_argument("-n", "--name", type=str, help="name to send file as")
+    send_parser.add_argument("-p", "--port", type=int, help="port number to use")
     send_parser.add_argument("-l", "--limit", type=str, help="sending limit (B KB MB GB TB PB)")
     send_parser.add_argument("--nocompress", action="store_true", help="skip compression (can be faster)")
     add_common_flags(send_parser)
-    add_network_flags(send_parser)
     send_parser.set_defaults(func=load_cmd("fts.commands.sender", "cmd_send"))
 
     # --- send-dir ---
     send_dir_parser = subparsers.add_parser("send-dir", aliases=["sd", "dir"], help="send a directory")
-    send_dir_parser.add_argument("path", help="directory to send").completer = dir_alias_completer
+    send_dir_parser.add_argument("path", type=pathlib.Path, help="directory to send").completer = dir_alias_completer
     send_dir_parser.add_argument("ip", help="target IP address").completer = ip_alias_completer
-    send_dir_parser.add_argument("-n", "--name", help="name to send dir as")
+    send_dir_parser.add_argument("-n", "--name", type=str,  help="name to send dir as")
+    send_dir_parser.add_argument("-p", "--port", type=int, help="port number to use")
     send_dir_parser.add_argument("-l", "--limit", type=int, help="sending limit (B KB MB GB TB PB)")
     send_dir_parser.add_argument("--pyzip", action="store_true", help="use Python for compression")
     add_common_flags(send_dir_parser)
-    add_network_flags(send_dir_parser)
     send_dir_parser.set_defaults(func=load_cmd("fts.commands.sender", "cmd_send_dir"))
 
     # --- close ---
@@ -142,15 +143,32 @@ def main():
 
     # --- trust ---
     trust_parser = subparsers.add_parser("trust", aliases=["allow"], help="trust an IP certificate")
-    trust_parser.add_argument("ip", help="IP address to trust")
+    trust_parser.add_argument("ip", help="IP address to trust").completer = ip_alias_completer
     trust_parser.set_defaults(func=load_cmd("fts.core.secure", "cmd_clear_fingerprint"))
+
+    # --- chat ---
+    chat_parser = subparsers.add_parser("chat", aliases=["talk"], help="create or join a chatroom")
+    chat_subparsers = chat_parser.add_subparsers(dest="action", required=True, help="action to perform")
+
+    # chat create
+    create_parser = chat_subparsers.add_parser("create", help="create a new chatroom")
+    create_parser.add_argument("name", type=str, help="your username")
+    create_parser.add_argument("-p", "--port", type=int, help="port number to use")
+    create_parser.set_defaults(func=load_cmd("fts.commands.chat", "cmd_chat"))
+
+    # chat join
+    join_parser = chat_subparsers.add_parser("join", help="join an existing chatroom")
+    join_parser.add_argument("ip", type=str, help="IP to join")
+    join_parser.add_argument("name", type=str, help="your username")
+    join_parser.add_argument("-p", "--port", type=int, help="port number to use")
+    join_parser.set_defaults(func=load_cmd("fts.commands.chat", "cmd_chat"))
 
     # --- alias ---
     alias_parser = subparsers.add_parser("alias", aliases=["a"], help="manage aliases")
     alias_parser.add_argument("action", choices=["add", "remove", "list"], help="action to perform")
-    alias_parser.add_argument("name", nargs="?", help="alias name")
-    alias_parser.add_argument("value", nargs="?", help="alias value")
-    alias_parser.add_argument("type", nargs="?", choices=["ip", "dir"], help="type of alias (required for 'add')")
+    alias_parser.add_argument("name", nargs="?", type=str, help="alias name")
+    alias_parser.add_argument("value", nargs="?", type=str, help="alias value")
+    alias_parser.add_argument("type", nargs="?", type=str, choices=["ip", "dir"], help="type of alias (required for 'add')")
     alias_parser.set_defaults(func=load_cmd("fts.core.aliases", "cmd_alias"))
 
     # --- Parse arguments ---
@@ -179,10 +197,17 @@ def main():
             print(f"Warning: Could not create logfile '{logfile}': {e}")
             logfile = None
 
+    # Determine logging mode based on command
+    if args.command == "chat":
+        log_mode = "ptk"  # Use prompt_toolkit mode for chat
+    else:
+        log_mode = "tqdm"  # Default tqdm-compatible mode
+
     logger = setup_logging(
         verbose=getattr(args, "verbose", False),
         quiet=getattr(args, "quiet", False),
         logfile=logfile,
+        mode=log_mode,
     )
     if log_created:
         logger.info(f"Log file created: {logfile}")

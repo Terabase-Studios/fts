@@ -2,15 +2,15 @@ import os
 
 # Basic
 MAGIC = b'FTS1'
-VERSION = 0.3
+VERSION = 0.4
 DEFAULT_PORT = 5064
 
 # Send/Receive
-BUFFER_SIZE =  (1024 * 1024) * 4 # MB
+BUFFER_SIZE =  (1024 * 1024) * 8 # MB
 BATCH_SIZE = 4  # number of chunks per batch
 FLUSH_SIZE =  (1024 * 1024) * 16 # MB
 MAX_SEND_RETRIES = 5
-PROGRESS_INTERVAL = 10       # update progress every 0.1s
+PROGRESS_INTERVAL = .1       # update progress every 0.1s
 
 # Compression
 UNCOMPRESSIBLE_EXTS = {".zip", ".gz", ".bz2", ".xz", ".rar", ".7z", ".jpg", ".jpeg", ".png", ".mp4", ".mp3"}

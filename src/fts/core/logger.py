@@ -1,8 +1,11 @@
 import logging
 import shutil
 import textwrap
+import sys
 
 from tqdm.asyncio import tqdm_asyncio as tqdm
+from prompt_toolkit import print_formatted_text
+from prompt_toolkit.formatted_text import ANSI
 
 # ANSI colors
 RESET = "\033[0m"
@@ -22,14 +25,22 @@ LEVEL_COLORS = {
 
 class TqdmLoggingHandler(logging.Handler):
     """Logging handler that writes through tqdm to avoid breaking progress bars."""
+
     def emit(self, record):
         try:
             msg = self.format(record)
-            tqdm.write(msg)
-            self.flush()
+            tqdm.write(msg, file=sys.stderr)  # keeps bars on stdout, logs on stderr
+            sys.stderr.flush()
         except Exception:
             self.handleError(record)
 
+class PTKLoggingHandler(logging.Handler):
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            print_formatted_text(ANSI(msg))
+        except Exception:
+            self.handleError(record)
 
 class ColorFormatter(logging.Formatter):
     def __init__(self, line_sep=0):
@@ -81,13 +92,16 @@ class ColorFormatter(logging.Formatter):
         return ansi_escape.sub('', text)
 
 
-def setup_logging(verbose=False, quiet=False, logfile=None, line_sep=0):
+def setup_logging(verbose=False, quiet=False, logfile=None, line_sep=0, mode="tqdm"):
     """Configure logger for CLI commands with tqdm support."""
     logger = logging.getLogger("fts")
     logger.handlers.clear()
 
-    # Stream handler using tqdm
-    stream_handler = TqdmLoggingHandler()
+    # Choose stream handler based on mode
+    if mode == "ptk":
+        stream_handler = PTKLoggingHandler()
+    else:
+        stream_handler = TqdmLoggingHandler()
     stream_handler.setFormatter(ColorFormatter(line_sep=line_sep))
     logger.addHandler(stream_handler)
 
