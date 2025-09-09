@@ -1,7 +1,7 @@
 import asyncio
 from prompt_toolkit import PromptSession
 from prompt_toolkit.patch_stdout import patch_stdout
-from fts.config import DEFAULT_PORT, MAGIC
+from fts.config import DEFAULT_CHAT_PORT, MAGIC
 import fts.core.secure as secure
 import random
 
@@ -20,12 +20,14 @@ RESET = "\033[0m"
 # Command Entry Point
 # -------------------------
 def cmd_chat(args, logger):
+    logger.debug(f"Options: {args}")
     try:
         if args.action == "create":
             cmd_create(args, logger)
         elif args.action == "join":
             cmd_join(args, logger)
-    except:
+    except Exception as e:
+        logger.error(f"Failed to execute command: {e}")
         return
 
 
@@ -33,7 +35,7 @@ def cmd_chat(args, logger):
 # Host a chatroom
 # -------------------------
 def cmd_create(args, logger):
-    port = args.port or DEFAULT_PORT
+    port = args.port or DEFAULT_CHAT_PORT
     host = "0.0.0.0"
     logger.info(f"Starting FTS chatroom on {host}:{port}")
 
@@ -58,7 +60,7 @@ def cmd_create(args, logger):
 # -------------------------
 def cmd_join(args, logger):
     host = args.ip
-    port = args.port or DEFAULT_PORT
+    port = args.port or DEFAULT_CHAT_PORT
     logger.info(f"Joining FTS chatroom at {host}:{port}")
 
     try:
@@ -138,7 +140,7 @@ async def handle_client(reader, writer, clients, server_name, logger):
         writer.close()
         await writer.wait_closed()
 
-async def start_server(host="0.0.0.0", port=DEFAULT_PORT, server_name="FTS Server", logger=None):
+async def start_server(host="0.0.0.0", port=DEFAULT_CHAT_PORT, server_name="FTS Server", logger=None):
     clients = {}  # writer -> username
     ssl_ctx = secure.get_server_context()
 
@@ -203,7 +205,7 @@ async def listen(reader: asyncio.StreamReader, logger):
     except asyncio.CancelledError:
         pass
 
-async def client(host="127.0.0.1", port=DEFAULT_PORT, name="Guest", logger=None):
+async def client(host="127.0.0.1", port=DEFAULT_CHAT_PORT, name="Guest", logger=None):
     unique_name = name  # no random suffix
 
     async def establish_connection():

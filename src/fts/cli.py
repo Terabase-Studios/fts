@@ -166,8 +166,8 @@ def main():
     # --- alias ---
     alias_parser = subparsers.add_parser("alias", aliases=["a"], help="manage aliases")
     alias_parser.add_argument("action", choices=["add", "remove", "list"], help="action to perform")
-    alias_parser.add_argument("name", nargs="?", type=str, help="alias name")
-    alias_parser.add_argument("value", nargs="?", type=str, help="alias value")
+    alias_parser.add_argument("name", nargs="?", type=str, help="alias name (required for 'add/remove')")
+    alias_parser.add_argument("value", nargs="?", type=str, help="alias value (required for 'add')")
     alias_parser.add_argument("type", nargs="?", type=str, choices=["ip", "dir"], help="type of alias (required for 'add')")
     alias_parser.set_defaults(func=load_cmd("fts.core.aliases", "cmd_alias"))
 

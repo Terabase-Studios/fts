@@ -15,7 +15,7 @@ from tqdm.asyncio import tqdm_asyncio as tqdm
 
 import fts.flags as transferflags
 from fts.config import (
-    DEFAULT_PORT,
+    DEFAULT_FILE_PORT,
     MAGIC,
     VERSION,
     BUFFER_SIZE,
@@ -114,7 +114,7 @@ def cmd_open(args, logger):
     host = args.ip or "0.0.0.0"
     output_dir = os.path.abspath(args.output or ".")
     os.makedirs(output_dir, exist_ok=True)
-    port = args.port or DEFAULT_PORT
+    port = args.port or DEFAULT_FILE_PORT
 
     limit = 0
     if args.limit:
@@ -236,7 +236,7 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
     finally:
         try:
             writer.close()
-            await asyncio.wait_for(asyncio.shield(writer.wait_closed()), timeout=1)
+            await writer.wait_closed()
         except Exception:
             pass
 

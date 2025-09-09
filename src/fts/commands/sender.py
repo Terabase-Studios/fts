@@ -12,7 +12,7 @@ from tqdm.asyncio import tqdm_asyncio as tqdm
 
 import fts.flags as transferflags
 from fts.config import (
-    DEFAULT_PORT,
+    DEFAULT_FILE_PORT,
     MAGIC,
     VERSION,
     BUFFER_SIZE,
@@ -165,7 +165,7 @@ async def send_file(
         logger.error(f"Compression failed: {e}\n")
         sys.exit(1)
 
-    port = port or DEFAULT_PORT
+    port = port or DEFAULT_FILE_PORT
 
     try:
         # --- secure connection with TOFU ---
