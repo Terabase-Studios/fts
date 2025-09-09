@@ -25,8 +25,7 @@ def cmd_chat(args, logger):
             cmd_create(args, logger)
         elif args.action == "join":
             cmd_join(args, logger)
-    except Exception as e:
-        logger.error(f"Failed to execute command: {e}")
+    except:
         return
 
 
