@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 # PYTHON_ARGCOMPLETE_OK
-
 def __version__():
     return "0.5.0"
 
@@ -16,7 +15,6 @@ import argparse
 
 from fts.core.aliases import resolve_alias, _load_aliases
 
-GUI_ENABLED = True
 
 # --- Alias Arg Completion ---
 def dir_alias_completer(prefix, parsed_args, **kwargs):
@@ -272,6 +270,7 @@ def run(args):
 
         return args
 
+
     # --- Setup logger ---
     logfile = getattr(args, "logfile", None)
     log_created = False
@@ -310,11 +309,6 @@ def run(args):
         args.ip = resolve_alias(args.ip, "ip", logger=logger)
 
     # --- Run selected command ---
-    if 'func' not in args:
-        logger.warning("Gui disabled, fts must have specified command")
-        logger.error("add \'--help\' for help\n")
-        sys.exit(1)
-
     try:
         args.func(args, logger)
     except KeyboardInterrupt:
@@ -416,16 +410,6 @@ def handle_gooey():
 
 
 def main():
-    if not GUI_ENABLED:
-        if "--gooey-json" in sys.argv:
-            sys.argv.remove("--gooey-json")
-        if "--ignore-gooey" in sys.argv:
-            sys.argv.remove("--ignore-gooey")
-        parser = build_parser()
-        args = parser.parse_args()
-        run(args)
-        return
-
     if "--gooey-json" in sys.argv:
         sys.argv.remove("--gooey-json")
         if "--ignore-gooey" in sys.argv:
@@ -445,9 +429,6 @@ def main():
         except Exception as e:
             print(f"Failed to get arguments:", e)
             sys.exit(1)
-        except KeyboardInterrupt:
-            print("")
-            sys.exit(130)
     else:
         parser = build_parser()
         args = parser.parse_args()
