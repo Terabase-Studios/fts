@@ -344,11 +344,11 @@ def handle_gooey_json():
     """Run Gooey and dump Namespace as JSON to a temp file, then exit."""
     @Gooey(program_name="FTS")
     def get_args():
-        parser = build_parser(gui=True)  # your parser builder
+        parser = build_parser()  # your parser builder
         print('INFO: Gui Opened')
         print('WARNING: GUI is heavily experimental, use at your own risk.')
         print('WARNING: Background processes are not available from GUI')
-        parser.parse_args()
+        args = parser.parse_args()
         # Other half continues in run for some reason
 
     get_args()
