@@ -125,7 +125,7 @@ def cmd_open(args, logger):
             sys.exit(1)
 
     # Try dynamic port handling BEFORE running asyncio
-    for attempt in range(5):
+    for attempt in range(45):
         try:
             server_coro = start_server(host, port, output_dir, logger, args.extract, args.progress, rate_limit=limit)
             asyncio.run(server_coro)
@@ -133,7 +133,7 @@ def cmd_open(args, logger):
         except OSError as e:
             if port != 0:
                 logger.warning(f"Port {port} unavailable, retrying with free port...")
-                port = 0
+                port +=1
             else:
                 logger.error(f"Failed to start server: {e}")
                 sys.exit(1)
