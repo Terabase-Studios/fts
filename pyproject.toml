@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fts"
-version = "0.4.0"
+version = "0.5.0"
 description = "Peer to peer file and directory tranfer system"
 authors = [
   { name = "Terabase Studios", email = "terabasestudios@gmail.com" }
 ]
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.13"
 
 dependencies = [
     "aiofiles==24.1.0",
@@ -18,12 +18,11 @@ dependencies = [
     "cryptography==45.0.7",
     "psutil==7.0.0",
     "tqdm==4.67.1",
-    "prompt_toolkit==3.0.52"
+    "prompt_toolkit==3.0.52",
+    "gooey==1.0.8.1",
 ]
 
 
 
 [project.scripts]
-fts = "fts.cli:main"
-
-# add sympy
+fts = "fts.__init__:main"

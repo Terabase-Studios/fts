@@ -1,4 +1,4 @@
 import fts
 
 def cmd_version(args, logger):
-    print(f"fts version {fts.__version__()}")
+    logger.info(f"fts version {fts.__version__()}")
