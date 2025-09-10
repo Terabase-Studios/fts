@@ -18,7 +18,8 @@ dependencies = [
     "cryptography==45.0.7",
     "psutil==7.0.0",
     "tqdm==4.67.1",
-    "prompt_toolkit==3.0.52"
+    "prompt_toolkit==3.0.52",
+    "argparse-interface==0.2.0"
 ]
 
 

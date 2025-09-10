@@ -1,10 +1,7 @@
-file extensions checkup - Good?
-progress bar when cancelling during warnings (send)
-increase limit accuracy
+Gui:
+    Fix chat printing
+    Add interactive arg to close
+    Fix cmd Crash
 
-MORE FILE TRANSFER SPEED
-
-
-1: specific folder and renames all file types
-2: move to internal hidden folder
-3: hide them - visibility
+Low pri:
+    increase limit accuracy - test

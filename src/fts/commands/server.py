@@ -105,6 +105,10 @@ def start_detached(args, logger) -> bool:
 
 def cmd_open(args, logger):
     """Start TLS receiver server safely with dynamic port handling and shutdown support."""
+    if not args.output:
+        logger.error("No path given")
+        return
+
     if start_detached(args, logger):
         return
 

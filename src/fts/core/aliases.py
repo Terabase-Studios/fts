@@ -63,27 +63,27 @@ def cmd_alias(args, logger):
     if args.action == "add":
         if not args.name or not args.value:
             logger.error("Must provide both 'name' and 'value' to add an alias.")
-            sys.exit(1)
+            return
         if args.type not in ("ip", "dir"):
             logger.error("Alias type must be 'ip' or 'dir'")
-            sys.exit(1)
+            return
 
         # Validate syntax
         if args.type == "ip":
             ip_pattern = r"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$"
             if not re.match(ip_pattern, args.value):
                 logger.error(f"Invalid IP address format: {args.value}")
-                sys.exit(1)
+                return
             octets = args.value.split(".")
             if any(int(o) > 255 for o in octets):
                 logger.error(f"IP address has octet > 255: {args.value}")
-                sys.exit(1)
+                return
         elif args.type == "dir":
             # Only check for illegal characters / syntax, not existence
             invalid_chars = '<>\"|?*'
             if any(c in args.value for c in invalid_chars):
                 logger.error(f"Directory alias contains invalid characters: {args.value}")
-                sys.exit(1)
+                return
             if os.path.isabs(args.value):
                 # Optional: enforce relative aliases
                 args.value = os.path.normpath(args.value)
@@ -98,7 +98,7 @@ def cmd_alias(args, logger):
     if args.action == "remove":
         if not args.name:
             logger.error("Must provide 'name' to remove an alias.")
-            sys.exit(1)
+            return
 
         found = False
         for t in ("ip", "dir"):

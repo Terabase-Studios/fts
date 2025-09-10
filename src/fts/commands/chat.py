@@ -17,24 +17,11 @@ COLORS = [
 RESET = "\033[0m"
 
 # -------------------------
-# Command Entry Point
-# -------------------------
-def cmd_chat(args, logger):
-    logger.debug(f"Options: {args}")
-    try:
-        if args.action == "create":
-            cmd_create(args, logger)
-        elif args.action == "join":
-            cmd_join(args, logger)
-    except Exception as e:
-        logger.error(f"Failed to execute command: {e}")
-        return
-
-
-# -------------------------
 # Host a chatroom
 # -------------------------
 def cmd_create(args, logger):
+    logger.debug(f"Options: {args}")
+
     port = args.port or DEFAULT_CHAT_PORT
     host = "0.0.0.0"
     logger.info(f"Starting FTS chatroom on {host}:{port}")
@@ -74,6 +61,8 @@ def cmd_create(args, logger):
 # Join a chatroom
 # -------------------------
 def cmd_join(args, logger):
+    logger.debug(f"Options: {args}")
+
     host = args.ip
     port = args.port or DEFAULT_CHAT_PORT
     logger.info(f"Joining FTS chatroom at {host}:{port}")
