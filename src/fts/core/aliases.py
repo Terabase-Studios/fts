@@ -72,8 +72,8 @@ def cmd_alias(args, logger):
         if args.type == "ip":
             ip_pattern = r"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$"
             if not re.match(ip_pattern, args.value):
-                logger.error(f"Invalid IP address format: {args.value}")
-                return
+                logger.warning(f"Potentially invalid IP address format: {args.value}")
+
             octets = args.value.split(".")
             if any(int(o) > 255 for o in octets):
                 logger.error(f"IP address has octet > 255: {args.value}")

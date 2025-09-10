@@ -312,7 +312,7 @@ def create_parser(gui=False) -> argparse.ArgumentParser:
     alias_parser.add_argument("value", nargs="?", type=str, help="alias value (required for 'add')")
     alias_parser.add_argument("type", nargs="?", type=str, choices=["ip", "dir"],
                               help="type of alias (required for 'add')")
-    alias_parser.set_defaults(func=load_cmd("fts.core.aliases", "cmd_create"))
+    alias_parser.set_defaults(func=load_cmd("fts.core.aliases", "cmd_alias"))
 
     return parser
 
@@ -337,7 +337,7 @@ def run(args):
             logfile = None
 
     # Determine logging mode based on command
-    if args.command == "chat":
+    if "chat" in args.command:
         log_mode = "ptk"  # Use prompt_toolkit mode for chat
     else:
         log_mode = "tqdm"  # Default tqdm-compatible mode

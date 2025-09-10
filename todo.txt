@@ -1,7 +1,9 @@
 Gui:
-    Fix chat printing
     Add interactive arg to close
     Fix cmd Crash
 
 Low pri:
     increase limit accuracy - test
+
+Zipping cancillation
+Pyzip no progress
