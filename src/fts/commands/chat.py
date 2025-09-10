@@ -76,11 +76,22 @@ def cmd_join(args, logger):
 # -------------------------
 # Server
 # -------------------------
-async def handle_client(reader, writer, clients, server_name, logger):
+async def handle_client(reader, writer, clients, banned_ips, server_name, logger):
     user_name = None
     addr = writer.get_extra_info("peername")
     started = False
     user_color = None
+
+    ip = addr[0]
+
+    # Reject immediately if banned
+    if ip in banned_ips:
+        try:
+            writer.close()
+            await writer.wait_closed()
+        except:
+            pass
+        return
 
     try:
         # --- 1. Wait for handshake ---
@@ -93,6 +104,23 @@ async def handle_client(reader, writer, clients, server_name, logger):
                 started = True
                 user_name = handshake
 
+                # --- ensure unique username ---
+                existing_names = {info["name"] for info in clients.values()}
+
+                while user_name in existing_names:
+                    # if it already ends in a number, increment it
+                    if user_name[-1].isdigit():
+                        # split into prefix + number
+                        prefix = user_name.rstrip("0123456789")
+                        num_str = user_name[len(prefix):]
+                        try:
+                            num = int(num_str)
+                        except ValueError:
+                            num = 1
+                        user_name = f"{prefix}{num + 1}"
+                    else:
+                        user_name = f"{user_name}2"
+
                 # --- Assign a unique color ---
                 used_colors = {info["color"] for info in clients.values()}
                 available_colors = [c for c in COLORS if c not in used_colors]
@@ -102,7 +130,9 @@ async def handle_client(reader, writer, clients, server_name, logger):
                     # fallback if all colors are used
                     user_color = random.choice(COLORS)
 
-                clients[writer] = {"name": user_name, "color": user_color}
+
+                ip = addr[0]
+                clients[writer] = {"name": user_name, "color": user_color, "ip": ip}
 
                 # broadcast join
                 for w, info in clients.items():
@@ -120,13 +150,55 @@ async def handle_client(reader, writer, clients, server_name, logger):
             if not message:
                 continue
 
-            # broadcast to all clients except sender
-            for w, info in list(clients.items()):
+            if str(ip) == "127.0.0.1" and "!kick" in message:
                 try:
-                    w.write(f"[{user_color}{user_name}{RESET}] {message}\n".encode())
-                    await w.drain()
-                except (ConnectionResetError, BrokenPipeError):
-                    clients.pop(w, None)
+                    target_name = message.split(" ", 1)[1].strip()
+                    target = None
+
+                    # Find target by name
+                    for w, info in list(clients.items()):
+                        if info["name"] == target_name:
+                            target = (w, info)
+                            break
+
+                    if target:
+                        tw, tinfo = target
+                        banned_ips.add(tinfo["ip"])
+                        # Notify everyone
+                        for w2, info2 in list(clients.items()):
+                            try:
+                                w2.write(
+                                    f"[!] {tinfo['color']}{tinfo['name']}{RESET} was kicked by admin\n".encode()
+                                )
+                                await w2.drain()
+                            except:
+                                clients.pop(w2, None)
+
+                        # Close target’s connection
+                        clients.pop(tw, None)
+                        tw.close()
+                        await tw.wait_closed()
+                    else:
+                        # feedback to admin only
+                        logger.info(f"No such user: {target_name}\n")
+                        continue
+
+                except:
+                    logger.info(f"Failed to parse command: {message}\n")
+                    continue
+            else:
+
+                if '!' == str(message[0]):
+                    logger.info(f"Unknown command: {message}\n")
+                    continue
+
+                # broadcast to all clients except sender
+                for w, info in list(clients.items()):
+                    try:
+                        w.write(f"[{user_color}{user_name}{RESET}] {message}\n".encode())
+                        await w.drain()
+                    except (ConnectionResetError, BrokenPipeError):
+                        clients.pop(w, None)
 
     except (asyncio.IncompleteReadError, ConnectionResetError):
         pass
@@ -147,9 +219,10 @@ async def handle_client(reader, writer, clients, server_name, logger):
 async def start_server(host="0.0.0.0", port=DEFAULT_CHAT_PORT, server_name="FTS Server", logger=None):
     clients = {}  # writer -> username
     ssl_ctx = secure.get_server_context()
+    banned_ips = set()
 
     server = await asyncio.start_server(
-        lambda r, w: handle_client(r, w, clients, server_name, logger),
+        lambda r, w: handle_client(r, w, clients, banned_ips, server_name, logger),
         host, port,
         ssl=ssl_ctx
     )
@@ -159,7 +232,7 @@ async def start_server(host="0.0.0.0", port=DEFAULT_CHAT_PORT, server_name="FTS 
         try:
             await server.serve_forever()
         except asyncio.CancelledError:
-            logger.info("Server shutdown")
+            return
 
 
 # -------------------------

@@ -183,6 +183,26 @@ async def start_server(host: str, port: int, output_dir: str, logger, extract=Fa
     async with server:
         await server.serve_forever()
 
+def uniquify_filename(filename, directory="."):
+    """
+    Ensure filename is unique in the given directory.
+    If filename exists, append or increment a number.
+    """
+    base, ext = os.path.splitext(filename)
+    prefix = base.rstrip("0123456789")
+    num_str = base[len(prefix):]
+
+    # Start count from existing number or 1 if none
+    start = int(num_str) if num_str.isdigit() else 1
+
+    candidate = filename
+    for i in itertools.count(start):
+        if not os.path.exists(os.path.join(directory, candidate)):
+            return candidate
+        candidate = f"{prefix}{i}{ext}"
+
+    return candidate
+
 
 async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, output_dir: str, client_id, logger, extract=False, progress_bar=False, rate_limit: int = 0):
     addr = writer.get_extra_info("peername")
@@ -196,6 +216,8 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
         checksum = struct.unpack(">I", checksum_bytes)[0]
         filename_bytes = await reader.readexactly(fname_len)
         filename = filename_bytes.decode("utf-8")
+        # make sure filename is unique
+        filename = uniquify_filename(filename, output_dir)
 
         # --- Validate ---
         if magic != MAGIC:
@@ -229,11 +251,11 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
 
         # --- Decompress if needed ---
         if flags & transferflags.FLAG_COMPRESSED:
-            out_path = await asyncio.to_thread(decompress_file, out_path, logger)
+            out_path = await asyncio.to_thread(decompress_file, out_path, client_id, logger)
 
         # --- Extract zip if requested ---
         if extract and zipfile.is_zipfile(out_path):
-            await asyncio.to_thread(extract_zip, out_path, logger)
+            await asyncio.to_thread(extract_zip, out_path, client_id, logger)
 
     except Exception as e:
         logger.exception(f"{client_id}: Error receiving file: {e}")

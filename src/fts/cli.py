@@ -2,6 +2,7 @@
 # PYTHON_ARGCOMPLETE_OK
 import argparse
 import os
+import pathlib
 import sys
 import argui
 from argui.types import FileSelectDir, FileSelectFile
@@ -76,7 +77,7 @@ def add_log_flags(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--logfile",
         metavar="FILE",
-        type=FileSelectFile(),
+        type=pathlib.Path,
         help="Log output to a file"
     )
 
@@ -173,7 +174,7 @@ def create_parser(gui=False) -> argparse.ArgumentParser:
     )
     send_parser.add_argument(
         "path",
-        type=FileSelectFile(),
+        type=pathlib.Path,
         help="Path to the file to send - required"
     )
     send_parser.add_argument(
