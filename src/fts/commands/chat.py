@@ -49,10 +49,25 @@ def cmd_create(args, logger):
         )
         await asyncio.gather(server_task, client_task)
 
-    try:
-        asyncio.run(run_server_and_client())
-    except KeyboardInterrupt:
-        logger.info("Chatroom closed.")
+    # Try dynamic port handling BEFORE running asyncio
+    for attempt in range(45):
+        try:
+            server_coro = run_server_and_client()
+            asyncio.run(server_coro)
+            return
+        except OSError as e:
+            if port != 0:
+                logger.warning(f"Port {port} unavailable, retrying with free port...")
+                port +=1
+            else:
+                logger.error(f"Failed to start server: {e}")
+                return
+        except KeyboardInterrupt:
+            logger.info("Chatroom closed")
+            return
+        except Exception as e:
+            logger.critical(f"Server error: {e}")
+            return
 
 
 # -------------------------
