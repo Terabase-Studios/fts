@@ -63,7 +63,7 @@ def _try_native_zip(directory_path, zip_path, logger, quiet, log_permission):
                 "powershell",
                 "-NoProfile",
                 "-Command",
-                f"try {{ Compress-Archive -Path '{directory_path}\\*' -DestinationPath '{zip_path}' -Force }} "
+                f"try {{ Compress-Archive -Path '{directory_path}\\*' -DestinationPath '{zip_path}' -CompressionLevel Fastest -Force }} "
                 f"catch {{ $_.Exception.Message }}"
             ]
             if logger: logger.info("Zipping via PowerShell Compress-Archive")
@@ -71,7 +71,7 @@ def _try_native_zip(directory_path, zip_path, logger, quiet, log_permission):
             _handle_windows_native_errors(result, log_permission)
 
         else:
-            cmd = ['zip', '-r', zip_path, directory_path]
+            cmd = ['zip', '-r', '-1', zip_path, directory_path]
             if logger: logger.info("Zipping via native zip command")
             result = subprocess.run(cmd, capture_output=True, text=True)
             _handle_unix_native_errors(result, cmd, log_permission)

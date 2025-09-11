@@ -5,5 +5,8 @@ Gui:
 Low pri:
     increase limit accuracy - test
 
+Library:
+    allow selecting/deleting/adding directories
+
 Zipping cancillation
 Pyzip no progress

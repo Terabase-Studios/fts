@@ -306,6 +306,11 @@ def create_parser(gui=False) -> argparse.ArgumentParser:
     chat_create_parser.add_argument("-p", "--port", type=int, help="Override port used")
     chat_create_parser.set_defaults(func=load_cmd("fts.commands.chat", "cmd_join"))
 
+    # --- library ---
+    library_parser = subparsers.add_parser("library", help="download and manage local file directories!")
+    library_parser.add_argument("task", choices=["manage"], help="task to perform")
+    library_parser.set_defaults(func=load_cmd("fts.library.commands", "cmd_library"))
+
     # --- alias ---
     alias_parser = subparsers.add_parser("alias", help="manage aliases")
     alias_parser.add_argument("action", choices=["add", "remove", "list"], help="action to perform")
@@ -389,6 +394,7 @@ def ensure_func(args):
         "chat-create": ("fts.commands.chat", "cmd_create"),
         "chatjoin": ("fts.commands.chat", "cmd_join"),
         "chat-join": ("fts.commands.chat", "cmd_join"),
+        "library": ("fts.library.commands", "cmd_library"),
     }
     if args.command in mapping:
         mod, fn = mapping[args.command]
