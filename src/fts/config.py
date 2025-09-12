@@ -5,6 +5,7 @@ MAGIC = b'FTS1'
 VERSION = 1.1
 DEFAULT_FILE_PORT = 5064
 DEFAULT_CHAT_PORT = 6064
+DISCOVERY_PORT = 1064
 
 # Send/Receive
 BUFFER_SIZE =  (1024 * 1024) * 8 # MB
@@ -14,7 +15,7 @@ MAX_SEND_RETRIES = 5
 PROGRESS_INTERVAL = .1       # update progress every 0.1s
 
 # Compression
-UNCOMPRESSIBLE_EXTS = {".zip", ".gz", ".bz2", ".xz", ".rar", ".7z", ".jpg", ".jpeg", ".png", ".mp4", ".mp3"}
+UNCOMPRESSIBLE_EXTS = {".zip", ".gz", ".bz2", ".xz", ".rar", ".7z", ".jpg", ".jpeg", ".png", ".mp4", ".mp3", ".iso"}
 
 # External dirs
 APP_DIR = os.path.expanduser("~/.fts")

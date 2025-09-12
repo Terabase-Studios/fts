@@ -1,9 +1,10 @@
 import json
 import os
-import sys
+import logging
+import re
+from pathlib import Path
 
 from fts.config import ALIASES_FILE
-
 
 # --- Load / Save Aliases ---
 def _load_aliases(logger=None):
@@ -116,10 +117,6 @@ def cmd_alias(args, logger):
 
 
 # --- Resolve alias to actual path or IP ---
-import logging
-import re
-from pathlib import Path
-
 def resolve_alias(path_or_alias: str, type_: str, logger=None):
     """
     Resolve a string using aliases (IP or directory).
@@ -171,3 +168,42 @@ def resolve_alias(path_or_alias: str, type_: str, logger=None):
     else:
         logger.error(f"Invalid type '{type_}' for alias resolution.")
         return None
+
+def reverse_resolve_alias(value: str, type_: str, logger=None):
+    """
+    Reverse lookup for aliases.
+
+    For IPs: if value matches an IP alias, return alias name, else return original IP.
+    For dirs: if value starts with a directory alias base, return alias + subpath.
+
+    :param value: IP or path string
+    :param type_: "ip" or "dir"
+    :param logger: optional logger
+    :return: alias name (or alias/subpath) if found, else original value
+    """
+    if logger is None:
+        logger = logging.getLogger("fts")
+
+    aliases = _load_aliases(logger)
+
+    if type_ == "ip":
+        for name, ip in aliases["ip"].items():
+            if value == ip:
+                return name
+        return value
+
+    elif type_ == "dir":
+        value_path = Path(value).resolve()
+        for alias_name, base_path in aliases["dir"].items():
+            base_path = Path(base_path).resolve()
+            try:
+                relative = value_path.relative_to(base_path)
+                # Found a matching alias, return alias + subpath
+                return str(Path(alias_name) / relative)
+            except ValueError:
+                continue
+        return value
+
+    else:
+        logger.error(f"Invalid type '{type_}' for reverse alias resolution.")
+        return value

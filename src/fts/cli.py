@@ -308,7 +308,14 @@ def create_parser(gui=False) -> argparse.ArgumentParser:
 
     # --- library ---
     library_parser = subparsers.add_parser("library", help="download and manage local file directories!")
-    library_parser.add_argument("task", choices=["manage"], help="task to perform")
+    library_parser.add_argument("task", choices=["find", "open", "manage"], help="task to perform")
+    library_parser.add_argument(
+        "output",
+        type=FileSelectDir(),
+        nargs="?",
+        metavar="OUTPUT_PATH",
+        help="Directory to save incoming transfers - required for (required for 'find')"
+    )
     library_parser.set_defaults(func=load_cmd("fts.library.commands", "cmd_library"))
 
     # --- alias ---
@@ -374,7 +381,12 @@ def run(args):
     #    sys.exit(2)
 
     # --- Run selected command ---
-    args.func(args, logger)
+    try:
+        args.func(args, logger)
+    except KeyboardInterrupt:
+        pass
+    except Exception as e:
+        pass
     print('')
 
 def ensure_func(args):

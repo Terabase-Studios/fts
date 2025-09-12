@@ -148,7 +148,7 @@ async def send_file(
     file_path = os.path.abspath(os.path.expanduser(file_path))
     if not os.path.isfile(file_path):
         logger.error(f"File does not exist: {file_path}")
-        sys.exit(1)
+        return
 
     filesize = os.path.getsize(file_path)
     filename = name or os.path.basename(file_path)
@@ -163,7 +163,7 @@ async def send_file(
             flags |= transferflags.FLAG_COMPRESSED
     except Exception as e:
         logger.error(f"Compression failed: {e}\n")
-        sys.exit(1)
+        return
 
     port = port or DEFAULT_FILE_PORT
 
@@ -191,7 +191,7 @@ async def send_file(
             ack = await reader.readexactly(4)
             if ack != b"OKAY":
                 logger.error("Did not receive confirmation from receiver")
-                sys.exit(1)
+                return
 
             logger.info(f"File sent successfully: {filename}")
         except:
@@ -205,7 +205,7 @@ async def send_file(
         raise KeyboardInterrupt
     except Exception as e:
         logger.error(f"Error sending file: {e}\n")
-        sys.exit(1)
+        return
 
 async def send_linear(file_path, filesize, writer, progress_bar, logger, rate_limit: int = 0):
     """
@@ -284,7 +284,7 @@ def cmd_send(args, logger):
         path = resolve_path(args.path)
     except Exception as e:
         logger.error(f"Error finding path: {e}\n")
-        sys.exit(1)
+        return
 
     logger.info(f"Preparing to send file '{path}' to {args.ip}")
     logger.debug(f"Options: {vars(args)}\n")
@@ -295,7 +295,7 @@ def cmd_send(args, logger):
             limit = parse_byte_string(args.limit)
         except Exception as e:
             logger.error(f"Error parsing limit: {e}\n")
-            sys.exit(1)
+            return
 
     try:
         asyncio.run(send_file(path, args.ip, args.port, logger, progress_bar=args.progress, name=args.name, compress=not args.nocompress, rate_limit=limit))
@@ -309,7 +309,7 @@ def cmd_send_dir(args, logger):
         path = resolve_path(args.path)
     except Exception as e:
         logger.error(f"Error finding path: {e}\n")
-        sys.exit(1)
+        return
 
     logger.info(f"Preparing to send directory '{path}' to {args.ip}")
     logger.debug(f"Options: {vars(args)}")
@@ -319,7 +319,7 @@ def cmd_send_dir(args, logger):
         logger.info(f"Directory zipped successfully: {zip_path}\n")
     except (FileNotFoundError, NotADirectoryError, ValueError) as e:
         logger.error(f"Error: {e}")
-        sys.exit(1)
+        return
 
     if not args.name:
         name = os.path.basename(path)
@@ -332,7 +332,7 @@ def cmd_send_dir(args, logger):
             limit = parse_byte_string(args.limit)
         except Exception as e:
             logger.error(f"Error parsing limit: {e}\n")
-            sys.exit(1)
+            return
 
     try:
         asyncio.run(send_file(zip_path, args.ip, args.port, logger, progress_bar=args.progress, name=name, rate_limit=limit))

@@ -128,10 +128,14 @@ def cmd_open(args, logger):
             logger.error(f"Error parsing limit: {e}\n")
             sys.exit(1)
 
+    max_sends = None
+    if hasattr(args, "max_sends") and args.max_sends is not None:
+        max_sends = args.max_sends
+
     # Try dynamic port handling BEFORE running asyncio
     for attempt in range(45):
         try:
-            server_coro = start_server(host, port, output_dir, logger, args.extract, args.progress, rate_limit=limit)
+            server_coro = start_server(host, port, output_dir, logger, args.extract, args.progress, rate_limit=limit, max_sends=max_sends)
             asyncio.run(server_coro)
             return
         except OSError as e:
@@ -141,6 +145,9 @@ def cmd_open(args, logger):
             else:
                 logger.error(f"Failed to start server: {e}")
                 sys.exit(1)
+        except asyncio.CancelledError:
+            logger.info("Server shutdown requested by user")
+            return
         except KeyboardInterrupt:
             logger.info("Server shutdown requested by user")
             return
@@ -150,38 +157,53 @@ def cmd_open(args, logger):
 
 
 
-async def start_server(host: str, port: int, output_dir: str, logger, extract=False, progress_bar=False, rate_limit: int = 0):
-    """
-    Starts an async SSL server that listens for incoming connections, handles clients,
-    and saves files to output_dir. Logs progress.
-    """
+async def start_server(host: str, port: int, output_dir: str, logger,
+                       extract=False, progress_bar=False, rate_limit: int = 0, max_sends=None):
     from ssl import SSLContext
     ssl_context: SSLContext = secure.get_server_context()
-
-    # Ensure output directory exists
     os.makedirs(output_dir, exist_ok=True)
 
+    send_counter = 0
+    shutdown_event = asyncio.Event()  # will signal server shutdown
+
     async def handle_connection(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
+        nonlocal send_counter
         client_id = next(_client_ids)
         addr = writer.get_extra_info('peername')
 
         try:
-            await handle_client(reader, writer, output_dir, client_id, logger, extract, progress_bar, rate_limit=rate_limit)
+            file_sent = await handle_client(reader, writer, output_dir, client_id,
+                                            logger, extract, progress_bar, rate_limit=rate_limit)
+            if max_sends is not None:
+                send_counter += 1
+                logger.info(f"{client_id}: Transfer requests: {send_counter}/{max_sends}")
+                if send_counter >= max_sends:
+                    logger.info("Maximum send attempts reached, shutting down server.")
+                    shutdown_event.set()  # trigger server shutdown
+
         except Exception as e:
             logger.error(f"{client_id}: Unhandled client exception: {e}", exc_info=True)
         finally:
             try:
                 writer.close()
+                await writer.wait_closed()
             except Exception:
                 pass
-
             logger.info(f"{client_id}: Connection from {addr} closed\n")
-
 
     server = await asyncio.start_server(handle_connection, host, port, ssl=ssl_context)
     logger.info(f"Server listening on {host}:{port}\n")
-    async with server:
-        await server.serve_forever()
+
+    # Start serving connections in the background
+    server_task = asyncio.create_task(server.serve_forever())
+
+    # Wait for shutdown signal
+    await shutdown_event.wait()
+    server.close()
+    await server.wait_closed()
+    server_task.cancel()
+    logger.info("Server has shut down after reaching max_sends")
+
 
 def uniquify_filename(filename, directory="."):
     """
