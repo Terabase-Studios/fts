@@ -30,6 +30,8 @@ from fts.utilities import format_bytes, parse_byte_string
 # Helper functions
 # -------------------------
 def resolve_path(path: str) -> str:
+    if not path or path == "":
+        raise ValueError("No path given")
     path = os.path.expanduser(path)
     return os.path.abspath(path)
 
@@ -271,6 +273,8 @@ async def send_linear(file_path, filesize, writer, progress_bar, logger, rate_li
 
     except asyncio.CancelledError:
         raise
+    except ConnectionError:
+        pass
     except Exception as e:
         logger.error(f"{e}")
     finally:

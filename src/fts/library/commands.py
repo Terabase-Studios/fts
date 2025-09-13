@@ -103,24 +103,27 @@ def cmd_find(args, logger):
             if ok != b"okay":
                 logger.error(f"Request for file {lib_file_path} failed")
 
-            server_args = argparse.Namespace(
-                command='open',
-                logfile=args.logfile,
-                quiet=args.quiet,
-                verbose=args.verbose,
-                gui=args.gui,
-                output=args.output,
-                detached=False,
-                limit=None,
-                timeout=None,
-                extract=False,
-                progress=True,
-                port=port,
-                ip=ip,
-                func=None,
-                max_sends=1,
-            )
+            try:
+                server_args = argparse.Namespace(
+                    command='open',
+                    logfile=args.logfile,
+                    quiet=args.quiet,
+                    verbose=args.verbose,
+                    output=args.output,
+                    detached=False,
+                    limit=None,
+                    timeout=None,
+                    extract=False,
+                    progress=True,
+                    port=port,
+                    ip=ip,
+                    func=None,
+                    max_sends=1,
+                )
+            except Exception as e:
+                logger.error(f"Failed to create server args: {e}")
 
+            print("as;kdjfkdlsalf;la")
             return server_args
 
         else:
@@ -131,6 +134,7 @@ def cmd_find(args, logger):
     server_args = asyncio.run(run(args))
     if server_args:
         try:
+            logger.info(f"Opening server to recieve file")
             print('')
             file_server.cmd_open(server_args, logger)
         except KeyboardInterrupt:

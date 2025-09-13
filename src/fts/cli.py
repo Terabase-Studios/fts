@@ -5,7 +5,8 @@ import os
 import pathlib
 import sys
 import argui
-from argui.types import FileSelectDir, FileSelectFile
+from argui.types import FileSelectDir
+from fts.core.defaults import load_defaults
 
 from fts.core.aliases import resolve_alias
 
@@ -71,14 +72,15 @@ def load_cmd(module_path, func_name):
 
 
 # --- Reusable argument groups ---
-def add_log_flags(parser: argparse.ArgumentParser) -> None:
+def add_log_flags(parser: argparse.ArgumentParser, defaults) -> None:
     """Add common logging and output flags."""
 
     parser.add_argument(
         "--logfile",
         metavar="FILE",
         type=pathlib.Path,
-        help="Log output to a file"
+        help="Log output to a file",
+        default=defaults.get("logfile", None),
     )
 
     #group = parser.add_mutually_exclusive_group()
@@ -95,7 +97,7 @@ def add_log_flags(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def add_network_flags(parser: argparse.ArgumentParser) -> None:
+def add_network_flags(parser: argparse.ArgumentParser, defaults) -> None:
     """Add network-related flags."""
     parser.add_argument(
         "-p", "--port",
@@ -113,6 +115,12 @@ def add_network_flags(parser: argparse.ArgumentParser) -> None:
 
 # --- Main parser ---
 def create_parser(gui=False) -> argparse.ArgumentParser:
+    defaults = {}
+    try:
+        defaults = load_defaults()
+    except Exception as e:
+        print("Failed to load defaults.", file=sys.stderr)
+
     parser = argparse.ArgumentParser(
         prog="fts",
         description="FTS: File transfers, chatrooms, and more."
@@ -124,7 +132,7 @@ def create_parser(gui=False) -> argparse.ArgumentParser:
         help="Available commands",
     )
 
-    add_log_flags(parser)
+    add_log_flags(parser, defaults)
 
     # --- open ---
     open_parser = subparsers.add_parser(
@@ -135,7 +143,8 @@ def create_parser(gui=False) -> argparse.ArgumentParser:
         "output",
         type=FileSelectDir(),
         metavar="OUTPUT_PATH",
-        help="Directory to save incoming transfers - required"
+        help="Directory to save incoming transfers - required",
+        default=defaults.get("output", None),
     )
     open_parser.add_argument(
         "-d", "--detached",
@@ -164,7 +173,7 @@ def create_parser(gui=False) -> argparse.ArgumentParser:
         action="store_true",
         help="Show progress bars during operations"
     )
-    add_network_flags(open_parser)
+    add_network_flags(open_parser, defaults)
     open_parser.set_defaults(func=load_cmd("fts.commands.server", "cmd_open"))
 
     # --- send ---
@@ -314,7 +323,8 @@ def create_parser(gui=False) -> argparse.ArgumentParser:
         type=FileSelectDir(),
         nargs="?",
         metavar="OUTPUT_PATH",
-        help="Directory to save incoming transfers - required for (required for 'find')"
+        help="Directory to save incoming transfers - required for (required for 'find')",
+        default=defaults.get("output", None),
     )
     library_parser.set_defaults(func=load_cmd("fts.library.commands", "cmd_library"))
 
@@ -326,6 +336,19 @@ def create_parser(gui=False) -> argparse.ArgumentParser:
     alias_parser.add_argument("type", nargs="?", type=str, choices=["ip", "dir"],
                               help="type of alias (required for 'add')")
     alias_parser.set_defaults(func=load_cmd("fts.core.aliases", "cmd_alias"))
+
+    # --- defaults ---
+    defaults_parser = subparsers.add_parser("defaults", help="manage default settings")
+    defaults_parser.add_argument(
+        "output",
+        type=FileSelectDir(),
+        metavar="OUTPUT_PATH",
+        nargs="?",
+        help="Directory to save incoming transfers - required",
+        default=defaults.get("output", None),
+    )
+
+    defaults_parser.set_defaults(func=load_cmd("fts.core.defaults", "cmd_save"))
 
     return parser
 
@@ -407,6 +430,7 @@ def ensure_func(args):
         "chatjoin": ("fts.commands.chat", "cmd_join"),
         "chat-join": ("fts.commands.chat", "cmd_join"),
         "library": ("fts.library.commands", "cmd_library"),
+        "defaults": ("fts.core.defaults", "cmd_save"),
     }
     if args.command in mapping:
         mod, fn = mapping[args.command]

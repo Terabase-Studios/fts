@@ -178,7 +178,7 @@ async def start_server(host: str, port: int, output_dir: str, logger,
                 send_counter += 1
                 logger.info(f"{client_id}: Transfer requests: {send_counter}/{max_sends}")
                 if send_counter >= max_sends:
-                    logger.info("Maximum send attempts reached, shutting down server.")
+                    logger.info("Maximum transfer requests reached, closing server")
                     shutdown_event.set()  # trigger server shutdown
 
         except Exception as e:
@@ -202,7 +202,7 @@ async def start_server(host: str, port: int, output_dir: str, logger,
     server.close()
     await server.wait_closed()
     server_task.cancel()
-    logger.info("Server has shut down after reaching max_sends")
+    logger.info("Server shutdown after max transfer requests reached")
 
 
 def uniquify_filename(filename, directory="."):

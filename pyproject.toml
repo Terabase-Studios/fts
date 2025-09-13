@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fts-tool"
-version = "1.1.0-alpha2"
+version = "1.1.0-beta1"
 description = "Peer to peer file and directory transfer system"
 authors = [
   { name = "Terabase Studios", email = "terabasestudios@gmail.com" }

@@ -215,15 +215,29 @@ def browse_map(lm: LibraryMap):
                     manager.vl.cwd = manager.vl._resolve_path(manager.vl.path_stack)
                     print(f"Added: {virtual_path} -> {real_path}")
 
+
             elif cmd == "remove":
                 if len(parts) != 2:
                     print("Usage: remove <name>")
                     continue
                 virtual_path = "/".join(manager.vl.path_stack + [parts[1]])
                 manager.lm.remove(virtual_path)
+
+                # Rebuild the tree after removal
                 manager.tree = build_library_tree(manager.lm.map)
                 manager.vl.root = manager.tree
-                manager.vl.cwd = manager.vl._resolve_path(manager.vl.path_stack)
+
+                # Try to resolve current path stack
+                try:
+                    manager.vl.cwd = manager.vl._resolve_path(manager.vl.path_stack)
+                except KeyError:
+                    # Directory is gone, pop up one level
+                    if manager.vl.path_stack:
+                        manager.vl.path_stack.pop()
+                        manager.vl.cwd = manager.vl._resolve_path(manager.vl.path_stack)
+                    else:
+                        # Already at root
+                        manager.vl.cwd = manager.vl.root
                 print(f"Removed: {virtual_path}")
 
             elif cmd == "rename":
