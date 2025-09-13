@@ -375,12 +375,12 @@ async def receive_linear(reader, filesize, out_path, client_id, logger, progress
         net_speed = total_bytes_net / total_net_time if total_net_time > 0 else 0
         disk_speed = total_bytes_disk / total_disk_time if total_disk_time > 0 else 0
 
-        logger.debug(f"{client_id}: Network read speed: {format_bytes(net_speed)}/s")
+        #logger.debug(f"{client_id}: Network read speed: {format_bytes(net_speed)}/s")
         logger.debug(f"{client_id}: Disk write speed: {format_bytes(disk_speed)}/s")
-        if net_speed < disk_speed:
-            logger.debug(f"{client_id}: Network is the bottleneck: {format_bytes(net_speed)}/s")
-        else:
-            logger.debug(f"{client_id}: Disk is the bottleneck: {format_bytes(disk_speed)}/s")
+        #if net_speed < disk_speed:
+        #    logger.debug(f"{client_id}: Network is the bottleneck: {format_bytes(net_speed)}/s")
+        #else:
+        #    logger.debug(f"{client_id}: Disk is the bottleneck: {format_bytes(disk_speed)}/s")
 
 
         time_end = time.monotonic()
