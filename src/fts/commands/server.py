@@ -289,13 +289,18 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
             pass
 
 async def receive_linear(reader, filesize, out_path, client_id, logger, progress_bar=False, rate_limit: int = 0):
-    """
-    High-performance async file receiver using batch reads and memoryview,
-    with thread-based file writes to avoid blocking the event loop and optional rate limiting.
-    """
+    import time
+    from tqdm import tqdm
+
     received = 0
     last_progress_update = time.monotonic()
     next_recv_time = time.monotonic()
+
+    total_net_time = 0.0
+    total_disk_time = 0.0
+    total_bytes_net = 0
+    total_bytes_disk = 0
+
     progress = tqdm(
         total=filesize,
         unit="B",
@@ -303,31 +308,43 @@ async def receive_linear(reader, filesize, out_path, client_id, logger, progress
         unit_divisor=1024,
         disable=not progress_bar,
         leave=False,
-        desc = f"{client_id}",
+        desc=f"{client_id}",
     )
 
-    # Helper function to write a chunk in a thread
     def write_chunk(f1, mv1):
         f1.write(mv1)
 
     try:
-        with open(out_path, "wb") as f:  # regular file
+        with open(out_path, "wb") as f:
             while received < filesize:
                 chunk_size = min(BUFFER_SIZE * BATCH_SIZE, filesize - received)
                 if chunk_size <= 0:
                     break
 
+                # --- Time the network receive ---
+                t0 = time.monotonic()
                 try:
                     chunk = await asyncio.wait_for(reader.read(chunk_size), timeout=30)
                 except (ConnectionResetError, OSError, asyncio.TimeoutError):
                     logger.warning(f"{client_id}: Client disconnected or read timeout")
                     break
+                net_time = time.monotonic() - t0
 
                 if not chunk:
                     break
 
+                total_net_time += net_time
+                total_bytes_net += len(chunk)
+
                 mv = memoryview(chunk)
+
+                # --- Time the disk write ---
+                t0 = time.monotonic()
                 await asyncio.to_thread(write_chunk, f, mv)
+                disk_time = time.monotonic() - t0
+
+                total_disk_time += disk_time
+                total_bytes_disk += len(mv)
 
                 received += len(chunk)
 
@@ -339,7 +356,7 @@ async def receive_linear(reader, filesize, out_path, client_id, logger, progress
                         await asyncio.sleep(next_recv_time - now)
                     next_recv_time = max(now, next_recv_time) + target_time
 
-                # Periodic progress update
+                # Progress update
                 now = time.monotonic()
                 if progress_bar and now - last_progress_update >= PROGRESS_INTERVAL:
                     progress.n = received
@@ -347,11 +364,22 @@ async def receive_linear(reader, filesize, out_path, client_id, logger, progress
                     last_progress_update = now
 
     finally:
-        # Final progress update
         if progress_bar:
             progress.n = received
             progress.refresh()
         progress.close()
+
+        # Compute throughputs
+        net_speed = total_bytes_net / total_net_time if total_net_time > 0 else 0
+        disk_speed = total_bytes_disk / total_disk_time if total_disk_time > 0 else 0
+
+        logger.debug(f"{client_id}: Network read speed: {format_bytes(net_speed)}/s")
+        logger.debug(f"{client_id}: Disk write speed: {format_bytes(disk_speed)}/s")
+        if net_speed < disk_speed:
+            logger.debug(f"{client_id}: Network is the bottleneck: {format_bytes(net_speed)}/s")
+        else:
+            logger.debug(f"{client_id}: Disk is the bottleneck: {format_bytes(disk_speed)}/s")
+
         return received
 
 

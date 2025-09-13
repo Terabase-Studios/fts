@@ -5,8 +5,16 @@ Gui:
 Low pri:
     increase limit accuracy - test
 
-Library:
-    allow selecting/deleting/adding directories
+Zipping:
+    Pyzip no progress
+    Zipping cancellation
 
-Zipping cancillation
-Pyzip no progress
+Chat:
+    running commands on non host
+    force close of client window causing error on host: Connection reset error in line 217
+
+Ideas:
+    Parallel sending
+
+Library:
+    handling connection lost for file request

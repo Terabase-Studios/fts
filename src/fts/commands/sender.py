@@ -2,12 +2,10 @@ import asyncio
 import os
 import shutil
 import struct
-import sys
 import tempfile
 import time
 import zlib
 
-import aiofiles
 from tqdm.asyncio import tqdm_asyncio as tqdm
 
 import fts.flags as transferflags
@@ -209,11 +207,11 @@ async def send_file(
         logger.error(f"Error sending file: {e}\n")
         return
 
+
 async def send_linear(file_path, filesize, writer, progress_bar, logger, rate_limit: int = 0):
-    """
-    Ultra-fast async file sender using thread-based blocking file reads.
-    Avoids blocking event loop and unnecessary memory copies.
-    """
+    import time
+    from tqdm import tqdm
+
     progress = tqdm(
         total=filesize,
         unit="B",
@@ -227,24 +225,35 @@ async def send_linear(file_path, filesize, writer, progress_bar, logger, rate_li
     next_send_time = time.monotonic()
     last_progress_update = time.monotonic()
 
-    # Helper function to read a chunk in a thread
+    total_read_time = 0.0
+    total_write_time = 0.0
+    total_bytes_read = 0
+    total_bytes_sent = 0
+
     def read_chunk(f, size):
         return f.read(size)
 
     try:
-        with open(file_path, "rb") as f:  # regular blocking file
+        with open(file_path, "rb") as f:
             while True:
-                # Read a large chunk in a thread to avoid blocking event loop
+                # Time the file read
+                t0 = time.monotonic()
                 chunk = await asyncio.to_thread(read_chunk, f, BUFFER_SIZE * BATCH_SIZE)
+                read_time = time.monotonic() - t0
+
                 if not chunk:
                     break
+
+                total_read_time += read_time
+                total_bytes_read += len(chunk)
 
                 mv = memoryview(chunk)
                 batch_size_bytes = len(mv)
 
+                # Time the network write/drain
+                t0 = time.monotonic()
                 writer.write(mv)
 
-                # Bandwidth limiting
                 if rate_limit > 0:
                     now = time.monotonic()
                     target_time = batch_size_bytes / rate_limit
@@ -252,11 +261,10 @@ async def send_linear(file_path, filesize, writer, progress_bar, logger, rate_li
                         await asyncio.sleep(next_send_time - now)
                     next_send_time = max(now, next_send_time) + target_time
 
-                sent += batch_size_bytes
-
-                # Only drain if buffer is large
                 if writer.transport.get_write_buffer_size() > FLUSH_SIZE:
                     await writer.drain()
+                total_write_time += time.monotonic() - t0
+                total_bytes_sent += batch_size_bytes
 
                 # Update progress periodically
                 now = time.monotonic()
@@ -265,8 +273,13 @@ async def send_linear(file_path, filesize, writer, progress_bar, logger, rate_li
                     progress.refresh()
                     last_progress_update = now
 
+                sent += batch_size_bytes
+
         # Final drain
+        t0 = time.monotonic()
         await writer.drain()
+        total_write_time += time.monotonic() - t0
+
         if progress_bar:
             progress.n = sent
             progress.refresh()
@@ -279,6 +292,15 @@ async def send_linear(file_path, filesize, writer, progress_bar, logger, rate_li
         logger.error(f"{e}")
     finally:
         progress.close()
+        # Calculate speeds
+        disk_speed = total_bytes_read / total_read_time if total_read_time > 0 else 0
+        net_speed = total_bytes_sent / total_write_time if total_write_time > 0 else 0
+        logger.debug(f"Disc read speed: {format_bytes(disk_speed)}/s")
+        logger.debug(f"Network write speed:: {format_bytes(net_speed)}/s")
+        if disk_speed < net_speed:
+            logger.debug(f"Disk is the bottleneck: {format_bytes(disk_speed)}/s")
+        else:
+            logger.debug(f"Network is the bottleneck: {format_bytes(net_speed)}/s")
         return sent
 
 
