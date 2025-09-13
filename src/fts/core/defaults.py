@@ -1,8 +1,8 @@
 import json
-
-from pathlib import Path
-from fts.config import DEFAULTS_FILE
 from argparse import Namespace
+from pathlib import Path
+
+from fts.config import DEFAULTS_FILE
 
 
 def cmd_save(args, logger):
