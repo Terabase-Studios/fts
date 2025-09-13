@@ -311,6 +311,8 @@ async def receive_linear(reader, filesize, out_path, client_id, logger, progress
         desc=f"{client_id}",
     )
 
+    time_start = time.monotonic()
+
     def write_chunk(f1, mv1):
         f1.write(mv1)
 
@@ -379,6 +381,13 @@ async def receive_linear(reader, filesize, out_path, client_id, logger, progress
             logger.debug(f"{client_id}: Network is the bottleneck: {format_bytes(net_speed)}/s")
         else:
             logger.debug(f"{client_id}: Disk is the bottleneck: {format_bytes(disk_speed)}/s")
+
+
+        time_end = time.monotonic()
+        time_elapsed = time_end - time_start
+        average_speed = received / time_elapsed
+        logger.debug(f"{client_id}: Time elapsed: {time_elapsed:.2f} seconds")
+        logger.debug(f"{client_id}: Average Speed: {format_bytes(average_speed)} per second")
 
         return received
 

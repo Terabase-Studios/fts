@@ -230,6 +230,8 @@ async def send_linear(file_path, filesize, writer, progress_bar, logger, rate_li
     total_bytes_read = 0
     total_bytes_sent = 0
 
+    time_start = time.monotonic()
+
     def read_chunk(f, size):
         return f.read(size)
 
@@ -296,11 +298,17 @@ async def send_linear(file_path, filesize, writer, progress_bar, logger, rate_li
         disk_speed = total_bytes_read / total_read_time if total_read_time > 0 else 0
         net_speed = total_bytes_sent / total_write_time if total_write_time > 0 else 0
         logger.debug(f"Disc read speed: {format_bytes(disk_speed)}/s")
-        logger.debug(f"Network write speed:: {format_bytes(net_speed)}/s")
+        logger.debug(f"Network write speed: {format_bytes(net_speed)}/s")
         if disk_speed < net_speed:
             logger.debug(f"Disk is the bottleneck: {format_bytes(disk_speed)}/s")
         else:
             logger.debug(f"Network is the bottleneck: {format_bytes(net_speed)}/s")
+        time_end = time.monotonic()
+        time_elapsed = time_end - time_start
+        average_speed = sent / time_elapsed
+        logger.debug(f"Time elapsed: {time_elapsed:.2f} seconds")
+        logger.debug(f"Average Speed: {format_bytes(average_speed)} per second")
+
         return sent
 
 
