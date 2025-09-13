@@ -82,6 +82,7 @@ def cmd_find(args, logger):
                     return None
 
                 lib_file_path = await asyncio.to_thread(browse_library, tree_json)
+
                 if lib_file_path and lib_file_path != "":
                     file_selected = True
                     ip = selected_ip
@@ -99,7 +100,13 @@ def cmd_find(args, logger):
 
             header = b"send"  # your header as bytes
             message = header + json_bytes
-            ok = await discover.send_command(ip, message)
+
+            try:
+                ok = await discover.send_command(ip, message)
+            except OSError as e:
+                if e.winerror == 10054:
+                    logger.error(f"Failed to request file from {reverse_resolve_alias(ip, "ip")}...")
+                    return None
             if ok != b"okay":
                 logger.error(f"Request for file {lib_file_path} failed")
 
@@ -123,7 +130,6 @@ def cmd_find(args, logger):
             except Exception as e:
                 logger.error(f"Failed to create server args: {e}")
 
-            print("as;kdjfkdlsalf;la")
             return server_args
 
         else:
@@ -150,6 +156,13 @@ def cmd_open(args, logger):
         asyncio.run(discover.library_server(logger))
     except KeyboardInterrupt:
         return
+    except OSError as e:
+        if e.winerror == 10048:
+            logger.error(f"No free port for library: your library may already be opened")
+        else:
+            logger.error(f"Failed to open library: {e}")
+    except Exception as e:
+        logger.error(f"Failed to open library: {e}")
 
 
 def cmd_manage(args, logger):
