@@ -1,9 +1,11 @@
 import asyncio
+import random
+
 from prompt_toolkit import PromptSession
 from prompt_toolkit.patch_stdout import patch_stdout
-from fts.config import DEFAULT_CHAT_PORT, MAGIC
+
 import fts.core.secure as secure
-import random
+from fts.config import DEFAULT_CHAT_PORT
 
 # Predefined ANSI color codes
 COLORS = [
@@ -186,12 +188,12 @@ async def handle_client(reader, writer, clients, banned_ips, server_name, logger
                 except:
                     logger.info(f"Failed to parse command: {message}\n")
                     continue
-            else:
-
+            elif str(ip) == "127.0.0.1":
                 if '!' == str(message[0]):
                     logger.info(f"Unknown command: {message}\n")
                     continue
 
+            else:
                 # broadcast to all clients except sender
                 for w, info in list(clients.items()):
                     try:
@@ -214,7 +216,10 @@ async def handle_client(reader, writer, clients, banned_ips, server_name, logger
                     clients.pop(w, None)
 
         writer.close()
-        await writer.wait_closed()
+        try:
+            await writer.wait_closed()
+        except:
+            pass
 
 async def start_server(host="0.0.0.0", port=DEFAULT_CHAT_PORT, server_name="FTS Server", logger=None):
     clients = {}  # writer -> username

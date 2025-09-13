@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
 # PYTHON_ARGCOMPLETE_OK
 import argparse
+import io
 import os
 import pathlib
 import sys
+from contextlib import redirect_stdout, redirect_stderr
+
 import argui
 from argui.types import FileSelectDir
-from fts.core.defaults import load_defaults
 
 from fts.core.aliases import resolve_alias
+from fts.core.defaults import load_defaults
+
 
 def size_type(value: str) -> int:
     """Parse human-readable sizes like '10MB' into bytes."""
@@ -271,6 +275,7 @@ def create_parser(gui=False) -> argparse.ArgumentParser:
         "close",
         help="Close a detached server",
     )
+    close_parser.add_argument("process", choices=["receiving"], help="process to close")
     close_parser.set_defaults(func=load_cmd("fts.commands.server", "cmd_close"))
 
     # --- trust ---
@@ -438,6 +443,12 @@ def ensure_func(args):
 
     return args
 
+
+# Dummy sys.exit to prevent process termination
+def dummy_exit(code=0):
+    raise RuntimeError(f"sys.exit({code}) called")
+
+
 # --- Main CLI setup ---
 def main():
     import logging
@@ -448,8 +459,26 @@ def main():
         gui = True
 
     parser = create_parser(gui)
-    interface = argui.Wrapper(parser, logLevel= logging.ERROR)
-    args: argparse.Namespace = interface.parseArgs()
+    interface = argui.Wrapper(parser, logLevel= logging.CRITICAL, )
+
+    selected_cmd = False
+
+    # Dummy output streams to collect prints for Command* error
+    f = io.StringIO()
+
+    with redirect_stdout(f), redirect_stderr(f):
+        while not selected_cmd:
+            try:
+                args: argparse.Namespace = interface.parseArgs()
+                if "No nodes match" in str(f.getvalue()):
+                    f.seek(0)  # Move the cursor to the beginning of the stream
+                    f.truncate(0)  # Truncate the stream to zero length
+                    continue
+                else:
+                    selected_cmd = True
+            except:
+                break
+
 
     if not args:
         print('')

@@ -1,6 +1,8 @@
 from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import Completer, Completion
+
 from fts.library.tree import VirtualLibrary
+
 
 class LibraryCompleter(Completer):
     """

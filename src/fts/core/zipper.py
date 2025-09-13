@@ -92,24 +92,29 @@ def _try_native_zip(directory_path, zip_path, logger, quiet, log_permission):
 
 def _handle_windows_native_errors(result, log_permission):
     """Parse PowerShell Compress-Archive errors for permission messages."""
-    for line in (result.stdout + result.stderr).splitlines():
-        if "Access to the path" in line:
-            match = re.search(r"'(.+?)'", line)
-            path = match.group(1) if match else "unknown"
-            log_permission(path)
-
+    try:
+        for line in (result.stdout + result.stderr).splitlines():
+            if "Access to the path" in line:
+                match = re.search(r"'(.+?)'", line)
+                path = match.group(1) if match else "unknown"
+                log_permission(path)
+    except KeyboardInterrupt:
+        raise
 
 def _handle_unix_native_errors(result, cmd, log_permission):
     """Parse Unix zip errors for permission messages and raise if needed."""
-    if result.returncode != 0:
-        for line in result.stderr.splitlines():
-            if "Permission denied" in line:
-                match = re.search(r"'(.+?)'", line)
-                path = match.group(1) if match else line.split()[-1]
-                log_permission(path)
-        # Raise if errors other than permissions occurred
-        if result.returncode != 0 and not any("Permission denied" in l for l in result.stderr.splitlines()):
-            raise subprocess.CalledProcessError(result.returncode, cmd, result.stdout, result.stderr)
+    try:
+        if result.returncode != 0:
+            for line in result.stderr.splitlines():
+                if "Permission denied" in line:
+                    match = re.search(r"'(.+?)'", line)
+                    path = match.group(1) if match else line.split()[-1]
+                    log_permission(path)
+            # Raise if errors other than permissions occurred
+            if result.returncode != 0 and not any("Permission denied" in l for l in result.stderr.splitlines()):
+                raise subprocess.CalledProcessError(result.returncode, cmd, result.stdout, result.stderr)
+    except KeyboardInterrupt:
+        raise
 
 
 def _zip_with_python(directory_path, zip_path, progress_bar, logger, quiet, log_permission):

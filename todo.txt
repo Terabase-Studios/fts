@@ -1,20 +1,2 @@
-Gui:
-    Add interactive arg to close
-    Fix cmd Crash
-
 Low pri:
     increase limit accuracy - test
-
-Zipping:
-    Pyzip no progress
-    Zipping cancellation
-
-Chat:
-    running commands on non host
-    force close of client window causing error on host: Connection reset error in line 217
-
-Ideas:
-    Parallel sending
-
-Library:
-    handling connection lost for file request

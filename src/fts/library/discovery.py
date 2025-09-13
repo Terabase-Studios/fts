@@ -1,12 +1,13 @@
 import asyncio
-from fts.config import DISCOVERY_PORT
-from fts.library.map import LibraryMap
-from fts.library.tree import build_library_tree
-from fts.config import LIBRARY_FILE
-from fts.core.aliases import reverse_resolve_alias
-import fts.commands.sender as sender
 import json
 import os
+
+import fts.commands.sender as sender
+from fts.config import DISCOVERY_PORT
+from fts.config import LIBRARY_FILE
+from fts.core.aliases import reverse_resolve_alias
+from fts.library.map import LibraryMap
+from fts.library.tree import build_library_tree
 
 DISCOVERY_MESSAGE = b"ping"
 TREE_MESSAGE = b"tree"

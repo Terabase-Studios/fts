@@ -12,7 +12,7 @@ BUFFER_SIZE =  (1024 * 1024) * 8 # MB
 BATCH_SIZE = 4                   # number of chunks per batch
 FLUSH_SIZE =  (1024 * 1024) * 16 # MB
 MAX_SEND_RETRIES = 5
-PROGRESS_INTERVAL = 0            # update progress every 0.01s
+PROGRESS_INTERVAL = 0            # update progress every Xs
 
 # Compression
 UNCOMPRESSIBLE_EXTS = {".zip", ".gz", ".bz2", ".xz", ".rar", ".7z", ".jpg", ".jpeg", ".png", ".mp4", ".mp3", ".iso"}

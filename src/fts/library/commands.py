@@ -1,15 +1,17 @@
+import argparse
+import asyncio
+import json
+import os
+import socket
+
+import fts.commands.server as file_server
+import fts.library.discovery as discover
 from fts.config import LIBRARY_FILE
+from fts.core.aliases import reverse_resolve_alias
 from fts.library.map import LibraryMap
 from fts.library.map_manager import browse_map
-import fts.library.discovery as discover
-from fts.core.aliases import reverse_resolve_alias
 from fts.library.tree_manager import browse_library
-import fts.commands.server as file_server
-import os
-import json
-import asyncio
-import argparse
-import socket
+
 
 def cmd_library(args, logger):
     logger.debug(f"Options: {args}")

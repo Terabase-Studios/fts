@@ -1,11 +1,11 @@
 import logging
 import shutil
-import textwrap
 import sys
+import textwrap
 
-from tqdm.asyncio import tqdm_asyncio as tqdm
 from prompt_toolkit import print_formatted_text
 from prompt_toolkit.formatted_text import ANSI
+from tqdm.asyncio import tqdm_asyncio as tqdm
 
 # ANSI colors
 RESET = "\033[0m"

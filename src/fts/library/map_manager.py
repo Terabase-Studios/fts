@@ -1,12 +1,14 @@
-from prompt_toolkit import PromptSession
-from prompt_toolkit.completion import Completer, Completion
-from pathlib import Path
-from fts.library.map import LibraryMap
-from fts.library.tree import build_library_tree, VirtualLibrary
-import tkinter as tk
-from tkinter import filedialog
 import os
 import string
+import tkinter as tk
+from pathlib import Path
+from tkinter import filedialog
+
+from prompt_toolkit import PromptSession
+from prompt_toolkit.completion import Completer, Completion
+
+from fts.library.map import LibraryMap
+from fts.library.tree import build_library_tree, VirtualLibrary
 
 
 class MapManager:
