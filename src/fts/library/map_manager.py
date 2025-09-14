@@ -48,6 +48,7 @@ class MapCompleter(Completer):
             return
 
         # Virtual path completion for cd/remove/rename
+        # noinspection GrazieInspection
         if cmd == "cd":
             base_node, last = self.resolve_path(arg, self.manager.vl.cwd)
             if base_node is None:
@@ -141,9 +142,7 @@ class MapCompleter(Completer):
         node = start_node
         components = path.split("/")
         for comp in components[:-1]:
-            if comp == "..":
-                node = self.manager.vl.get_parent(node)
-            elif comp in node and node[comp]:
+            if comp in node and node[comp]:
                 node = node[comp]
             else:
                 return None, components[-1]
@@ -214,7 +213,7 @@ def browse_map(lm: LibraryMap):
                 # regenerate tree
                     manager.tree = build_library_tree(manager.lm.map)
                     manager.vl.root = manager.tree
-                    manager.vl.cwd = manager.vl._resolve_path(manager.vl.path_stack)
+                    manager.vl.cwd = manager.vl.resolve_path(manager.vl.path_stack)
                     print(f"Added: {virtual_path} -> {real_path}")
 
 
@@ -231,12 +230,12 @@ def browse_map(lm: LibraryMap):
 
                 # Try to resolve current path stack
                 try:
-                    manager.vl.cwd = manager.vl._resolve_path(manager.vl.path_stack)
+                    manager.vl.cwd = manager.vl.resolve_path(manager.vl.path_stack)
                 except KeyError:
                     # Directory is gone, pop up one level
                     if manager.vl.path_stack:
                         manager.vl.path_stack.pop()
-                        manager.vl.cwd = manager.vl._resolve_path(manager.vl.path_stack)
+                        manager.vl.cwd = manager.vl.resolve_path(manager.vl.path_stack)
                     else:
                         # Already at root
                         manager.vl.cwd = manager.vl.root
@@ -251,7 +250,7 @@ def browse_map(lm: LibraryMap):
                 manager.lm.rename(old_path, new_path)
                 manager.tree = build_library_tree(manager.lm.map)
                 manager.vl.root = manager.tree
-                manager.vl.cwd = manager.vl._resolve_path(manager.vl.path_stack)
+                manager.vl.cwd = manager.vl.resolve_path(manager.vl.path_stack)
                 print(f"Renamed: {old_path} -> {new_path}")
 
             elif cmd == "save":

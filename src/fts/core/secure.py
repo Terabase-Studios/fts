@@ -137,7 +137,7 @@ async def connect_with_tofu_async(host: str, port: int, logger):
     known = load_known_fingerprints()
 
     if host_port not in known:
-        logger.info(f"[TOFU] First connection to {host_port}, trusting cert {fingerprint[:16]}...")
+        logger.debug(f"[TOFU] First connection to {host_port}, trusting cert {fingerprint[:16]}...")
         known[host_port] = fingerprint
         save_known_fingerprints(known)
     else:
@@ -150,7 +150,7 @@ async def connect_with_tofu_async(host: str, port: int, logger):
                 f"If this is expected, run `fts trust {host}` to accept the new certificate."
             )
         else:
-            logger.info(f"[TOFU] Verified pinned certificate {fingerprint[:16]}...")
+            logger.debug(f"[TOFU] Verified pinned certificate {fingerprint[:16]}...")
 
     return reader, writer
 

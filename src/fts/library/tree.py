@@ -32,19 +32,20 @@ class VirtualLibrary:
         return sorted(self.cwd.keys())
 
     def cd(self, dirname: str):
+        # noinspection GrazieInspection
         """
-        Change the current working directory in the virtual library.
-        Supports '..' to go up one level.
-        Raises FileNotFoundError if the directory does not exist.
-        """
+                Change the current working directory in the virtual library.
+                Supports '..' to go up one level.
+                Raises FileNotFoundError if the directory does not exist.
+                """
         if dirname == "..":
             if self.path_stack:
                 self.path_stack.pop()
-                self.cwd = self._resolve_path(self.path_stack)
+                self.cwd = self.resolve_path(self.path_stack)
         elif dirname in self.cwd and self.cwd[dirname]:
             # Must be a directory (non-empty dict)
             self.path_stack.append(dirname)
-            self.cwd = self._resolve_path(self.path_stack)
+            self.cwd = self.resolve_path(self.path_stack)
         elif dirname in self.cwd and not self.cwd[dirname]:
             # It's a file, cannot cd into a file
             raise NotADirectoryError(f"'{dirname}' is a file, not a directory")
@@ -75,7 +76,7 @@ class VirtualLibrary:
                 raise FileNotFoundError(f"No such file or directory: '{path}'")
         return "/".join(self.path_stack + parts)
 
-    def _resolve_path(self, path_list: list[str]) -> dict:
+    def resolve_path(self, path_list: list[str]) -> dict:
         """Internal method to descend into the library tree based on a path stack."""
         node = self.root
         for p in path_list:

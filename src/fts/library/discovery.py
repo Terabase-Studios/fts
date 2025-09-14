@@ -25,7 +25,7 @@ async def library_server(logger):
         local_addr=("0.0.0.0", DISCOVERY_PORT),
         allow_broadcast=True
     )
-    logger.info("Library server listening on port %d", DISCOVERY_PORT)
+    logger.info("Library server listening on port %d\n", DISCOVERY_PORT)
     try:
         await asyncio.Future()  # run forever
     finally:
@@ -35,16 +35,18 @@ async def library_server(logger):
 class DiscoveryResponder:
     def __init__(self, logger):
         self.logger = logger
+        self.transport = None
 
     def connection_made(self, transport):
         self.transport = transport
-        self.logger.info("Library connection")
+        self.logger.debug("Library connection")
 
     def datagram_received(self, data, addr):
         addr_name = reverse_resolve_alias(addr[0], "ip")
         self.logger.debug(f"Received {data!r} from {addr_name}")
         if data == DISCOVERY_MESSAGE:
             self.transport.sendto(RESPONSE_MESSAGE, addr)
+            print('')
             self.logger.info(f"Sent discovery response to {addr_name}")
         elif data == TREE_MESSAGE:
             library_map = LibraryMap(LIBRARY_FILE)
@@ -58,7 +60,8 @@ class DiscoveryResponder:
             obj = json.loads(json_payload.decode("utf-8"))
             self.logger.info(f"Received SEND message from {addr_name}: port={obj['port']}, file={obj['file']}")
             self.transport.sendto(OK_MESSAGE, addr)
-            self.logger.info(f"Sent OK response to {addr_name}")
+            self.logger.debug(f"Sent OK response to {addr_name}\n")
+            print("")
 
 
             try:
@@ -78,7 +81,7 @@ class DiscoveryResponder:
                 self.logger.error(f"Failed to send {obj['file']} to {addr_name}: {e}")
 
     def connection_lost(self, exc):
-        self.logger.info("Library connection lost")
+        self.logger.debug("Library connection lost")
 
 
 # noinspection PyTypeChecker
@@ -103,6 +106,7 @@ async def discover_libraries(timeout=2.0):
 class DiscoveryCollector:
     def __init__(self):
         self.responses = set()
+        self.transport = None
 
     def connection_made(self, transport):
         self.transport = transport
@@ -116,7 +120,7 @@ class DiscoveryCollector:
         pass
 
 
-# noinspection PyTypeChecker
+# noinspection PyTypeChecker,GrazieInspection
 async def send_command(ip: str, data: bytes, timeout: float = 2.0) -> bytes:
     """
     Send a command to a server and wait for response (UDP).

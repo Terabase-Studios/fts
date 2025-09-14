@@ -7,6 +7,7 @@ import time
 import zlib
 
 from tqdm.asyncio import tqdm_asyncio as tqdm
+from ssl import SSLError
 
 import fts.flags as transferflags
 from fts.config import (
@@ -213,6 +214,20 @@ async def send_linear(file_path, filesize, writer, progress_bar, logger, rate_li
     Ultra-fast async file sender using thread-based blocking file reads.
     Avoids blocking event loop and unnecessary memory copies.
     """
+
+    loop = asyncio.get_running_loop()
+    old_handler = loop.get_exception_handler()
+
+    def quiet_handler(loop, context):
+        if "SL connection is closed" in str(context.get("exception")):
+            return  # swallow the spam
+        if old_handler is not None:
+            old_handler(loop, context)
+        else:
+            loop.default_exception_handler(context)
+
+    loop.set_exception_handler(quiet_handler)
+
     progress = tqdm(
         total=filesize,
         unit="B",
@@ -225,12 +240,15 @@ async def send_linear(file_path, filesize, writer, progress_bar, logger, rate_li
     sent = 0
     next_send_time = time.monotonic()
     last_progress_update = time.monotonic()
+    start_time = 0
+    end_time = 0
 
     # Helper function to read a chunk in a thread
     def read_chunk(f, size):
         return f.read(size)
 
     try:
+        start_time = time.monotonic()
         with open(file_path, "rb") as f:  # regular blocking file
             while True:
                 # Read a large chunk in a thread to avoid blocking event loop
@@ -256,6 +274,7 @@ async def send_linear(file_path, filesize, writer, progress_bar, logger, rate_li
                 # Only drain if buffer is large
                 if writer.transport.get_write_buffer_size() > FLUSH_SIZE:
                     await writer.drain()
+                    pass
 
                 # Update progress periodically
                 now = time.monotonic()
@@ -270,14 +289,28 @@ async def send_linear(file_path, filesize, writer, progress_bar, logger, rate_li
             progress.n = sent
             progress.refresh()
 
+        end_time = time.monotonic()
+
     except asyncio.CancelledError:
         raise
-    except ConnectionError:
-        pass
+    except (ConnectionResetError, BrokenPipeError) as e:
+        if sent < filesize:
+            logger.error(f"Connection closed: {e}")
+            raise
+    except SSLError as e:
+        logger.error(f"SSL connection closed: {e}")
+        raise
+    except ConnectionError as e:
+        logger.error(f"Connection error: {e}")
+        raise
     except Exception as e:
         logger.error(f"{e}")
+        raise
     finally:
+        duration = end_time - start_time
         progress.close()
+        loop.set_exception_handler(old_handler)
+        logger.debug(f"Transferred {format_bytes(sent)} in {duration:.2f} seconds: ({format_bytes(sent/duration)}/s)")
         return sent
 
 

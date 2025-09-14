@@ -139,7 +139,7 @@ def _zip_with_python(directory_path, zip_path, progress_bar, logger, quiet, log_
             for file_path in files:
                 arcname = os.path.relpath(file_path, directory_path)
                 try:
-                    zipf.write(file_path, arcname)
+                    zipf.write(file_path, str(arcname))
                 except PermissionError:
                     denied_count += 1
                     log_permission(file_path)

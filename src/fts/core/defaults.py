@@ -52,6 +52,9 @@ def sterilize_namespace(namespace: Namespace) -> dict:
 
         else:
             if str(key) not in key_filter:
+                if value is not int and value is not float:
+                    value = str(value)
+
                 dictionary[key] = value
 
     return dictionary

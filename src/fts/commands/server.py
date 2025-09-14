@@ -293,9 +293,12 @@ async def receive_linear(reader, filesize, out_path, client_id, logger, progress
     High-performance async file receiver using batch reads and memoryview,
     with thread-based file writes to avoid blocking the event loop and optional rate limiting.
     """
+
     received = 0
     last_progress_update = time.monotonic()
     next_recv_time = time.monotonic()
+    start_time = 0
+    end_time = 0
     progress = tqdm(
         total=filesize,
         unit="B",
@@ -311,6 +314,7 @@ async def receive_linear(reader, filesize, out_path, client_id, logger, progress
         f1.write(mv1)
 
     try:
+        start_time = time.monotonic()
         with open(out_path, "wb") as f:  # regular file
             while received < filesize:
                 chunk_size = min(BUFFER_SIZE * BATCH_SIZE, filesize - received)
@@ -345,13 +349,16 @@ async def receive_linear(reader, filesize, out_path, client_id, logger, progress
                     progress.n = received
                     progress.refresh()
                     last_progress_update = now
+            end_time = time.monotonic()
 
     finally:
+        duration = end_time - start_time
         # Final progress update
         if progress_bar:
             progress.n = received
             progress.refresh()
         progress.close()
+        logger.debug(f"Transferred {format_bytes(received)} in {duration:.2f} seconds: ({format_bytes(received / duration)}/s)")
         return received
 
 

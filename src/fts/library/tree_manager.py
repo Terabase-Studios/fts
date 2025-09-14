@@ -5,12 +5,13 @@ from fts.library.tree import VirtualLibrary
 
 
 class LibraryCompleter(Completer):
+    # noinspection GrazieInspection
     """
-    Shell-like completer for VirtualLibrary:
-    - cd: completes directories, supports nested paths, adds '/' after directories, suggests '..'
-    - select: completes files, supports nested paths
-    - other commands: fixed completions
-    """
+        Shell-like completer for VirtualLibrary:
+        - cd: completes directories, supports nested paths, adds '/' after directories, suggests '..'
+        - select: completes files, supports nested paths
+        - other commands: fixed completions
+        """
     def __init__(self, vl):
         self.vl = vl
         self.commands = ["ls", "cd", "pwd", "tree", "select", "exit"]
@@ -50,6 +51,7 @@ class LibraryCompleter(Completer):
             last = components[-1] if components else ""
             return node, last
 
+        # noinspection GrazieInspection
         if cmd == "cd":
             base_node, last = resolve_path(arg, self.vl.cwd)
             if base_node is None:

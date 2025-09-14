@@ -92,7 +92,7 @@ class ColorFormatter(logging.Formatter):
         return ansi_escape.sub('', text)
 
 
-def setup_logging(verbose=False, quiet=False, logfile=None, line_sep=0, mode="tqdm"):
+def setup_logging(verbose=False, quiet=False, logfile=None, line_sep=0, mode="tqdm", id=None):
     """Configure logger for CLI commands with tqdm support."""
     logger = logging.getLogger("fts")
     logger.handlers.clear()
@@ -124,6 +124,8 @@ def setup_logging(verbose=False, quiet=False, logfile=None, line_sep=0, mode="tq
 
             def format(self, record):
                 prefix = f"{self.formatTime(record, self.datefmt)} | {record.levelname:<8} | "
+                if id:
+                    prefix = f"{prefix}{id} | "
                 prefix_len = len(prefix)
                 wrap_width = max(80 - prefix_len, 20)
 

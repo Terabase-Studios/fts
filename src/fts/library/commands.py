@@ -42,6 +42,7 @@ def cmd_find(args, logger):
             file_selected = False
             lib_file_path = None
             ip = "0.0.0.0"
+            # noinspection GrazieInspection
             while not file_selected:
                 logger.info("Discovered libraries:")
                 index = 1
@@ -103,6 +104,7 @@ def cmd_find(args, logger):
             header = b"send"  # your header as bytes
             message = header + json_bytes
 
+            ok = None
             try:
                 ok = await discover.send_command(ip, message)
             except OSError as e:
@@ -111,6 +113,8 @@ def cmd_find(args, logger):
                     return None
             if ok != b"okay":
                 logger.error(f"Request for file {lib_file_path} failed")
+
+            server_args = None
 
             try:
                 server_args = argparse.Namespace(

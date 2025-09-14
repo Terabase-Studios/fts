@@ -5,6 +5,8 @@ import io
 import os
 import pathlib
 import sys
+import random
+import string
 from contextlib import redirect_stdout, redirect_stderr
 
 import argui
@@ -123,7 +125,7 @@ def create_parser(gui=False) -> argparse.ArgumentParser:
     try:
         defaults = load_defaults()
     except Exception as e:
-        print("Failed to load defaults.", file=sys.stderr)
+        print(f"Failed to load defaults: {e}", file=sys.stderr)
 
     parser = argparse.ArgumentParser(
         prog="fts",
@@ -366,6 +368,7 @@ def run(args):
     # --- Setup logger ---
     logfile = getattr(args, "logfile", None)
     log_created = False
+    id=None
     if logfile:
         logfile = resolve_alias(logfile, "dir", logger=None)
         try:
@@ -376,6 +379,13 @@ def run(args):
         except Exception as e:
             print(f"Warning: Could not create logfile '{logfile}': {e}")
             logfile = None
+
+        try:
+            alphabet = string.ascii_letters + string.digits
+            number = ''.join(random.choices(alphabet, k=6))
+            id = f"({args.command}|{number})"
+        except Exception as e:
+            print(f"Warning: Could not create id: {e}")
 
     # Determine logging mode based on command
     if "chat" in args.command:
@@ -388,6 +398,7 @@ def run(args):
         quiet=getattr(args, "quiet", False),
         logfile=logfile,
         mode=log_mode,
+        id=id,
     )
     if log_created:
         logger.info(f"Log file created: {logfile}")
@@ -413,7 +424,7 @@ def run(args):
         args.func(args, logger)
     except KeyboardInterrupt:
         pass
-    except Exception as e:
+    except Exception:
         pass
     print('')
 
@@ -437,6 +448,7 @@ def ensure_func(args):
         "library": ("fts.library.commands", "cmd_library"),
         "defaults": ("fts.core.defaults", "cmd_save"),
     }
+
     if args.command in mapping:
         mod, fn = mapping[args.command]
         args.func = load_cmd(mod, fn)
@@ -465,11 +477,12 @@ def main():
 
     # Dummy output streams to collect prints for Command* error
     f = io.StringIO()
+    args = None
 
     with redirect_stdout(f), redirect_stderr(f):
         while not selected_cmd:
             try:
-                args: argparse.Namespace = interface.parseArgs()
+                args = interface.parseArgs()
                 if "No nodes match" in str(f.getvalue()):
                     f.seek(0)  # Move the cursor to the beginning of the stream
                     f.truncate(0)  # Truncate the stream to zero length
