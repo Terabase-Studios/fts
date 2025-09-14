@@ -146,7 +146,7 @@ def cmd_find(args, logger):
     server_args = asyncio.run(run(args))
     if server_args:
         try:
-            logger.info(f"Opening server to recieve file")
+            logger.info(f"Opening server to receive file")
             print('')
             file_server.cmd_open(server_args, logger)
         except KeyboardInterrupt:

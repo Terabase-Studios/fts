@@ -262,7 +262,7 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
 
 
         if received < filesize:
-            logger.warning(f"{client_id}: Incomplete file received: {format_bytes(received)}/{format_bytes(filesize)}")
+            logger.error(f"{client_id}: Incomplete file received: {format_bytes(received)}/{format_bytes(filesize)}")
             os.remove(out_path)
             return
 

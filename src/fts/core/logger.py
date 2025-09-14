@@ -2,6 +2,7 @@ import logging
 import shutil
 import sys
 import textwrap
+from filelock import FileLock
 
 from prompt_toolkit import print_formatted_text
 from prompt_toolkit.formatted_text import ANSI
@@ -146,7 +147,30 @@ def setup_logging(verbose=False, quiet=False, logfile=None, line_sep=0, mode="tq
 
                 return f"{prefix}{'\n'.join(formatted_lines)}"
 
+        class OrganizeLogHandler(logging.Handler):
+            def __init__(self, logfile_path, save_path, threshold=10, lock_path=None):
+                super().__init__()
+                self.logfile_path = logfile_path
+                self.save_path = save_path
+                self.threshold = threshold
+                self.counter = 0
+                self.lock = FileLock(lock_path or logfile_path + ".lock")
+
+            def emit(self, record):
+                self.counter += 1
+                if self.counter >= self.threshold:
+                    self.counter = 0
+                    try:
+                        from fts.core.log_cleaner import organize_log
+                        with self.lock:  # ensures only one process runs organize_log at a time
+                            organize_log(self.logfile_path, self.save_path)
+                    except Exception as e:
+                        print(f"Error organizing log: {e}")
+
         file_handler.setFormatter(PlainWrapFormatter(line_sep=line_sep))
         logger.addHandler(file_handler)
+
+        org_handler = OrganizeLogHandler(logfile, logfile, threshold=1)
+        logger.addHandler(org_handler)
 
     return logger
