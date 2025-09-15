@@ -2,12 +2,14 @@
   <dictionary name="project">
     <words>
       <w>creationflags</w>
+      <w>detatched</w>
       <w>filesize</w>
       <w>fname</w>
       <w>memoryview</w>
       <w>memoryviews</w>
       <w>peername</w>
       <w>recieve</w>
+      <w>recieving</w>
       <w>transferflags</w>
       <w>uncompressible</w>
     </words>

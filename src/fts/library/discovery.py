@@ -25,7 +25,7 @@ async def library_server(logger):
         local_addr=("0.0.0.0", DISCOVERY_PORT),
         allow_broadcast=True
     )
-    logger.info("Library server listening on port %d\n", DISCOVERY_PORT)
+    logger.info("Library server listening on port %d", DISCOVERY_PORT)
     try:
         await asyncio.Future()  # run forever
     finally:

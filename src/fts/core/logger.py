@@ -1,6 +1,7 @@
 import logging
 import shutil
 import sys
+import re
 import textwrap
 from filelock import FileLock
 
@@ -121,6 +122,8 @@ def setup_logging(verbose=False, quiet=False, logfile=None, line_sep=0, mode="tq
         class PlainWrapFormatter(logging.Formatter):
             def __init__(self, line_sep=0):
                 super().__init__("%(asctime)s | %(levelname)-8s | %(message)s", "%H:%M:%S")
+                # regex for ANSI escape sequences
+                self.ANSI_ESCAPE_RE = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
                 self.line_sep = line_sep
 
             def format(self, record):
@@ -130,7 +133,10 @@ def setup_logging(verbose=False, quiet=False, logfile=None, line_sep=0, mode="tq
                 prefix_len = len(prefix)
                 wrap_width = max(80 - prefix_len, 20)
 
-                msg = record.getMessage()
+                # strip ANSI codes
+                raw_msg = record.getMessage()
+                msg = self.ANSI_ESCAPE_RE.sub("", raw_msg)
+
                 lines = msg.split("\n") or [""]
 
                 formatted_lines = []

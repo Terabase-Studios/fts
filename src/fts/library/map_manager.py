@@ -1,4 +1,5 @@
 import os
+import shlex
 import string
 import tkinter as tk
 from pathlib import Path
@@ -30,7 +31,7 @@ class MapCompleter(Completer):
 
     def get_completions(self, document, complete_event):
         text = document.text_before_cursor.lstrip()
-        parts = text.split()
+        parts = shlex.split(text)
 
         if not parts:
             for cmd in self.commands:
@@ -172,7 +173,7 @@ def browse_map(lm: LibraryMap):
         if not command:
             continue
 
-        parts = command.split()
+        parts = shlex.split(command)
         cmd = parts[0].lower()
 
         try:
@@ -205,6 +206,8 @@ def browse_map(lm: LibraryMap):
                     root.wm_attributes("-topmost", True)
                     real_path = filedialog.askopenfilename()
                     root.destroy()
+                    if real_path == "":
+                        real_path = None
 
                 virtual_path = "/".join(manager.vl.path_stack + [parts[1]])
                 success = manager.lm.add(virtual_path, real_path)

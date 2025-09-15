@@ -1,3 +1,5 @@
+import shlex
+
 from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import Completer, Completion
 
@@ -17,78 +19,81 @@ class LibraryCompleter(Completer):
         self.commands = ["ls", "cd", "pwd", "tree", "select", "exit"]
 
     def get_completions(self, document, complete_event):
-        text = document.text_before_cursor.lstrip()
-        parts = text.split()
+        try:
+            text = document.text_before_cursor.lstrip()
+            parts = shlex.split(text)
 
-        if not parts:
-            for cmd in self.commands:
-                yield Completion(cmd, start_position=0)
-            return
-
-        cmd = parts[0].lower()
-
-        # Completing command itself
-        if len(parts) == 1 and not text.endswith(" "):
-            for c in self.commands:
-                if c.startswith(cmd):
-                    yield Completion(c, start_position=-len(cmd))
-            return
-
-        # Everything after command
-        arg = text[len(parts[0]):].lstrip()
-
-        # Helper: traverse a dictionary node based on a path string
-        def resolve_path(path, start_node):
-            node = start_node
-            components = path.split("/")
-            for comp in components[:-1]:
-                if comp == "..":
-                    node = self.vl.get_parent(node)
-                elif comp in node and node[comp]:
-                    node = node[comp]
-                else:
-                    return None, components[-1]
-            last = components[-1] if components else ""
-            return node, last
-
-        # noinspection GrazieInspection
-        if cmd == "cd":
-            base_node, last = resolve_path(arg, self.vl.cwd)
-            if base_node is None:
+            if not parts:
+                for cmd in self.commands:
+                    yield Completion(cmd, start_position=0)
                 return
 
-            for name, value in base_node.items():
-                if value and name.startswith(last):
-                    completion_text = "/".join(arg.split("/")[:-1] + [name])
-                    yield Completion(completion_text, start_position=-len(arg))
+            cmd = parts[0].lower()
 
-            # Suggest '..' if not at root
-            if self.vl.cwd != self.vl.root:
-                yield Completion("..", start_position=-len(last))
-
-        elif cmd == "select":
-            base_node, last = resolve_path(arg, self.vl.cwd)
-            if base_node is None:
+            # Completing command itself
+            if len(parts) == 1 and not text.endswith(" "):
+                for c in self.commands:
+                    if c.startswith(cmd):
+                        yield Completion(c, start_position=-len(cmd))
                 return
 
-            # Recursive helper to collect all files under a node with their relative paths
-            def collect_files(node, prefix=""):
-                results = []
-                for name, value in node.items():
-                    path = f"{prefix}/{name}" if prefix else name
-                    if value: # Directory
-                        results.extend(collect_files(value, path))
-                    else:     # File
-                        results.append(path)
-                return results
+            # Everything after command
+            arg = text[len(parts[0]):].lstrip()
 
-            files = collect_files(base_node)
-            # Filter by what the user has typed and sort by depth
-            for f in sorted(files, key=lambda x: x.count("/")):
-                if f.startswith(last):
-                    # Prepend any path components before last in arg
-                    completion_text = "/".join(arg.split("/")[:-1] + [f])
-                    yield Completion(completion_text, start_position=-len(arg))
+            # Helper: traverse a dictionary node based on a path string
+            def resolve_path(path, start_node):
+                node = start_node
+                components = path.split("/")
+                for comp in components[:-1]:
+                    if comp == "..":
+                        node = self.vl.get_parent(node)
+                    elif comp in node and node[comp]:
+                        node = node[comp]
+                    else:
+                        return None, components[-1]
+                last = components[-1] if components else ""
+                return node, last
+
+            # noinspection GrazieInspection
+            if cmd == "cd":
+                base_node, last = resolve_path(arg, self.vl.cwd)
+                if base_node is None:
+                    return
+
+                for name, value in base_node.items():
+                    if value and name.startswith(last):
+                        completion_text = "/".join(arg.split("/")[:-1] + [name])
+                        yield Completion(completion_text, start_position=-len(arg))
+
+                # Suggest '..' if not at root
+                if self.vl.cwd != self.vl.root:
+                    yield Completion("..", start_position=-len(last))
+
+            elif cmd == "select":
+                base_node, last = resolve_path(arg, self.vl.cwd)
+                if base_node is None:
+                    return
+
+                # Recursive helper to collect all files under a node with their relative paths
+                def collect_files(node, prefix=""):
+                    results = []
+                    for name, value in node.items():
+                        path = f"{prefix}/{name}" if prefix else name
+                        if value: # Directory
+                            results.extend(collect_files(value, path))
+                        else:     # File
+                            results.append(path)
+                    return results
+
+                files = collect_files(base_node)
+                # Filter by what the user has typed and sort by depth
+                for f in sorted(files, key=lambda x: x.count("/")):
+                    if f.startswith(last):
+                        # Prepend any path components before last in arg
+                        completion_text = "/".join(arg.split("/")[:-1] + [f])
+                        yield Completion(completion_text, start_position=-len(arg))
+        except:
+            return
 
 
 
@@ -122,7 +127,7 @@ def browse_library(library_tree: dict) -> str:
         if not command:
             continue
 
-        parts = command.split()
+        parts = shlex.split(command)
         cmd = parts[0].lower()
 
         try:

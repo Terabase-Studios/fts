@@ -149,6 +149,7 @@ def create_parser(gui=False) -> argparse.ArgumentParser:
         "output",
         type=FileSelectDir(),
         metavar="OUTPUT_PATH",
+        nargs="?",
         help="Directory to save incoming transfers - required",
         default=defaults.get("output", None),
     )
@@ -163,12 +164,12 @@ def create_parser(gui=False) -> argparse.ArgumentParser:
         metavar="SIZE",
         help="Transfer rate limit (e.g. 500KB, 2MB, 1GB)"
     )
-    open_parser.add_argument(
-        "-t", "--timeout",
-        type=int,
-        metavar="SECONDS",
-        help="Maximum time to wait for connection"
-    )
+    #open_parser.add_argument(
+    #    "-t", "--timeout",
+    #    type=int,
+    #    metavar="SECONDS",
+    #    help="Maximum time to wait for connection"
+    #)
     open_parser.add_argument(
         "-x", "--extract",
         action="store_true",
@@ -277,8 +278,8 @@ def create_parser(gui=False) -> argparse.ArgumentParser:
         "close",
         help="Close a detached server",
     )
-    close_parser.add_argument("process", choices=["receiving"], help="process to close")
-    close_parser.set_defaults(func=load_cmd("fts.commands.server", "cmd_close"))
+    close_parser.add_argument("process", choices=["all", "receiving", "library"], help="process to close")
+    close_parser.set_defaults(func=load_cmd("fts.core.detatched", "cmd_close"))
 
     # --- trust ---
     if not gui:
@@ -332,6 +333,11 @@ def create_parser(gui=False) -> argparse.ArgumentParser:
         metavar="OUTPUT_PATH",
         help="Directory to save incoming transfers - required for (required for 'find')",
         default=defaults.get("output", None),
+    )
+    library_parser.add_argument(
+        "-d", "--detached",
+        action="store_true",
+        help="Run server in the background (used in 'open')",
     )
     library_parser.set_defaults(func=load_cmd("fts.library.commands", "cmd_library"))
 
@@ -437,7 +443,7 @@ def ensure_func(args):
         "send": ("fts.commands.sender", "cmd_send"),
         "senddir": ("fts.commands.sender", "cmd_send_dir"),
         "send-dir": ("fts.commands.sender", "cmd_send_dir"),
-        "close": ("fts.commands.server", "cmd_close"),
+        "close": ("fts.core.detatched", "cmd_close"),
         "version": ("fts.commands.misc", "cmd_version"),
         "trust": ("fts.core.secure", "cmd_clear_fingerprint"),
         "alias": ("fts.core.aliases", "cmd_alias"),
@@ -479,19 +485,21 @@ def main():
     f = io.StringIO()
     args = None
 
-    with redirect_stdout(f), redirect_stderr(f):
-        while not selected_cmd:
-            try:
-                args = interface.parseArgs()
-                if "No nodes match" in str(f.getvalue()):
-                    f.seek(0)  # Move the cursor to the beginning of the stream
-                    f.truncate(0)  # Truncate the stream to zero length
-                    continue
-                else:
-                    selected_cmd = True
-            except:
-                break
-
+    if gui:
+        with redirect_stdout(f), redirect_stderr(f):
+            while not selected_cmd:
+                try:
+                    args = interface.parseArgs()
+                    if "No nodes match" in str(f.getvalue()):
+                        f.seek(0)  # Move the cursor to the beginning of the stream
+                        f.truncate(0)  # Truncate the stream to zero length
+                        continue
+                    else:
+                        selected_cmd = True
+                except:
+                    break
+    else:
+        args = interface.parseArgs()
 
     if not args:
         print('')

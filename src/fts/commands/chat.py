@@ -22,11 +22,10 @@ RESET = "\033[0m"
 # Host a chatroom
 # -------------------------
 def cmd_create(args, logger):
-    logger.debug(f"Options: {args}")
-
     port = args.port or DEFAULT_CHAT_PORT
     host = "0.0.0.0"
-    logger.info(f"Starting FTS chatroom on {host}:{port}")
+    logger.debug(f"Starting FTS chatroom on {host}:{port}")
+    logger.debug(f"Options: {args}")
 
     async def run_server_and_client():
         server_task = asyncio.create_task(
@@ -188,8 +187,7 @@ async def handle_client(reader, writer, clients, banned_ips, server_name, logger
                 except:
                     logger.info(f"Failed to parse command: {message}\n")
                     continue
-            elif str(ip) == "127.0.0.1":
-                if '!' == str(message[0]):
+            elif str(ip) == "127.0.0.1" and '!' == str(message[0]):
                     logger.info(f"Unknown command: {message}\n")
                     continue
 
@@ -231,7 +229,7 @@ async def start_server(host="0.0.0.0", port=DEFAULT_CHAT_PORT, server_name="FTS 
         host, port,
         ssl=ssl_ctx
     )
-    logger.info(f"FTS Chatroom listening on {host}:{port} (TLS)\n")
+    logger.info(f"FTS Chatroom listening on {host}:{port}(TLS)\n")
 
     async with server:
         try:

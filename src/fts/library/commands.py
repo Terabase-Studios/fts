@@ -6,7 +6,8 @@ import socket
 
 import fts.commands.server as file_server
 import fts.library.discovery as discover
-from fts.config import LIBRARY_FILE
+from fts.config import LIBRARY_FILE, LIBRARY_PID
+from fts.core.detatched import start_detached
 from fts.core.aliases import reverse_resolve_alias
 from fts.library.map import LibraryMap
 from fts.library.map_manager import browse_map
@@ -157,6 +158,8 @@ def cmd_find(args, logger):
 
 def cmd_open(args, logger):
     """Start the discovery responder (server)."""
+    if start_detached(args, logger, LIBRARY_PID, "library"):
+        return
     try:
         logger.info("Opening library...")
         asyncio.run(discover.library_server(logger))

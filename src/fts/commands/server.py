@@ -3,7 +3,6 @@ import itertools
 import os
 import shutil
 import struct
-import subprocess
 import sys
 import tempfile
 import time
@@ -21,86 +20,15 @@ from fts.config import (
     BUFFER_SIZE,
     BATCH_SIZE,
     PROGRESS_INTERVAL,
-    PID_FILE,
+    RECEIVING_PID,
 )
 from fts.core import secure as secure
+from fts.core.detatched import start_detached
 from fts.utilities import format_bytes, parse_byte_string
 
 # Incrementing IDs for each client connection
 _client_ids = itertools.count(1)
 
-def start_detached(args, logger) -> bool:
-    """
-    Start in detached mode (completely detached: no console, no I/O).
-    Returns True if parent should exit, False otherwise.
-    """
-    if not getattr(args, "detached", False):
-        return False
-
-    # Check for existing PID
-    if os.path.exists(PID_FILE):
-        try:
-            with open(PID_FILE, "r") as f:
-                old_pid = int(f.read().strip())
-            if psutil.pid_exists(old_pid):
-                p = psutil.Process(old_pid)
-                logger.info(f"Server already running (PID {old_pid})")
-                logger.info("Run 'fts close' to end current server")
-                logger.debug(f"cmd: {' '.join(p.cmdline())}")
-                return True
-            else:
-                logger.warning("Stale PID file found, removing")
-                os.remove(PID_FILE)
-        except Exception as e:
-            logger.warning(f"Failed to read PID file: {e}")
-            os.remove(PID_FILE)
-
-    # Copy args but remove -d/--detached
-    arguments = sys.argv[1:].copy()
-    for flag in ("-d", "--detached"):
-        if flag in arguments:
-            arguments.remove(flag)
-
-    # Prefer installed CLI script, fallback to -m
-    fts_executable = shutil.which("fts")
-    if fts_executable:
-        cmd = [fts_executable] + arguments
-    else:
-        cmd = [sys.executable, "-m", "fts"] + arguments
-
-    # Prepare kwargs for Popen
-    startupinfo = subprocess.STARTUPINFO() if os.name == "nt" else False
-    if startupinfo:
-        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-        startupinfo.wShowWindow = subprocess.SW_HIDE
-
-    kwargs = dict(
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        stdin=subprocess.DEVNULL,
-        close_fds=True,
-    )
-
-    if os.name == "nt":
-        kwargs["creationflags"] = (
-            subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
-        )
-        kwargs["startupinfo"] = startupinfo
-    else:
-        kwargs["start_new_session"] = True
-
-    try:
-        proc = subprocess.Popen(cmd, **kwargs, shell=False)
-        # Write PID to file
-        with open(PID_FILE, "w") as f:
-            f.write(str(proc.pid))
-        logger.info(f"Server started in detached mode (PID {proc.pid})")
-    except Exception as e:
-        logger.error(f"Error launching server: {e}")
-        return True
-
-    # Parent should exit
-    return True
 
 
 def cmd_open(args, logger):
@@ -109,7 +37,7 @@ def cmd_open(args, logger):
         logger.error("No path given")
         return
 
-    if start_detached(args, logger):
+    if start_detached(args, logger, RECEIVING_PID, "receiving"):
         return
 
     logger.info(f"Preparing to receive files to '{args.output}'")
@@ -154,7 +82,6 @@ def cmd_open(args, logger):
         except Exception as e:
             logger.critical(f"Server error: {e}")
             sys.exit(1)
-
 
 
 async def start_server(host: str, port: int, output_dir: str, logger,
@@ -417,43 +344,3 @@ def extract_zip(zip_path, client_id, logger):
     except Exception as e:
         logger.error(f"{client_id}: Zip extraction error: {e}")
         raise
-
-
-def cmd_close(args, logger):
-    """
-    Stops the detached FTS server if it's running.
-    """
-
-    logger.debug(f"Preparing to close server")
-    logger.debug(f"Options: {vars(args)}")
-
-    if not os.path.exists(PID_FILE):
-        logger.warning("No PID file found, server may not be running.")
-        return
-
-    try:
-        with open(PID_FILE, "r") as f:
-            pid = int(f.read().strip())
-    except Exception as e:
-        logger.error(f"Failed to read PID file: {e}")
-        return
-
-    if not psutil.pid_exists(pid):
-        logger.warning(f"No process with PID {pid} found. Removing stale PID file.")
-        os.remove(PID_FILE)
-        return
-
-    try:
-        proc = psutil.Process(pid)
-        logger.info(f"Stopping server (PID {pid})")
-        logger.debug(f"cmd: {' '.join(proc.cmdline())}")
-        proc.terminate()  # send SIGTERM on Unix / terminate on Windows
-        try:
-            proc.wait(timeout=5)  # wait up to 5 seconds
-            logger.info("Server stopped successfully.")
-        except psutil.TimeoutExpired:
-            logger.warning("Server did not stop in time. Killing forcibly.")
-            proc.kill()
-        os.remove(PID_FILE)
-    except Exception as e:
-        logger.error(f"Failed to stop server PID {pid}: {e}")
