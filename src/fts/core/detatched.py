@@ -1,12 +1,13 @@
-import psutil
+import argparse
 import os
-import sys
 import shutil
 import subprocess
-import argparse
+import sys
+
+import psutil
 
 from fts.cli import create_parser
-from fts.config import RECEIVING_PID,LIBRARY_PID
+from fts.config import RECEIVING_PID, LIBRARY_PID
 
 
 def cmd_close(args, logger):

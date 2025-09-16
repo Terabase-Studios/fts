@@ -3,12 +3,14 @@ import asyncio
 import json
 import os
 import socket
+import sys
 
 import fts.commands.server as file_server
 import fts.library.discovery as discover
 from fts.config import LIBRARY_FILE, LIBRARY_PID
-from fts.core.detatched import start_detached
 from fts.core.aliases import reverse_resolve_alias
+from fts.core.detatched import start_detached
+from fts.core.secure import is_public_network
 from fts.library.map import LibraryMap
 from fts.library.map_manager import browse_map
 from fts.library.tree_manager import browse_library
@@ -28,6 +30,9 @@ def cmd_library(args, logger):
 
 def cmd_find(args, logger):
     """Run discovery and print all responding servers."""
+    if is_public_network():
+        logger.error("FTS is disabled on public network\n")
+        sys.exit(0)
 
     if not args.output:
         logger.error("No path given")
@@ -38,7 +43,11 @@ def cmd_find(args, logger):
 
     async def run(args):
         logger.info("Discovering libraries...")
-        servers = await discover.discover_libraries()
+        try:
+            servers = await discover.discover_libraries(logger)
+        except Exception as e:
+            logger.error(f"Failed to discover libraries: {e}")
+            return None
         if servers:
             file_selected = False
             lib_file_path = None

@@ -1,6 +1,10 @@
 import asyncio
+import ipaddress
 import json
 import os
+import socket
+
+import psutil
 
 import fts.commands.sender as sender
 from fts.config import DISCOVERY_PORT
@@ -84,41 +88,77 @@ class DiscoveryResponder:
         self.logger.debug("Library connection lost")
 
 
-# noinspection PyTypeChecker
-async def discover_libraries(timeout=2.0):
-    """Client: broadcasts 'ping' and collects all 'okay' responses."""
+def get_broadcast_addresses():
+    """
+    Returns broadcast addresses for all private IPv4 interfaces, filtered for usable LAN only.
+    """
+    broadcasts = set()
+
+    for iface, addrs in psutil.net_if_addrs().items():
+        for addr in addrs:
+            if addr.family != socket.AF_INET:
+                continue
+            try:
+                ip = ipaddress.IPv4Address(addr.address)
+                if not ip.is_private:
+                    continue  # skip public IPs
+
+                netmask = ipaddress.IPv4Address(addr.netmask if addr.netmask else "255.255.255.0")
+                broadcast_int = int(ip) | (~int(netmask) & 0xFFFFFFFF)
+                broadcast_addr = str(ipaddress.IPv4Address(broadcast_int))
+
+                # Filter out link-local (169.254.x.x) and loopback (127.x.x.x) broadcasts
+                if ip.is_loopback or ip.is_link_local:
+                    continue
+
+                broadcasts.add(broadcast_addr)
+            except ValueError:
+                continue
+
+    return list(broadcasts)
+
+
+def has_public_broadcast(broadcast_list):
+    """
+    Returns True if any broadcast address in the list is public.
+    """
+    for b in broadcast_list:
+        try:
+            ip = ipaddress.IPv4Address(b)
+            if not ip.is_private:
+                return True
+        except ValueError:
+            continue  # skip invalid IPs
+    return False
+
+
+class DiscoveryCollector(asyncio.DatagramProtocol):
+    def __init__(self):
+        self.responses = []
+
+    def datagram_received(self, data, addr):
+        if data == b"okay":
+            self.responses.append(addr[0])
+
+async def discover_libraries(logger, timeout=2.0):
     loop = asyncio.get_event_loop()
     transport, protocol = await loop.create_datagram_endpoint(
         lambda: DiscoveryCollector(),
         local_addr=("0.0.0.0", 0),
-        allow_broadcast=True
+        allow_broadcast=True,
     )
 
-    # Send broadcast
-    transport.sendto(DISCOVERY_MESSAGE, ("255.255.255.255", DISCOVERY_PORT))
+    broadcasts = get_broadcast_addresses()
+    for baddr in broadcasts:
+        logger.debug(f"Discovered broadcast address: {baddr}")
+        if has_public_broadcast(baddr):
+            logger.error(f"FTS is not allowed for public networks\n")
+            return([])
+        transport.sendto(DISCOVERY_MESSAGE, (baddr, DISCOVERY_PORT))
 
-    # Wait for responses
     await asyncio.sleep(timeout)
-    ips = protocol.responses
     transport.close()
-    return ips
-
-class DiscoveryCollector:
-    def __init__(self):
-        self.responses = set()
-        self.transport = None
-
-    def connection_made(self, transport):
-        self.transport = transport
-
-    def datagram_received(self, data, addr):
-        if data == RESPONSE_MESSAGE:
-            self.responses.add(addr[0])
-
-    def connection_lost(self, exc):
-        # Required on Windows to avoid AttributeError when transport closes
-        pass
-
+    return list(set(protocol.responses))
 
 # noinspection PyTypeChecker,GrazieInspection
 async def send_command(ip: str, data: bytes, timeout: float = 2.0) -> bytes:

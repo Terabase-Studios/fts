@@ -9,7 +9,6 @@ import time
 import zipfile
 import zlib
 
-import psutil
 from tqdm.asyncio import tqdm_asyncio as tqdm
 
 import fts.flags as transferflags

@@ -1,4 +1,2 @@
 White space from gui
 using dir aliases
-
-timeout

@@ -1,7 +1,9 @@
 import asyncio
 import datetime
 import hashlib
+import ipaddress
 import json
+import socket
 import ssl
 from datetime import timezone
 from pathlib import Path
@@ -174,3 +176,42 @@ def cmd_clear_fingerprint(args, logger=None):
         logger.info(msg)
     else:
         print(msg)
+
+
+def is_public_network(debug: bool = False) -> bool:
+    """
+    Check if the machine's primary network is public.
+
+    Args:
+        debug (bool): If True, logs detailed IP checks.
+
+    Returns:
+        True if the primary outbound IP is globally routable (public).
+        False if private, loopback, link-local, reserved, or unknown.
+    """
+    try:
+        # Determine the IP used for outbound traffic
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("8.8.8.8", 80))  # dummy external host
+            local_ip = s.getsockname()[0]
+
+        ip_obj = ipaddress.ip_address(local_ip)
+        result = ip_obj.is_global
+
+        if debug:
+            reason = "globally routable" if result else (
+                "private" if ip_obj.is_private else
+                "loopback" if ip_obj.is_loopback else
+                "link-local" if ip_obj.is_link_local else
+                "reserved/multicast"
+            )
+            if result:
+                print(f"Primary outbound IP: {local_ip} ({reason}) → Public: {result}")
+
+        return result
+
+    except Exception as e:
+        if debug:
+            print(f"Failed to determine network type: {e}")
+        # Fail-safe: treat as non-public
+        return False

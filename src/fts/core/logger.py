@@ -1,10 +1,10 @@
 import logging
+import re
 import shutil
 import sys
-import re
 import textwrap
-from filelock import FileLock
 
+from filelock import FileLock
 from prompt_toolkit import print_formatted_text
 from prompt_toolkit.formatted_text import ANSI
 from tqdm.asyncio import tqdm_asyncio as tqdm

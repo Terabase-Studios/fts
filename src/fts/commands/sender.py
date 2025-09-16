@@ -5,9 +5,9 @@ import struct
 import tempfile
 import time
 import zlib
+from ssl import SSLError
 
 from tqdm.asyncio import tqdm_asyncio as tqdm
-from ssl import SSLError
 
 import fts.flags as transferflags
 from fts.config import (

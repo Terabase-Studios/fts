@@ -4,9 +4,9 @@ import argparse
 import io
 import os
 import pathlib
-import sys
 import random
 import string
+import sys
 from contextlib import redirect_stdout, redirect_stderr
 
 import argui
@@ -14,6 +14,8 @@ from argui.types import FileSelectDir
 
 from fts.core.aliases import resolve_alias
 from fts.core.defaults import load_defaults
+from fts.core.logger import setup_logging
+from fts.core.secure import is_public_network
 
 
 def size_type(value: str) -> int:
@@ -25,35 +27,6 @@ def size_type(value: str) -> int:
             num = float(value[:-len(unit)])
             return int(num * units[unit])
     return int(value)
-
-# --- Logger setup ---
-try:
-    from fts.core.logger import setup_logging
-except ImportError:
-    import logging
-
-    def setup_logging(verbose=False, quiet=False, logfile=None):
-        """Fallback logger if fts.core.logger is unavailable."""
-        logger = logging.getLogger("fts")
-        logger.handlers.clear()
-
-        level = logging.DEBUG if verbose else logging.WARNING if quiet else logging.INFO
-        logger.setLevel(level)
-
-        fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
-
-        console = logging.StreamHandler(sys.stdout)
-        console.setLevel(level)
-        console.setFormatter(fmt)
-        logger.addHandler(console)
-
-        if logfile:
-            file_handler = logging.FileHandler(logfile, encoding="utf-8")
-            file_handler.setLevel(level)
-            file_handler.setFormatter(fmt)
-            logger.addHandler(file_handler)
-
-        return logger
 
 # --- Lazy command loader with caching ---
 _command_cache = {}
@@ -115,7 +88,7 @@ def add_network_flags(parser: argparse.ArgumentParser, defaults) -> None:
         "--ip",
         metavar="ADDR",
         type=str,
-        help="IP address or hostname to connect to"
+        help="restrict requests to IP or hostname"
     )
 
 
@@ -264,7 +237,7 @@ def create_parser(gui=False) -> argparse.ArgumentParser:
     send_dir_parser.add_argument(
         "--pyzip",
         action="store_true",
-        help="Use Python's built-in compression instead of native"
+        help="use Python’s built-in compression instead of OS-level compression"
     )
     send_dir_parser.add_argument(
         "--progress",
@@ -469,8 +442,18 @@ def dummy_exit(code=0):
 
 # --- Main CLI setup ---
 def main():
+    if is_public_network("-v" in sys.argv or "--verbose" in sys.argv):
+        print('FTS is disabled on public network\n')
+        sys.exit(0)
+
     import logging
     gui = False
+
+    if len(sys.argv) == 2:
+        if "-v" in sys.argv:
+            sys.argv.remove("-v")
+        if "--verbose" in sys.argv:
+            sys.argv.remove("--verbose")
 
     if len(sys.argv) == 1:
         sys.argv.extend(["--gui"])

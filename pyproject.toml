@@ -4,27 +4,33 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fts-tool"
-version = "1.1.0-beta2"
-description = "Peer to peer file and directory transfer system"
+version = "1.0.0"
+description = "Peer-to-peer file and directory transfer system"
 authors = [
   { name = "Terabase Studios", email = "terabasestudios@gmail.com" }
 ]
-readme = "README.md"
-requires-python = ">=3.8"
-
-dependencies = [
-    "aiofiles==24.1.0",
-    "argcomplete==3.6.2",
-    "cryptography==45.0.7",
-    "psutil==7.0.0",
-    "tqdm==4.67.1",
-    "prompt_toolkit==3.0.52",
-    "argparse-interface==0.2.0"
+readme = { file = "README.md", content-type = "text/markdown" }
+license = { file = "LICENSE" }
+requires-python = ">=3.13"
+keywords = ["file transfer", "cli", "LAN", "chat", "fts"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Topic :: Communications :: File Sharing",
+    "Topic :: Utilities"
 ]
 
-
+dependencies = [
+    "aiofiles>=24.1.0",
+    "argcomplete>=3.6.2",
+    "cryptography>=45.0.7",
+    "psutil>=7.0.0",
+    "tqdm>=4.67.1",
+    "prompt_toolkit>=3.0.52",
+    "argparse-interface>=0.2.0",
+    "filelock>=3.19.1",
+]
 
 [project.scripts]
 fts = "fts.cli:main"
-
-# add sympy
