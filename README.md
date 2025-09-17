@@ -16,6 +16,8 @@ It’s designed for fast local-network sharing, simple chat creation, and utilit
 * Aliases and default settings for quick operations
 * Progress bars, rate limiting, and background servers
 * Security via trusted connections and public-network safeguards
+* Uses TLS to prevent man in the middle attacks
+* Library does not expose the computers actual file system in anyway
 
 > [!IMPORTANT]
 > FTS has currently only been tested on Windows. Other operating systems may not be supported.
