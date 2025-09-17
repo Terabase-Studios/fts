@@ -48,6 +48,7 @@ def cmd_find(args, logger):
         except Exception as e:
             logger.error(f"Failed to discover libraries: {e}")
             return None
+
         if servers:
             file_selected = False
             lib_file_path = None
@@ -139,7 +140,7 @@ def cmd_find(args, logger):
                     extract=False,
                     progress=True,
                     port=port,
-                    ip=ip,
+                    ip=None,
                     func=None,
                     max_sends=1,
                 )
