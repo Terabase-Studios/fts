@@ -104,7 +104,7 @@ def cmd_find(args, logger):
 
             def get_free_port():
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    s.bind(("", 0))  # 0 tells the OS to pick a free port
+                    s.bind(("127.0.0.1", 0))  # Bind to loopback for security
                     return s.getsockname()[1]  # returns the assigned port
 
             port = get_free_port()
