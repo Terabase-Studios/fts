@@ -84,7 +84,8 @@ def run(args):
     except KeyboardInterrupt:
         pass
     except Exception:
-        pass
+        print('')
+        raise
     print('')
 
 def ensure_func(args):

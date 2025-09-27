@@ -7,35 +7,6 @@ from pathlib import Path
 from fts.config import ALIASES_FILE
 
 
-# --- Load / Save Aliases ---
-def _load_aliases(logger=None):
-    if not os.path.exists(ALIASES_FILE):
-        return {"ip": {}, "dir": {}}
-    try:
-        with open(ALIASES_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        if not isinstance(data, dict):
-            raise ValueError("Alias file format invalid")
-        data.setdefault("ip", {})
-        data.setdefault("dir", {})
-        return data
-    except (json.JSONDecodeError, ValueError) as e:
-        if logger:
-            logger.warning(f"Aliases file is corrupted or invalid, using empty defaults: {e}")
-        return {"ip": {}, "dir": {}}
-    except Exception as e:
-        if logger:
-            logger.error(f"Failed to load aliases: {e}")
-        return {"ip": {}, "dir": {}}
-
-def _save_aliases(data, logger=None):
-    try:
-        with open(ALIASES_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2)
-    except Exception as e:
-        if logger:
-            logger.error(f"Failed to save aliases: {e}")
-
 # --- Add / List / Remove Aliases ---
 def cmd_alias(args, logger):
     aliases = _load_aliases(logger)
@@ -136,6 +107,36 @@ def cmd_alias(args, logger):
             logger.warning(f"No alias named '{args.name}' found")
         print('')
         return
+
+
+# --- Load / Save Aliases ---
+def _load_aliases(logger=None):
+    if not os.path.exists(ALIASES_FILE):
+        return {"ip": {}, "dir": {}}
+    try:
+        with open(ALIASES_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if not isinstance(data, dict):
+            raise ValueError("Alias file format invalid")
+        data.setdefault("ip", {})
+        data.setdefault("dir", {})
+        return data
+    except (json.JSONDecodeError, ValueError) as e:
+        if logger:
+            logger.warning(f"Aliases file is corrupted or invalid, using empty defaults: {e}")
+        return {"ip": {}, "dir": {}}
+    except Exception as e:
+        if logger:
+            logger.error(f"Failed to load aliases: {e}")
+        return {"ip": {}, "dir": {}}
+
+def _save_aliases(data, logger=None):
+    try:
+        with open(ALIASES_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+    except Exception as e:
+        if logger:
+            logger.error(f"Failed to save aliases: {e}")
 
 
 # --- Resolve alias to actual path or IP ---

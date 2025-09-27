@@ -22,12 +22,11 @@ from fts.config import (
 )
 from fts.core import secure as secure
 from fts.core.detatched import start_detached
+from fts.core.dosp import should_receive
 from fts.utilities import format_bytes, parse_byte_string
 
 # Incrementing IDs for each client connection
 _client_ids = itertools.count(1)
-
-
 
 def cmd_open(args, logger):
     """Start TLS receiver server safely with dynamic port handling and shutdown support."""
@@ -61,7 +60,7 @@ def cmd_open(args, logger):
     # Try dynamic port handling BEFORE running asyncio
     for attempt in range(45):
         try:
-            server_coro = start_server(host, port, output_dir, logger, args.progress, limit, max_sends=max_sends)
+            server_coro = start_server(host, port, output_dir, logger, args.progress, limit, max_sends, args.unprotected)
             asyncio.run(server_coro)
             return
         except OSError as e:
@@ -83,7 +82,7 @@ def cmd_open(args, logger):
 
 
 async def start_server(host: str, port: int, output_dir: str, logger,
-                       progress_bar=False, rate_limit: int = 0, max_sends=None):
+                       progress_bar=False, rate_limit: int = 0, max_sends=None, unprotected=False):
     from ssl import SSLContext
     ssl_context: SSLContext = secure.get_server_context()
     os.makedirs(output_dir, exist_ok=True)
@@ -98,7 +97,7 @@ async def start_server(host: str, port: int, output_dir: str, logger,
 
         try:
             file_sent = await handle_client(reader, writer, output_dir, client_id,
-                                            logger, progress_bar, rate_limit)
+                                            logger, progress_bar, rate_limit, unprotected)
             if max_sends is not None:
                 send_counter += 1
                 logger.info(f"{client_id}: Transfer requests: {send_counter}/{max_sends}")
@@ -151,11 +150,12 @@ def uniquify_filename(filename, directory="."):
     return candidate
 
 
-async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, output_dir: str, client_id, logger, progress_bar=False, rate_limit: int = 0):
+async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, output_dir: str, client_id, logger, progress_bar=False, rate_limit: int = 0, unprotected=False):
     addr = writer.get_extra_info("peername")
     logger.info(f"{client_id}: Secure connection from {addr}")
 
     try:
+        valid, error = True, ""
         # --- Parse header ---
         header_data = await reader.readexactly(19)
         magic, version, flags, fname_len, filesize = struct.unpack(">4sfBHQ", header_data)
@@ -168,16 +168,31 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
 
         # --- Validate ---
         if magic != MAGIC:
-            raise ValueError("Invalid magic number")
+            valid, error = False, "Invalid magic number in header"
         if int(VERSION * 1000) != int(version * 1000):
-            raise ValueError("Version mismatch")
+            valid, error = False, "Version mismatch between sender and receiver"
         if fname_len > 1024:
-            raise ValueError("Filename too long")
+            valid, error = False, "Recieving filename to longer than 1024 bytes"
+
         calc_checksum = zlib.crc32(filename_bytes + struct.pack(">Q", filesize)) & 0xFFFFFFFF
         if calc_checksum != checksum:
-            raise ValueError("Header checksum mismatch")
+            valid, error = False, "Header checksum mismatch! The sent header may have been corrupted."
 
         # --- Prepare output ---
+        if valid:
+            valid, error = should_receive(addr, filesize, flags)
+        if valid or unprotected:
+            writer.write(b"SEND")
+            if not valid:
+                logger.debug(f"Request failed verification but server is set to unprotected: \n{error}\n")
+            else:
+                logger.debug("Permission to send file sent to server")
+        else:
+            writer.write(b"FAIL")
+            logger.error(f"Sender failed request validation: \n{error}\n")
+            raise Exception("Sender request denied by server")
+        await writer.drain()
+
         out_path = os.path.join(output_dir, os.path.basename(filename))
         os.makedirs(output_dir, exist_ok=True)
         logger.info(f"{client_id}: Receiving '{filename}' ({format_bytes(filesize)}) into {output_dir}")

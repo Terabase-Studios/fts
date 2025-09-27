@@ -49,6 +49,7 @@ def open_parser_add(parser, parents):
     open_parser = parser.add_parser("open", help="start a server and listen for incoming transfers", parents=parents)
     open_parser.add_argument("output", type=pathlib.Path, metavar="OUTPUT_PATH", nargs="?", help="directory to save incoming transfers")
     open_parser.add_argument("-d", "--detached", action="store_true", help="run server in the background",)
+    open_parser.add_argument("--unprotected", action="store_true", help="disable file request verification",)
     open_parser.add_argument("--progress", action="store_true", help="show progress bar for incoming transfers")
     open_parser.add_argument("-l", "--limit", type=str, metavar="SIZE", help="max recieving speed (e.g. 500KB, 2MB, 1GB)")
     open_parser.add_argument("-p", "--port", type=int, metavar="PORT", help="override port used")

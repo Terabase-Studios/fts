@@ -19,6 +19,7 @@ from fts.config import (
     BATCH_SIZE,
     PROGRESS_INTERVAL,
     UNCOMPRESSIBLE_EXTS,
+    MAX_SEND_RETRIES
 )
 from fts.core import secure as secure
 from fts.utilities import format_bytes, parse_byte_string
@@ -45,7 +46,7 @@ def cmd_send(args, logger):
     try:
         asyncio.run(send_file(path, args.ip, args.port, logger, progress_bar=args.progress, name=args.name, compress=not args.nocompress, rate_limit=limit))
     except KeyboardInterrupt:
-        logger.error("User interrupt")
+        raise KeyboardInterrupt
 
 # -------------------------
 # Helper functions
@@ -62,7 +63,7 @@ def resolve_path(path: str) -> str:
 def build_header(filename: str, filesize: int, flags: int = 0) -> bytes:
     filename_bytes = filename.encode('utf-8')
     fname_len = len(filename_bytes)
-    if fname_len > 65535:
+    if fname_len > 1024:
         raise ValueError("Filename too long")
 
     # Pack version as 32-bit float
@@ -192,7 +193,8 @@ async def send_file(
 
     try:
         # --- secure connection with TOFU ---
-        reader, writer = await secure.connect_with_tofu_async(host, port, logger)
+        reader, writer = await connect_with_retry(host, port, logger, retries=MAX_SEND_RETRIES)
+
         logger.info(f"Secure connection to ('{host}', {port})")
 
         # Build and send header
@@ -201,6 +203,16 @@ async def send_file(
         await writer.drain()
 
         logger.info(f"Sending '{filename}' ({format_bytes(filesize)}) from {file_path}")
+        logger.debug(f"Awaiting server approval")
+        try:
+            ack = await reader.readexactly(4)
+            if ack != b"SEND":
+                logger.error("Send request denied by receiver")
+                return
+
+            logger.debug(f"Successfully received server permission")
+        except:
+            logger.warning("Failed to recieve permission from receiver")
 
         # Send file using asyncio-based pipeline
         sent = await send_linear(file_path, filesize, writer, progress_bar, logger, rate_limit)
@@ -218,7 +230,7 @@ async def send_file(
 
             logger.info(f"File sent successfully: {filename}")
         except:
-            logger.warning("Confirmation failed")
+            logger.warning("Transfer confirmation from receiver failed")
 
         logger.info(f"Secure connection to ('{host}', {port}) closed")
         writer.close()
@@ -229,6 +241,21 @@ async def send_file(
     except Exception as e:
         logger.error(f"Error sending file: {e}\n")
         return
+
+
+async def connect_with_retry(host, port, logger, retries: int = 5, delay: int = 3):
+    for attempt in range(1, retries + 1):
+        try:
+            reader, writer = await secure.connect_with_tofu_async(host, port, logger)
+            return reader, writer  # success!
+        except Exception as e:
+            logger.error(f"Connection attempt {attempt} failed: {e}")
+            if attempt < retries:
+                logger.info(f"Retrying in {delay} seconds...\n")
+                await asyncio.sleep(delay)
+            else:
+                raise
+    return None, None
 
 
 async def send_linear(file_path, filesize, writer, progress_bar, logger, rate_limit: int = 0):
