@@ -3,6 +3,9 @@ import re
 import shutil
 import sys
 import textwrap
+import string
+import random
+
 
 from filelock import FileLock
 from prompt_toolkit import print_formatted_text
@@ -94,8 +97,12 @@ class ColorFormatter(logging.Formatter):
         return ansi_escape.sub('', text)
 
 
-def setup_logging(verbose=False, quiet=False, logfile=None, line_sep=0, mode="tqdm", id=None):
+def setup_logging(verbose=False, quiet=False, logfile=None, line_sep=0, mode="tqdm", id="N/a"):
     """Configure logger for CLI commands with tqdm support."""
+    alphabet = string.ascii_letters + string.digits
+    number = ''.join(random.choices(alphabet, k=6))
+    id = f"({id}|{number})"
+
     logger = logging.getLogger("fts")
     logger.handlers.clear()
 

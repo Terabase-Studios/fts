@@ -6,7 +6,6 @@ import struct
 import sys
 import tempfile
 import time
-import zipfile
 import zlib
 
 from tqdm.asyncio import tqdm_asyncio as tqdm
@@ -62,7 +61,7 @@ def cmd_open(args, logger):
     # Try dynamic port handling BEFORE running asyncio
     for attempt in range(45):
         try:
-            server_coro = start_server(host, port, output_dir, logger, args.extract, args.progress, rate_limit=limit, max_sends=max_sends)
+            server_coro = start_server(host, port, output_dir, logger, args.progress, limit, max_sends=max_sends)
             asyncio.run(server_coro)
             return
         except OSError as e:
@@ -84,7 +83,7 @@ def cmd_open(args, logger):
 
 
 async def start_server(host: str, port: int, output_dir: str, logger,
-                       extract=False, progress_bar=False, rate_limit: int = 0, max_sends=None):
+                       progress_bar=False, rate_limit: int = 0, max_sends=None):
     from ssl import SSLContext
     ssl_context: SSLContext = secure.get_server_context()
     os.makedirs(output_dir, exist_ok=True)
@@ -99,7 +98,7 @@ async def start_server(host: str, port: int, output_dir: str, logger,
 
         try:
             file_sent = await handle_client(reader, writer, output_dir, client_id,
-                                            logger, extract, progress_bar, rate_limit=rate_limit)
+                                            logger, progress_bar, rate_limit)
             if max_sends is not None:
                 send_counter += 1
                 logger.info(f"{client_id}: Transfer requests: {send_counter}/{max_sends}")
@@ -152,7 +151,7 @@ def uniquify_filename(filename, directory="."):
     return candidate
 
 
-async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, output_dir: str, client_id, logger, extract=False, progress_bar=False, rate_limit: int = 0):
+async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, output_dir: str, client_id, logger, progress_bar=False, rate_limit: int = 0):
     addr = writer.get_extra_info("peername")
     logger.info(f"{client_id}: Secure connection from {addr}")
 
@@ -200,10 +199,6 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
         # --- Decompress if needed ---
         if flags & transferflags.FLAG_COMPRESSED:
             out_path = await asyncio.to_thread(decompress_file, out_path, client_id, logger)
-
-        # --- Extract zip if requested ---
-        if extract and zipfile.is_zipfile(out_path):
-            await asyncio.to_thread(extract_zip, out_path, client_id, logger)
 
     except Exception as e:
         logger.exception(f"{client_id}: Error receiving file: {e}")
@@ -308,38 +303,4 @@ def decompress_file(file_path: str, client_id, logger):
     except Exception as e:
         shutil.rmtree(temp_dir, ignore_errors=True)
         logger.error(f"{client_id}: Failed to decompress: {e}")
-        raise
-
-
-def extract_zip(zip_path, client_id, logger):
-    if not zipfile.is_zipfile(zip_path):
-        logger.error(f"{client_id}: Not a valid zip file: {zip_path}")
-        return
-
-    try:
-        base_path = os.path.splitext(zip_path)[0]
-        extract_path = base_path + "_extracting"
-        final_path = base_path
-
-        os.makedirs(extract_path, exist_ok=True)
-
-        logger.info(f"{client_id}: Extracting zip to {extract_path}")
-        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            zip_ref.extractall(extract_path)
-
-        try:
-            os.remove(zip_path)
-        except Exception as e:
-            logger.warning(f"{client_id}: Failed to remove original zip: {e}")
-
-        if os.path.exists(final_path):
-            logger.warning(f"{client_id}: Final path already exists, overwriting: {final_path}")
-            # Optional: remove or merge existing folder
-            # shutil.rmtree(final_path)
-
-        os.rename(extract_path, final_path)
-        logger.info(f"{client_id}: Extracted zip to {final_path}")
-
-    except Exception as e:
-        logger.error(f"{client_id}: Zip extraction error: {e}")
         raise

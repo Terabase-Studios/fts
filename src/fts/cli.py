@@ -13,20 +13,8 @@ import argui
 from argui.types import FileSelectDir
 
 from fts.core.aliases import resolve_alias
-from fts.core.defaults import load_defaults
 from fts.core.logger import setup_logging
 from fts.core.secure import is_public_network
-
-
-def size_type(value: str) -> int:
-    """Parse human-readable sizes like '10MB' into bytes."""
-    units = {"B":1, "KB":1024, "MB":1024**2, "GB":1024**3, "TB":1024**4, "PB":1024**5}
-    value = value.upper().strip()
-    for unit in units:
-        if value.endswith(unit):
-            num = float(value[:-len(unit)])
-            return int(num * units[unit])
-    return int(value)
 
 # --- Lazy command loader with caching ---
 _command_cache = {}
@@ -95,10 +83,6 @@ def add_network_flags(parser: argparse.ArgumentParser, defaults) -> None:
 # --- Main parser ---
 def create_parser(gui=False) -> argparse.ArgumentParser:
     defaults = {}
-    try:
-        defaults = load_defaults()
-    except Exception as e:
-        print(f"Failed to load defaults: {e}", file=sys.stderr)
 
     parser = argparse.ArgumentParser(
         prog="fts",
@@ -132,30 +116,17 @@ def create_parser(gui=False) -> argparse.ArgumentParser:
         help="Run server in the background",
     )
     open_parser.add_argument(
+        "--progress",
+        action="store_true",
+        help="Show progress bars during operations"
+    )
+    open_parser.add_argument(
         "-l", "--limit",
         type=str,
         metavar="SIZE",
         help="Transfer rate limit (e.g. 500KB, 2MB, 1GB)"
     )
-    #open_parser.add_argument(
-    #    "-t", "--timeout",
-    #    type=int,
-    #    metavar="SECONDS",
-    #    help="Maximum time to wait for connection"
-    #)
-    open_parser.add_argument(
-        "-x", "--extract",
-        action="store_true",
-        help="Automatically extract transferred archives"
-    )
-    open_parser.add_argument(
-        "--progress",
-        action="store_true",
-        help="Show progress bars during operations"
-    )
     add_network_flags(open_parser, defaults)
-    open_parser.set_defaults(func=load_cmd("fts.commands.server", "cmd_open"))
-
     # --- send ---
     send_parser = subparsers.add_parser(
         "send",
@@ -197,63 +168,13 @@ def create_parser(gui=False) -> argparse.ArgumentParser:
         action="store_true",
         help="Show progress bars during operations"
     )
-    send_parser.set_defaults(func=load_cmd("fts.commands.sender", "cmd_send"))
-
-    # --- send-dir ---
-    if gui:
-        name = "senddir"
-    else:
-        name = "send-dir"
-    send_dir_parser = subparsers.add_parser(
-        name,
-        help="Send a directory recursively"
-    )
-    send_dir_parser.add_argument(
-        "path",
-        type=FileSelectDir(),
-        help="Directory to send - required"
-    )
-    send_dir_parser.add_argument(
-        "ip",
-        type=str,
-        help="Target IP address or hostname - required"
-    )
-    send_dir_parser.add_argument(
-        "-n", "--name",
-        type=str,
-        help="Name to send directory as"
-    )
-    send_dir_parser.add_argument(
-        "-p", "--port",
-        type=int,
-        help="Override port used"
-    )
-    send_dir_parser.add_argument(
-        "-l", "--limit",
-        type=str,
-        metavar="SIZE",
-        help="Transfer rate limit (e.g. 500KB, 2MB, 1GB)"
-    )
-    send_dir_parser.add_argument(
-        "--pyzip",
-        action="store_true",
-        help="use Python’s built-in compression instead of OS-level compression"
-    )
-    send_dir_parser.add_argument(
-        "--progress",
-        action="store_true",
-        help="Show progress bars during operations"
-    )
-    send_dir_parser.set_defaults(func=load_cmd("fts.commands.sender", "cmd_send_dir"))
 
     # --- close ---
     close_parser = subparsers.add_parser(
         "close",
         help="Close a detached server",
     )
-    close_parser.add_argument("process", choices=["all", "receiving", "library"], help="process to close")
-    close_parser.set_defaults(func=load_cmd("fts.core.detatched", "cmd_close"))
-
+    close_parser.add_argument("process", choices=["all", "receiving"], help="process to close")
     # --- trust ---
     if not gui:
         # --- version ---
@@ -261,7 +182,6 @@ def create_parser(gui=False) -> argparse.ArgumentParser:
             "version",
             help="Show FTS version information"
         )
-        version_parser.set_defaults(func=load_cmd("fts.commands.misc", "cmd_version"))
 
     trust_parser = subparsers.add_parser(
         "trust",
@@ -272,47 +192,6 @@ def create_parser(gui=False) -> argparse.ArgumentParser:
         type=str,
         help="IP address whose certificate should be trusted - required"
     )
-    trust_parser.set_defaults(func=load_cmd("fts.core.secure", "cmd_clear_fingerprint"))
-
-    # --- chat ---
-    # chat create
-    if gui:
-        name = "chatcreate"
-    else:
-        name = "chat-create"
-    chat_create_parser = subparsers.add_parser(name, help="create a new chatroom")
-    chat_create_parser.add_argument("name", type=str, help="your username - required")
-    chat_create_parser.add_argument("-p", "--port", type=int, help="Override port used")
-    chat_create_parser.set_defaults(func=load_cmd("fts.commands.chat", "cmd_create"))
-
-    # chat join
-    if gui:
-        name = "chatjoin"
-    else:
-        name = "chat-join"
-    chat_create_parser = subparsers.add_parser(name, help="join an existing chatroom")
-    chat_create_parser.add_argument("name", type=str, help="your username - required")
-    chat_create_parser.add_argument("ip", type=str, help="IP to join - required")
-    chat_create_parser.add_argument("-p", "--port", type=int, help="Override port used")
-    chat_create_parser.set_defaults(func=load_cmd("fts.commands.chat", "cmd_join"))
-
-    # --- library ---
-    library_parser = subparsers.add_parser("library", help="download and manage local file directories!")
-    library_parser.add_argument("task", choices=["find", "open", "manage"], help="task to perform")
-    library_parser.add_argument(
-        "output",
-        type=FileSelectDir(),
-        nargs="?",
-        metavar="OUTPUT_PATH",
-        help="Directory to save incoming transfers - required for (required for 'find')",
-        default=defaults.get("output", None),
-    )
-    library_parser.add_argument(
-        "-d", "--detached",
-        action="store_true",
-        help="Run server in the background (used in 'open')",
-    )
-    library_parser.set_defaults(func=load_cmd("fts.library.commands", "cmd_library"))
 
     # --- alias ---
     alias_parser = subparsers.add_parser("alias", help="manage aliases")
@@ -321,21 +200,6 @@ def create_parser(gui=False) -> argparse.ArgumentParser:
     alias_parser.add_argument("value", nargs="?", type=str, help="alias value (required for 'add')")
     alias_parser.add_argument("type", nargs="?", type=str, choices=["ip", "dir"],
                               help="type of alias (required for 'add')")
-    alias_parser.set_defaults(func=load_cmd("fts.core.aliases", "cmd_alias"))
-
-    # --- defaults ---
-    defaults_parser = subparsers.add_parser("defaults", help="manage default settings")
-    defaults_parser.add_argument(
-        "output",
-        type=FileSelectDir(),
-        metavar="OUTPUT_PATH",
-        nargs="?",
-        help="Directory to save incoming transfers - required",
-        default=defaults.get("output", None),
-    )
-
-    defaults_parser.set_defaults(func=load_cmd("fts.core.defaults", "cmd_save"))
-
     return parser
 
 
@@ -347,7 +211,6 @@ def run(args):
     # --- Setup logger ---
     logfile = getattr(args, "logfile", None)
     log_created = False
-    id=None
     if logfile:
         logfile = resolve_alias(logfile, "dir", logger=None)
         try:
@@ -359,10 +222,6 @@ def run(args):
             print(f"Warning: Could not create logfile '{logfile}': {e}")
             logfile = None
 
-        try:
-            alphabet = string.ascii_letters + string.digits
-            number = ''.join(random.choices(alphabet, k=6))
-            id = f"({args.command}|{number})"
         except Exception as e:
             print(f"Warning: Could not create id: {e}")
 
@@ -377,7 +236,7 @@ def run(args):
         quiet=getattr(args, "quiet", False),
         logfile=logfile,
         mode=log_mode,
-        id=id,
+        id=args.command,
     )
     if log_created:
         logger.info(f"Log file created: {logfile}")
@@ -414,18 +273,10 @@ def ensure_func(args):
     mapping = {
         "open": ("fts.commands.server", "cmd_open"),
         "send": ("fts.commands.sender", "cmd_send"),
-        "senddir": ("fts.commands.sender", "cmd_send_dir"),
-        "send-dir": ("fts.commands.sender", "cmd_send_dir"),
         "close": ("fts.core.detatched", "cmd_close"),
         "version": ("fts.commands.misc", "cmd_version"),
         "trust": ("fts.core.secure", "cmd_clear_fingerprint"),
         "alias": ("fts.core.aliases", "cmd_alias"),
-        "chatcreate": ("fts.commands.chat", "cmd_create"),
-        "chat-create": ("fts.commands.chat", "cmd_create"),
-        "chatjoin": ("fts.commands.chat", "cmd_join"),
-        "chat-join": ("fts.commands.chat", "cmd_join"),
-        "library": ("fts.library.commands", "cmd_library"),
-        "defaults": ("fts.core.defaults", "cmd_save"),
     }
 
     if args.command in mapping:
@@ -445,44 +296,13 @@ def main():
     if is_public_network("-v" in sys.argv or "--verbose" in sys.argv):
         print('FTS is disabled on public network\n')
         sys.exit(0)
-
-    import logging
-    gui = False
-
-    if len(sys.argv) == 2:
-        if "-v" in sys.argv:
-            sys.argv.remove("-v")
-        if "--verbose" in sys.argv:
-            sys.argv.remove("--verbose")
-
-    if len(sys.argv) == 1:
-        sys.argv.extend(["--gui"])
-        gui = True
-
-    parser = create_parser(gui)
-    interface = argui.Wrapper(parser, logLevel= logging.CRITICAL, )
-
-    selected_cmd = False
-
-    # Dummy output streams to collect prints for Command* error
-    f = io.StringIO()
     args = None
 
-    if gui:
-        with redirect_stdout(f), redirect_stderr(f):
-            while not selected_cmd:
-                try:
-                    args = interface.parseArgs()
-                    if "No nodes match" in str(f.getvalue()):
-                        f.seek(0)  # Move the cursor to the beginning of the stream
-                        f.truncate(0)  # Truncate the stream to zero length
-                        continue
-                    else:
-                        selected_cmd = True
-                except:
-                    break
-    else:
-        args = interface.parseArgs()
+    try:
+        parser = create_parser()
+        args = parser.parse_args()
+    except SystemExit:
+        pass
 
     if not args:
         print('')

@@ -21,9 +21,31 @@ from fts.config import (
     UNCOMPRESSIBLE_EXTS,
 )
 from fts.core import secure as secure
-from fts.core.zipper import zip_directory
 from fts.utilities import format_bytes, parse_byte_string
 
+def cmd_send(args, logger):
+    """Send a single file."""
+    try:
+        path = resolve_path(args.path)
+    except Exception as e:
+        logger.error(f"Error finding path: {e}\n")
+        return
+
+    logger.info(f"Preparing to send file '{path}' to {args.ip}")
+    logger.debug(f"Options: {vars(args)}\n")
+
+    limit = 0
+    if args.limit:
+        try:
+            limit = parse_byte_string(args.limit)
+        except Exception as e:
+            logger.error(f"Error parsing limit: {e}\n")
+            return
+
+    try:
+        asyncio.run(send_file(path, args.ip, args.port, logger, progress_bar=args.progress, name=args.name, compress=not args.nocompress, rate_limit=limit))
+    except KeyboardInterrupt:
+        logger.error("User interrupt")
 
 # -------------------------
 # Helper functions
@@ -312,72 +334,3 @@ async def send_linear(file_path, filesize, writer, progress_bar, logger, rate_li
         loop.set_exception_handler(old_handler)
         logger.debug(f"Transferred {format_bytes(sent)} in {duration:.2f} seconds: ({format_bytes(sent/duration)}/s)")
         return sent
-
-
-def cmd_send(args, logger):
-    """Send a single file."""
-    try:
-        path = resolve_path(args.path)
-    except Exception as e:
-        logger.error(f"Error finding path: {e}\n")
-        return
-
-    logger.info(f"Preparing to send file '{path}' to {args.ip}")
-    logger.debug(f"Options: {vars(args)}\n")
-
-    limit = 0
-    if args.limit:
-        try:
-            limit = parse_byte_string(args.limit)
-        except Exception as e:
-            logger.error(f"Error parsing limit: {e}\n")
-            return
-
-    try:
-        asyncio.run(send_file(path, args.ip, args.port, logger, progress_bar=args.progress, name=args.name, compress=not args.nocompress, rate_limit=limit))
-    except KeyboardInterrupt:
-        logger.error("User interrupt")
-
-
-def cmd_send_dir(args, logger):
-    """Send a directory by zipping it first."""
-    try:
-        path = resolve_path(args.path)
-    except Exception as e:
-        logger.error(f"Error finding path: {e}\n")
-        return
-
-    logger.info(f"Preparing to send directory '{path}' to {args.ip}")
-    logger.debug(f"Options: {vars(args)}")
-
-    try:
-        zip_path = zip_directory(path, logger=logger, progress_bar=args.progress, force_python=args.pyzip)
-        logger.info(f"Directory zipped successfully: {zip_path}\n")
-    except (FileNotFoundError, NotADirectoryError, ValueError) as e:
-        logger.error(f"Error: {e}")
-        return
-
-    if not args.name:
-        name = os.path.basename(path)
-    else:
-        name = args.name
-
-    limit = 0
-    if args.limit:
-        try:
-            limit = parse_byte_string(args.limit)
-        except Exception as e:
-            logger.error(f"Error parsing limit: {e}\n")
-            return
-
-    try:
-        asyncio.run(send_file(zip_path, args.ip, args.port, logger, progress_bar=args.progress, name=name, rate_limit=limit))
-    except KeyboardInterrupt:
-        logger.error("User interrupt")
-
-    # delete the temp zip after sending
-    try:
-        os.remove(zip_path)
-        logger.debug(f"Temporary zip removed: {zip_path}")
-    except Exception as e:
-        logger.warning(f"Failed to remove temporary zip: {e}")
