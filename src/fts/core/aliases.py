@@ -70,30 +70,51 @@ def cmd_alias(args, logger):
             logger.error("Alias type must be 'ip' or 'dir'")
             return
 
+        warn_invalid = False
         # Validate syntax
         if args.type == "ip":
             ip_pattern = r"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$"
             if not re.match(ip_pattern, args.value):
                 logger.warning(f"Potentially invalid IP address format: {args.value}")
+                warn_invalid = True
 
-            octets = args.value.split(".")
-            if any(int(o) > 255 for o in octets):
-                logger.error(f"IP address has octet > 255: {args.value}")
-                return
+            if not warn_invalid:
+                octets = args.value.split(".")
+                if any(int(o) > 255 for o in octets):
+                    logger.error(f"IP address has octet > 255: {args.value}")
+                    return
         elif args.type == "dir":
-            # Only check for illegal characters / syntax, not existence
             invalid_chars = '<>\"|?*'
             if any(c in args.value for c in invalid_chars):
                 logger.error(f"Directory alias contains invalid characters: {args.value}")
                 return
             if os.path.isabs(args.value):
-                # Optional: enforce relative aliases
                 args.value = os.path.normpath(args.value)
+
+            # Warn if path seems questionable
+            if not os.path.exists(args.value):
+                logger.warning(f"Directory path does not exist: {args.value}")
+                warn_invalid = True
+
+        # Check for overwrite
+        overwriting = args.name in aliases[args.type]
+
+        # Ask user to continue unless --yes was given
+        if not args.yes:
+            if warn_invalid:
+                resp = input(f"Value '{args.value}' may be invalid. Continue adding alias? [y/N]: ")
+                if resp.lower() != "y":
+                    logger.info("Alias not added.")
+                    return
+            if overwriting:
+                resp = input(f"Alias '{args.name}' already exists and will be overwritten. Continue? [y/N]: ")
+                if resp.lower() != "y":
+                    logger.info("Alias not added.")
+                    return
 
         aliases[args.type][args.name] = args.value
         _save_aliases(aliases, logger)
         logger.info(f"Alias added: {args.name} -> {args.value} ({args.type})")
-        print('')
         return
 
     # --- Remove ---

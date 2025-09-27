@@ -52,7 +52,7 @@ def cmd_open(args, logger):
             limit = parse_byte_string(args.limit)
         except Exception as e:
             logger.error(f"Error parsing limit: {e}\n")
-            sys.exit(1)
+            return
 
     max_sends = None
     if hasattr(args, "max_sends") and args.max_sends is not None:
@@ -70,7 +70,7 @@ def cmd_open(args, logger):
                 port +=1
             else:
                 logger.error(f"Failed to start server: {e}")
-                sys.exit(1)
+                return
         except asyncio.CancelledError:
             logger.info("Server shutdown requested by user")
             return
@@ -79,7 +79,7 @@ def cmd_open(args, logger):
             return
         except Exception as e:
             logger.critical(f"Server error: {e}")
-            sys.exit(1)
+            return
 
 
 async def start_server(host: str, port: int, output_dir: str, logger,
