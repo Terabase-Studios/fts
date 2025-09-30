@@ -13,14 +13,8 @@ from fts.config import RECEIVING_PID
 def cmd_close(args, logger):
     logger.debug("Closing detached FTS server(s)")
     logger.debug(f"Options: {vars(args)}")
-    all_processes = args.process == "all"
 
-    if args.process == "receiving" or all_processes:
-        end_detached(args, logger, RECEIVING_PID, "receiving")
-        print('')
-    if args.process == "library" or all_processes:
-        end_detached(args, logger, LIBRARY_PID, "library")
-        print('')
+    end_detached(args, logger, RECEIVING_PID, "receiving")
 
 
 def start_detached(args, logger, pid_file, server_name) -> bool:

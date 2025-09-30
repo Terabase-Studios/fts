@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import os
 import sys
-from fts.core.aliases import resolve_alias
+from fts.core.aliases import resolve_alias, resolve_args
 from fts.core.logger import setup_logging
 from fts.core.secure import is_public_network
 from fts.core.parser import create_parser
@@ -28,7 +28,7 @@ def load_cmd(module_path, func_name):
     return wrapper
 
 
-def run(args):
+def setup_cli_logger(args):
     # --- Setup logger ---
     logfile = getattr(args, "logfile", None)
     log_created = False
@@ -62,31 +62,8 @@ def run(args):
     if log_created:
         logger.info(f"Log file created: {logfile}")
 
-    # --- Resolve aliases ---
-    if getattr(args, "output", None):
-        args.output = resolve_alias(args.output, "dir", logger=logger)
-    if getattr(args, "path", None):
-        args.path = resolve_alias(args.path, "dir", logger=logger)
-    if getattr(args, "ip", None):
-        args.ip = resolve_alias(args.ip, "ip", logger=logger)
+    return logger
 
-    # --- Enforce Alias ---
-    #if "alias" in args.command and args.action == "add" and not args.type:
-    #    logger.error("'alias add' requires a type argument ('ip' or 'dir').\n")
-    #    sys.exit(2)
-    #if "alias" in args.command and (args.action == "add" or args.action == "remove") and not args.name:
-    #    logger.error("'alias add/remove' requires a name argument.\n")
-    #    sys.exit(2)
-
-    # --- Run selected command ---
-    try:
-        args.func(args, logger)
-    except KeyboardInterrupt:
-        pass
-    except Exception:
-        print('')
-        raise
-    print('')
 
 def ensure_func(args):
     if hasattr(args, "func"):
@@ -108,15 +85,11 @@ def ensure_func(args):
     return args
 
 
-# Dummy sys.exit to prevent process termination
-def dummy_exit(code=0):
-    raise RuntimeError(f"sys.exit({code}) called")
-
-
 # --- Main CLI setup ---
 def main():
     if is_public_network("-v" in sys.argv or "--verbose" in sys.argv):
-        print('FTS is disabled on public network\n')
+        logger = setup_logging()
+        logger.critical('FTS is disabled on public network\n')
         sys.exit(0)
     args = None
 
@@ -130,10 +103,18 @@ def main():
         print('')
         return
 
+    logger = setup_cli_logger(args)
+    args = resolve_args(args, logger)
+    args = ensure_func(args)
+
     try:
-        run(ensure_func(args))
+        args.func(args, logger)
+    except KeyboardInterrupt:
+        pass
     except Exception as e:
         print(f"failed to run command: {e}")
+    finally:
+        print('')
 
 if __name__ == "__main__":
     main()

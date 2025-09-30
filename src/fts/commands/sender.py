@@ -204,15 +204,22 @@ async def send_file(
 
         logger.info(f"Sending '{filename}' ({format_bytes(filesize)}) from {file_path}")
         logger.debug(f"Awaiting server approval")
-        try:
-            ack = await reader.readexactly(4)
-            if ack != b"SEND":
-                logger.error("Send request denied by receiver")
+        while True:
+            try:
+                ack = await reader.readexactly(4)
+                if ack == b"HOLD":
+                    logger.info("Transfer on hold, the transfer will continue when server is ready")
+                elif ack != b"SEND":
+                    logger.error("Send request denied by receiver")
+                    return
+                else:
+                    break
+
+            except:
+                logger.error("Failed to recieve permission from receiver")
                 return
 
-            logger.debug(f"Successfully received server permission")
-        except:
-            logger.warning("Failed to recieve permission from receiver")
+        logger.debug(f"Successfully received server permission")
 
         # Send file using asyncio-based pipeline
         sent = await send_linear(file_path, filesize, writer, progress_bar, logger, rate_limit)

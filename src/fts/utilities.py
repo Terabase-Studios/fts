@@ -12,7 +12,7 @@ def format_bytes(size: int) -> str:
 
     return f"{s:.2f} {units[n]}"
 
-def parse_byte_string(size_str: str) -> int:
+def parse_byte_string(size_str: str | int) -> int:
     """
     Convert a human-readable size string into bytes.
     Examples:
@@ -21,6 +21,12 @@ def parse_byte_string(size_str: str) -> int:
         "10KB" -> 10240
         "123" -> 123
     """
+    try:
+        size = int(size_str)
+        return size
+    except ValueError:
+        pass
+
     size_str = size_str.strip().upper()
     match = re.fullmatch(r"(\d+(?:\.\d+)?)\s*(B|KB|MB|GB|TB)?", size_str)
     if not match:

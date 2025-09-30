@@ -1,0 +1,21 @@
+LogEntry {
+    background: $boost;
+    outline: wide $boost;
+    height: 5;
+    margin: 0 4 0 0;
+    min-width: 50;
+    padding: 1;
+    align: left top;
+}
+
+#logtab {
+    background: 0%;
+}
+
+.error {
+    outline: wide red;
+}
+
+.success {
+    outline: wide green;
+}

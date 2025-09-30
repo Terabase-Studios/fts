@@ -60,7 +60,7 @@ def cmd_open(args, logger):
     # Try dynamic port handling BEFORE running asyncio
     for attempt in range(45):
         try:
-            server_coro = start_server(host, port, output_dir, logger, args.progress, limit, max_sends, args.unprotected)
+            server_coro = start_server(host, port, output_dir, logger, args.progress, limit, max_sends, args.unprotected, args.max_transfers)
             asyncio.run(server_coro)
             return
         except OSError as e:
@@ -82,22 +82,33 @@ def cmd_open(args, logger):
 
 
 async def start_server(host: str, port: int, output_dir: str, logger,
-                       progress_bar=False, rate_limit: int = 0, max_sends=None, unprotected=False):
+                       progress_bar=False, rate_limit: int = 0, max_sends=None, unprotected=False, max_concurrent_transfers=0):
     from ssl import SSLContext
     ssl_context: SSLContext = secure.get_server_context()
     os.makedirs(output_dir, exist_ok=True)
 
     send_counter = 0
+    current_transfers = 0
     shutdown_event = asyncio.Event()  # will signal server shutdown
 
     async def handle_connection(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         nonlocal send_counter
+        nonlocal current_transfers
         client_id = next(_client_ids)
         addr = writer.get_extra_info('peername')
+        if max_concurrent_transfers and current_transfers >= max_concurrent_transfers:
+            writer.write(b"HOLD")
+            await writer.drain()
+            while current_transfers >= max_concurrent_transfers:
+                await asyncio.sleep(1)
+
 
         try:
+            current_transfers += 1
             file_sent = await handle_client(reader, writer, output_dir, client_id,
                                             logger, progress_bar, rate_limit, unprotected)
+            current_transfers -= 1
+
             if max_sends is not None:
                 send_counter += 1
                 logger.info(f"{client_id}: Transfer requests: {send_counter}/{max_sends}")
@@ -188,7 +199,7 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
             else:
                 logger.debug("Permission to send file sent to server")
         else:
-            writer.write(b"FAIL")
+            writer.write(b"DENY")
             logger.error(f"Sender failed request validation: \n{error}\n")
             raise Exception("Sender request denied by server")
         await writer.drain()

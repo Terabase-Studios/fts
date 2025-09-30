@@ -9,7 +9,7 @@ from fts.config import ALIASES_FILE
 
 # --- Add / List / Remove Aliases ---
 def cmd_alias(args, logger):
-    aliases = _load_aliases(logger)
+    aliases = load_aliases(logger)
 
     # --- List ---
     if args.action == "list":
@@ -29,14 +29,14 @@ def cmd_alias(args, logger):
                     logger.info(f"  {k} -> {v}")
             else:
                 logger.info("No folder aliases defined.")
-        print('')
         return
 
     # --- Add ---
     if args.action == "add":
-        if not args.name or not args.value:
-            logger.error("Must provide both 'name' and 'value' to add an alias.")
+        if not args.name or not args.value or not args.type:
+            logger.error("Must provide both 'name', 'value', and 'type' to add an alias.")
             return
+
         if args.type not in ("ip", "dir"):
             logger.error("Alias type must be 'ip' or 'dir'")
             return
@@ -90,27 +90,29 @@ def cmd_alias(args, logger):
 
     # --- Remove ---
     if args.action == "remove":
-        if not args.name:
-            logger.error("Must provide 'name' to remove an alias.")
+        if not args.name or not args.type:
+            logger.error("Must provide both 'name' and 'type' to remove an alias.")
+            return
+
+        if args.type not in ("ip", "dir"):
+            logger.error("Alias type must be 'ip' or 'dir'")
             return
 
         found = False
-        for t in ("ip", "dir"):
-            if args.name in aliases[t]:
-                del aliases[t][args.name]
-                found = True
+        if args.name in aliases[args.type]:
+            del aliases[args.type][args.name]
+            found = True
 
         if found:
             _save_aliases(aliases, logger)
             logger.info(f"Alias '{args.name}' removed")
         else:
             logger.warning(f"No alias named '{args.name}' found")
-        print('')
         return
 
 
 # --- Load / Save Aliases ---
-def _load_aliases(logger=None):
+def load_aliases(logger=None):
     if not os.path.exists(ALIASES_FILE):
         return {"ip": {}, "dir": {}}
     try:
@@ -139,8 +141,17 @@ def _save_aliases(data, logger=None):
             logger.error(f"Failed to save aliases: {e}")
 
 
+def resolve_args(args, logger: logging.Logger):
+    if getattr(args, "output", None):
+        args.output = resolve_alias(args.output, "dir", logger=logger)
+    if getattr(args, "path", None):
+        args.path = resolve_alias(args.path, "dir", logger=logger)
+    if getattr(args, "ip", None):
+        args.ip = resolve_alias(args.ip, "ip", logger=logger)
+    return args
+
 # --- Resolve alias to actual path or IP ---
-def resolve_alias(path_or_alias: str, type_: str, logger=None):
+def resolve_alias(path_or_alias: str, type_: str, logger: logging.Logger):
     """
     Resolve a string using aliases (IP or directory).
 
@@ -154,7 +165,7 @@ def resolve_alias(path_or_alias: str, type_: str, logger=None):
     if logger is None:
         logger = logging.getLogger("fts")
 
-    aliases = _load_aliases(logger)
+    aliases = load_aliases(logger)
 
     if type_ == "dir":
         # Split on OS separator only for the alias part
@@ -207,7 +218,7 @@ def reverse_resolve_alias(value: str, type_: str, logger=None):
     if logger is None:
         logger = logging.getLogger("fts")
 
-    aliases = _load_aliases(logger)
+    aliases = load_aliases(logger)
 
     if type_ == "ip":
         for name, ip in aliases["ip"].items():

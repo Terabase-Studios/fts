@@ -22,7 +22,7 @@ from pathlib import Path
 # General
 # -------------------------
 MAGIC = b"FTS1"         # protocol magic bytes used at connection start
-VERSION = 1.0           # fts protocol version
+VERSION = 2.0           # fts protocol version
 # Toggle features can live here in future (e.g. DEBUG, FEATURE_FLAGS)
 
 # -------------------------
@@ -73,11 +73,11 @@ RECEIVING_PID = os.path.join(APP_DIR, "fts_receiver.pid")  # pid file for receiv
 # Server DDoS protection (per-IP limits)
 # -------------------------
 # Toggle enforcement of simple in-memory protections.
-DOSP_ENABLED = True                    # if False, protector code can be bypassed (for testing)
+DOSP_ENABLED = True                    # if False, protector code can be bypassed
 
 # Limits and windows (tweak according to deployment & capacity)
 MAX_REQS_PER_MIN = 60                  # max requests per IP per minute
-MAX_BYTES_PER_MIN = 50 * 1024 * 1024   # max bytes per IP per minute (50 MiB)
+MAX_BYTES_PER_MIN = pow(1024, 3) * 10      # max bytes per IP per minute (10 GiB)
 MAX_CONCURRENT_PER_IP = 3              # max simultaneous transfers per IP
 BAN_SECONDS = 300                      # temporary ban length in seconds when limits exceeded
 REQUEST_WINDOW = 60.0                  # sliding window length in seconds used for counting

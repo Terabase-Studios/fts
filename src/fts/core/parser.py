@@ -25,7 +25,7 @@ def create_parser() -> argparse.ArgumentParser:
     # --- Root parser ---
     parser = argparse.ArgumentParser(
         prog="fts",
-        description="FTS: File transfers, chatrooms, and more.",
+        description="FTS: File transfers! =)",
         parents=[log_parent],
     )
     subparsers = parser.add_subparsers(
@@ -49,11 +49,12 @@ def open_parser_add(parser, parents):
     open_parser = parser.add_parser("open", help="start a server and listen for incoming transfers", parents=parents)
     open_parser.add_argument("output", type=pathlib.Path, metavar="OUTPUT_PATH", nargs="?", help="directory to save incoming transfers")
     open_parser.add_argument("-d", "--detached", action="store_true", help="run server in the background",)
-    open_parser.add_argument("--unprotected", action="store_true", help="disable file request verification",)
     open_parser.add_argument("--progress", action="store_true", help="show progress bar for incoming transfers")
+    open_parser.add_argument("--unprotected", action="store_true", help="disable file request verification",)
     open_parser.add_argument("-l", "--limit", type=str, metavar="SIZE", help="max recieving speed (e.g. 500KB, 2MB, 1GB)")
     open_parser.add_argument("-p", "--port", type=int, metavar="PORT", help="override port used")
     open_parser.add_argument("--ip", type=str, help="only listen to file transfers from this IP")
+    open_parser.add_argument("-m", "--max-concurrent-transfers", dest="max_transfers", type=int, help="Maximum transfers running at once (Ignored when --unprotected is active)")
 
 def send_parser_add(parser, parents):
     send_parser = parser.add_parser("send", help="connect to the target server and transfer the file", parents=parents)
@@ -78,5 +79,5 @@ def alias_parser_add(parser, parents):
     alias_parser.add_argument("name", nargs="?", type=str, help="alias typed name (required for 'add/remove')")
     alias_parser.add_argument("value", nargs="?", type=str, help="alias true value (required for 'add')")
     alias_parser.add_argument("type", nargs="?", type=str, choices=["ip", "dir"],
-                              help="type of alias (required for 'add')")
+                              help="type of alias (required for 'add/remove')")
     alias_parser.add_argument("-y", "--yes", action="store_true", help="force command and ignore all warnings",)
