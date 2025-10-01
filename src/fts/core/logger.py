@@ -128,7 +128,7 @@ def setup_logging(verbose=False, quiet=False, logfile=None, line_sep=0, mode="tq
 
         class PlainWrapFormatter(logging.Formatter):
             def __init__(self, line_sep=0):
-                super().__init__("%(asctime)s | %(levelname)-8s | %(message)s", "%H:%M:%S")
+                super().__init__("%(asctime)s | %(levelname)-8s | %(message)s", "%Y-%m-%d %H:%M:%S")
                 # regex for ANSI escape sequences
                 self.ANSI_ESCAPE_RE = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
                 self.line_sep = line_sep
@@ -149,7 +149,12 @@ def setup_logging(verbose=False, quiet=False, logfile=None, line_sep=0, mode="tq
                 formatted_lines = []
                 indent = " " * prefix_len
                 for line in lines:
-                    wrapped = textwrap.wrap(line, width=wrap_width) or [""]
+                    # Check if the line is a file path or filename, don't wrap it
+                    if re.search(r"[\\\/].+\.\w+", line):  # crude path or filename detection
+                        wrapped = [line]  # keep as-is
+                    else:
+                        wrapped = textwrap.wrap(line, width=wrap_width) or [""]
+
                     for i, wline in enumerate(wrapped):
                         if formatted_lines:
                             formatted_lines.append(indent + wline)

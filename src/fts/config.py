@@ -76,11 +76,10 @@ RECEIVING_PID = os.path.join(APP_DIR, "fts_receiver.pid")  # pid file for receiv
 DOSP_ENABLED = True                    # if False, protector code can be bypassed
 
 # Limits and windows (tweak according to deployment & capacity)
-MAX_REQS_PER_MIN = 60                  # max requests per IP per minute
+MAX_REQS_PER_MIN = 30                  # max requests per IP per minute
 MAX_BYTES_PER_MIN = pow(1024, 3) * 10      # max bytes per IP per minute (10 GiB)
-MAX_CONCURRENT_PER_IP = 3              # max simultaneous transfers per IP
-BAN_SECONDS = 300                      # temporary ban length in seconds when limits exceeded
-REQUEST_WINDOW = 60.0                  # sliding window length in seconds used for counting
+BAN_SECONDS = 120                      # temporary ban length in seconds when limits exceeded
+REQUEST_WINDOW = 600.0                  # sliding window length in seconds used for counting
 
 # -------------------------
 # Notes
@@ -145,7 +144,6 @@ def _write_default_config(path: str):
         "dosp_enabled": str(DOSP_ENABLED),
         "max_reqs_per_min": str(MAX_REQS_PER_MIN),
         "max_bytes_per_min": str(MAX_BYTES_PER_MIN),
-        "max_concurrent_per_ip": str(MAX_CONCURRENT_PER_IP),
         "ban_seconds": str(BAN_SECONDS),
         "request_window": str(REQUEST_WINDOW),
     }

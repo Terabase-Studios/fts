@@ -1,0 +1,1 @@
+LOGS = ["C:\\Users\\cybor\\Downloads\\log.txt"]

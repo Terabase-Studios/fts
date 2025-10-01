@@ -190,23 +190,25 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
             valid, error = False, "Header checksum mismatch! The sent header may have been corrupted."
 
         # --- Prepare output ---
+        out_path = os.path.join(output_dir, os.path.basename(filename))
+        logger.info(f"{client_id}: Receiving '{filename}' ({format_bytes(filesize)}) into {output_dir}")
+
         if valid:
             valid, error = should_receive(addr, filesize, flags)
         if valid or unprotected:
             writer.write(b"SEND")
             if not valid:
-                logger.debug(f"Request failed verification but server is set to unprotected: \n{error}\n")
+                logger.debug(f"{client_id}: Request failed verification but server is set to unprotected: \n{error}\n")
             else:
-                logger.debug("Permission to send file sent to server")
+                logger.debug(f"{client_id}: Permission to send file sent to server")
         else:
             writer.write(b"DENY")
-            logger.error(f"Sender failed request validation: \n{error}\n")
+            logger.error(f"{client_id}: Sender failed request validation: \n{error}\n")
             raise Exception("Sender request denied by server")
         await writer.drain()
 
-        out_path = os.path.join(output_dir, os.path.basename(filename))
         os.makedirs(output_dir, exist_ok=True)
-        logger.info(f"{client_id}: Receiving '{filename}' ({format_bytes(filesize)}) into {output_dir}")
+
 
         # --- Receive file ---
         received = await receive_linear(reader, filesize, out_path, client_id, logger, progress_bar=progress_bar, rate_limit=rate_limit)
@@ -305,7 +307,7 @@ async def receive_linear(reader, filesize, out_path, client_id, logger, progress
             progress.n = received
             progress.refresh()
         progress.close()
-        logger.debug(f"Transferred {format_bytes(received)} in {duration:.2f} seconds: ({format_bytes(received / duration)}/s)")
+        logger.debug(f"{client_id}: Transferred {format_bytes(received)} in {duration:.2f} seconds: ({format_bytes(received / duration)}/s)")
         return received
 
 

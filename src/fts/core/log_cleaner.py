@@ -1,8 +1,30 @@
 import re
 from collections import defaultdict, OrderedDict
 from datetime import datetime, timedelta
+
 HEADER_RE = re.compile(r"===== ([^|]+) \| ([^\s]+) =====")
-LOG_LINE_RE = re.compile(r"(\d{2}:\d{2}:\d{2}) \[\+([^\]]+)\] \| (\w+)\s+\| (.+)")
+LOG_LINE_RE = re.compile(r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) \| (\w+)\s*\| (.+)")
+
+# Shared time parsing helper
+def parse_time_with_rollover(entries):
+    """
+    Given a list of (time_str, level, message),
+    detect midnight rollover and return [(datetime, level, message)].
+    """
+    dt_entries = []
+    prev_time = None
+    day_offset = timedelta(0)
+
+    for time_str, level, message in entries:
+        t_obj = datetime.strptime(time_str, "%H:%M:%S")
+        if prev_time and t_obj < prev_time:
+            # rolled over past midnight
+            day_offset += timedelta(days=1)
+        t_obj_with_offset = t_obj + day_offset
+        dt_entries.append((t_obj_with_offset, level, message))
+        prev_time = t_obj
+    return dt_entries
+
 
 def clean_log(log_text: str) -> str:
     """
@@ -12,6 +34,7 @@ def clean_log(log_text: str) -> str:
     - Unwraps continuation lines
     - Collapses repeated messages with 'x N'
     - Adds relative time since process start after timestamp
+    - Handles midnight rollovers properly
     """
     tag_re = re.compile(r"\(([^|]+)\|([^)]+)\)")
     full_tag_re = re.compile(r"\| \([^)]+\) ")
@@ -50,22 +73,37 @@ def clean_log(log_text: str) -> str:
         output_lines.append(f"===== {component} | {proc_id} =====")
         logs = grouped_logs[(component, proc_id)]
 
-        first_time = None
-        prev_msg = None
-        count = 1
-
+        parsed_entries = []
         for line in logs:
-            # Extract timestamp
             time_match = time_re.match(line)
             if time_match:
                 t_str = time_match.group(1)
+                parsed_entries.append((t_str, "LINE", line))  # keep raw line with tag
+            else:
+                parsed_entries.append((None, "CONT", line))
+
+        # Handle day rollover
+        dt_entries = []
+        prev_time = None
+        day_offset = timedelta(0)
+        for t_str, kind, line in parsed_entries:
+            if t_str:
                 t_obj = datetime.strptime(t_str, "%H:%M:%S")
-                if first_time is None:
-                    first_time = t_obj
-                rel_time = t_obj - first_time
-                rel_str = str(rel_time)
-                # Format as [+HH:MM:SS]
-                rel_str = f"[+{rel_str}]"
+                if prev_time and t_obj < prev_time:
+                    day_offset += timedelta(days=1)
+                prev_time = t_obj
+                dt_entries.append((t_obj + day_offset, kind, line))
+            else:
+                dt_entries.append((None, kind, line))
+
+        # Sort and format
+        first_time = min([t for t, k, _ in dt_entries if t is not None], default=None)
+        prev_msg = None
+        count = 1
+        for t_obj, kind, line in dt_entries:
+            if kind == "LINE":
+                rel_time = t_obj - first_time if first_time else timedelta(0)
+                rel_str = f"[+{rel_time}]"
                 line_clean = line[:8] + " " + rel_str + line[8:]
             else:
                 line_clean = line
@@ -75,12 +113,10 @@ def clean_log(log_text: str) -> str:
             else:
                 if prev_msg and count > 1:
                     output_lines.append(f"{prev_msg} x {count}")
-                if line_clean != prev_msg:
-                    output_lines.append(line_clean)
+                output_lines.append(line_clean)
                 count = 1
                 prev_msg = line_clean
 
-        # Flush last repeated message
         if prev_msg and count > 1:
             output_lines.append(f"{prev_msg} x {count}")
 
@@ -90,23 +126,27 @@ def clean_log(log_text: str) -> str:
     return "\n".join(output_lines)
 
 
-def parse_log(log_text):
-    """Parse log into a dictionary of process_id -> list of log entries."""
+def parse_log(text):
     sections = defaultdict(list)
-    current_process = None
-    current_id = None
+    current_section = None
 
-    for line in log_text.splitlines():
-        header_match = HEADER_RE.match(line)
-        if header_match:
-            current_process, current_id = header_match.groups()
-            current_process = current_process.strip()
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("=========="):
             continue
-        if current_id:
-            log_match = LOG_LINE_RE.match(line)
-            if log_match:
-                time_str, delta, level, message = log_match.groups()
-                sections[(current_process, current_id)].append((time_str, delta, level, message))
+
+        m = HEADER_RE.match(line)
+        if m:
+            proc, pid = m.groups()
+            current_section = (proc, pid)
+            continue
+
+        m = LOG_LINE_RE.match(line)
+        if m and current_section:
+            dt_str, level, message = m.groups()
+            dt = datetime.strptime(dt_str, "%Y-%m-%d %H:%M:%S")
+            sections[current_section].append((dt, level, message))
+
     return sections
 
 
@@ -114,54 +154,30 @@ def merge_logs(top_text, bottom_text):
     top_sections = parse_log(top_text)
     bottom_sections = parse_log(bottom_text)
 
-    # Keep top section order, append any new bottom sections
+    # union of all keys
     ordered_keys = list(top_sections.keys())
     for key in bottom_sections.keys():
         if key not in ordered_keys:
             ordered_keys.append(key)
 
     merged_sections = OrderedDict()
-
     for key in ordered_keys:
-        top_entries = top_sections.get(key, [])
-        bottom_entries = bottom_sections.get(key, [])
-
-        all_entries = top_entries + bottom_entries
-
-        # Convert to datetime objects and track day rollover
-        dt_entries = []
-        prev_time = None
-        day_offset = timedelta(0)
-
-        for time_str, _, level, message in all_entries:
-            t_obj = datetime.strptime(time_str, "%H:%M:%S")
-            if prev_time and t_obj < prev_time:
-                day_offset += timedelta(days=1)
-            t_obj_with_offset = t_obj + day_offset
-            dt_entries.append((t_obj_with_offset, level, message))
-            prev_time = t_obj
-
-        # Sort entries chronologically
-        dt_entries.sort(key=lambda x: x[0])
-
-        # Recalculate relative delta
-        first_time = dt_entries[0][0] if dt_entries else None
-        recalculated = []
-        for t_obj, level, message in dt_entries:
-            delta = t_obj - first_time
-            recalculated.append((t_obj.time().strftime("%H:%M:%S"), str(delta), level, message))
-
-        merged_sections[key] = recalculated
+        all_entries = top_sections.get(key, []) + bottom_sections.get(key, [])
+        # Sort chronologically by datetime
+        all_entries.sort(key=lambda x: x[0])
+        merged_sections[key] = all_entries
 
     # Reconstruct log text
     merged_text = ["========== START OF LOG ==========\n"]
     for (proc, pid), entries in merged_sections.items():
         merged_text.append(f"===== {proc} | {pid} =====")
-        for time_str, delta, level, message in entries:
-            merged_text.append(f"{time_str} [+{delta}] | {level:<8} | {message}")
+        for dt_obj, level, message in entries:
+            merged_text.append(f"{dt_obj.strftime('%Y-%m-%d %H:%M:%S')} | {level:<8} | {message}")
         merged_text.append("")
     merged_text.append("========== END OF LOG ==========\n")
     return "\n".join(merged_text)
+
+
 
 
 def split_logs(log_text: str):
@@ -186,9 +202,6 @@ def split_logs(log_text: str):
 
 
 def organize_log(log_path: str, save_path: str = None):
-    if not save_path:
-        save_path = log_path
-
     with open(log_path, "r", encoding="utf-8") as f:
         log_text = f.read()
 

@@ -4,7 +4,6 @@ from fts.commands.server import cmd_open
 from fts.core.aliases import resolve_args, load_aliases, cmd_alias
 from fts.core.detatched import cmd_close
 from fts.core.logger import setup_logging
-import asyncio
 
 from fts.core.secure import cmd_clear_fingerprint
 

@@ -1,0 +1,40 @@
+Horizontal {
+   width: 1fr;
+   height: 1fr;
+   layout: horizontal;
+   overflow: hidden hidden;
+}
+
+Vertical {
+    background: 0%;
+}
+
+
+#toprow {
+    height: 60%;
+}
+
+#toprowa {
+    width: 25%;
+}
+
+#toprowb {
+    width: 50%;
+}
+
+#toprowc {
+    width: 25%;
+}
+
+
+#bottomrow {
+    height: 40%;
+}
+
+#bottomrowa {
+  width: 50%;
+}
+
+#bottomrowb {
+  width: 50%;
+}

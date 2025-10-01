@@ -2,14 +2,13 @@ import time
 import threading
 from collections import deque, defaultdict
 from typing import Tuple, Deque, Dict, Any
-from fts.config import DOSP_ENABLED, MAX_REQS_PER_MIN, MAX_BYTES_PER_MIN, MAX_CONCURRENT_PER_IP, BAN_SECONDS, REQUEST_WINDOW
+from fts.config import DOSP_ENABLED, MAX_REQS_PER_MIN, MAX_BYTES_PER_MIN, BAN_SECONDS, REQUEST_WINDOW
 
 
 class _PerIPState:
     def __init__(self):
         self.req_times: Deque[float] = deque()
         self.byte_events: Deque[tuple[float,int]] = deque()  # (timestamp, bytes)
-        self.concurrent = 0
         self.banned_until = 0.0
 
 class DDoSProtector:
@@ -17,13 +16,11 @@ class DDoSProtector:
         self,
         max_reqs_per_min: int = MAX_REQS_PER_MIN,
         max_bytes_per_min: int = MAX_BYTES_PER_MIN,
-        max_concurrent_per_ip: int = MAX_CONCURRENT_PER_IP,
         ban_seconds: int = BAN_SECONDS,
         window_seconds: float = REQUEST_WINDOW
     ):
         self.max_reqs = max_reqs_per_min
         self.max_bytes = max_bytes_per_min
-        self.max_concurrent = max_concurrent_per_ip
         self.ban_seconds = ban_seconds
         self.window = window_seconds
 
@@ -45,8 +42,7 @@ class DDoSProtector:
     def check(self, addr: str, filesize: int, flags: Any = None) -> Tuple[bool, str]:
         """
         Returns (allowed: bool, reason: str). If allowed is True, the caller *must*
-        call release_after_transfer(ip, bytes_sent) when the transfer finishes (or fails),
-        so the concurrent counter is decremented correctly.
+        call release_after_transfer(ip, bytes_sent) when the transfer finishes (or fails)
         """
         now = time.monotonic()
         ip = _normalize_ip(addr)
@@ -64,12 +60,6 @@ class DDoSProtector:
             # cleanup sliding-window data
             self._cleanup(state, now)
 
-            # concurrent check
-            if state.concurrent >= self.max_concurrent:
-                # optional: escalate to ban on repeated concurrent abuse
-                state.banned_until = now + self.ban_seconds
-                return False, f"too many concurrent transfers from {ip} (temporarily banned)"
-
             # rate check
             reqs = len(state.req_times)
             if reqs >= self.max_reqs:
@@ -82,11 +72,9 @@ class DDoSProtector:
             if bytes_now + int(filesize) > self.max_bytes:
                 return False, "bandwidth quota exceeded for this minute"
 
-            # Passed checks: record request + bytes + increment concurrent
+            # Passed checks: record request + bytes
             state.req_times.append(now)
             state.byte_events.append((now, int(filesize)))
-            state.concurrent += 1
-
             return True, ""
 
     def release_after_transfer(self, addr: str, actual_bytes_sent: int = 0):
@@ -99,8 +87,6 @@ class DDoSProtector:
             state = self._states.get(ip)
             if not state:
                 return
-            # Decrement concurrent safely (never negative)
-            state.concurrent = max(0, state.concurrent - 1)
 
             # Optionally adjust byte_events if you want to replace the speculative size
             # Here we do nothing: bytes already recorded at request time.
