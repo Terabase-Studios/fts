@@ -1,12 +1,9 @@
-import sys
+from textual.app import ComposeResult
+from textual.containers import VerticalScroll, Container
+from textual.widgets import Collapsible, Label
 
-from textual.app import App, ComposeResult
-from textual.containers import VerticalScroll, HorizontalGroup, Container, Vertical
-from textual.events import MouseScrollUp, MouseScrollDown
-from textual.reactive import reactive
-from textual.widgets import Footer, Header, Collapsible, Label, Log
-from fts.app.transfers.history import get_history
 from fts.app.config import LOGS
+from fts.app.backend.history import get_history
 
 
 class LogEntry(Container):

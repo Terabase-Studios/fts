@@ -1,0 +1,53 @@
+#contactpanel{
+    height: 60;
+}
+
+
+
+#contactbuttonbar {
+
+}
+
+#contactscroll {
+
+}
+
+#addcontact {
+    width: 50%;
+}
+
+#removecontact {
+    width: 50%;
+}
+
+
+AddContact {
+    align: center middle;
+}
+
+#addcontactcontainer {
+    height: 11;
+    width: 100;
+    border: vkey;
+}
+
+#addcontactfinal {
+    margin-left: 1;
+    width: 50%;
+}
+
+#cancelcontactadd {
+    margin-right: 2;
+    width: 50%;
+}
+
+RemoveContact {
+    align: center middle;
+}
+
+#removecontactcontainer {
+    height: 8;
+    width: 100;
+    border: vkey;
+}
+

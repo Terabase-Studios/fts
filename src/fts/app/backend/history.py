@@ -1,12 +1,8 @@
-from datetime import datetime
-import re
-from typing import List, Dict, Any
-
-
-from datetime import datetime
-import re
 import os
+import re
+from datetime import datetime
 from typing import List, Dict, Any
+
 
 def parse_transfers(log_text: str) -> List[Dict[str, Any]]:
     """
