@@ -1,15 +1,12 @@
 #contactpanel{
-    height: 60;
+    height: 1fr;
 }
 
-
-
 #contactbuttonbar {
-
+    height: 3;
 }
 
 #contactscroll {
-
 }
 
 #addcontact {
@@ -19,7 +16,6 @@
 #removecontact {
     width: 50%;
 }
-
 
 AddContact {
     align: center middle;

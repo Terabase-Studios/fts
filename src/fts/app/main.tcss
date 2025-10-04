@@ -16,6 +16,7 @@ Vertical {
 
 #toprowa {
     width: 25%;
+    height: 1fr;
 }
 
 #toprowb {

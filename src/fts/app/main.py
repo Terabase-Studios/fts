@@ -3,9 +3,9 @@ from textual.containers import Vertical, Horizontal
 from textual.widgets import Header, Footer, Placeholder
 from pathlib import Path
 
+from fts.app.backend.contacts import start_discovery_responder
 from fts.app.frontend.contacts import Contacts
 from fts.app.frontend.transfers import Transfer
-
 
 def get_css_files():
     module_dir = Path(__file__).parent
@@ -18,9 +18,16 @@ def get_css_files():
     ]
     return css_files
 
+
+def setup():
+    start_discovery_responder()
+
+
 class FTSApp(App):
 
-    CSS_PATH = get_css_files()
+    setup()
+
+    CSS_PATH = get_css_files() + ["main.tcss"]
 
     def compose(self) -> ComposeResult:
         yield Header()

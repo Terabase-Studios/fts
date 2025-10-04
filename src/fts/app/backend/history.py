@@ -173,7 +173,7 @@ def sort_entries(entries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Sort transfers from newest to oldest by end_time/start_time"""
     def get_dt(t: Dict[str, Any]):
         return t.get("end_time") or t.get("start_time") or datetime.min
-    return sorted(entries, key=get_dt, reverse=True)
+    return sorted(entries, key=get_dt)
 
 
 def print_entries(entries: List[Dict[str, Any]]):
@@ -196,9 +196,10 @@ def print_entries(entries: List[Dict[str, Any]]):
         print("-" * 50)
 
 
-def get_history(log_paths: list[str]) -> list:
+def get_history(log_paths: list[str], allow_no_type=False, add_type=True) -> list:
     """
     Parse multiple log files and return a sorted transfer list.
+    Filters out entries with invalid statuses unless allow_no_type=True.
     """
     logs = []
     for path in log_paths:
@@ -207,4 +208,17 @@ def get_history(log_paths: list[str]) -> list:
                 logs.extend(parse_transfers(f.read()))
         except Exception:
             pass
-    return sort_entries(logs)
+
+    if add_type:
+        for index in range(len(logs)):
+            logs[index]["id"] = f"{logs[index]['start_time']}> {logs[index]['type']}, {logs[index]['file']}, {logs[index]['status']}, {logs[index]['session']}"
+
+    # Filter invalid status entries
+    valid_statuses = {"success", "error"}
+    if not allow_no_type:
+        logs = [entry for entry in logs if entry.get("status") in valid_statuses]
+
+    # Sort entries
+    sorted_entries = sort_entries(logs)
+
+    return sorted_entries

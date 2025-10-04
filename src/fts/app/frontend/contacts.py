@@ -1,35 +1,41 @@
+from docutils.nodes import contact
 from textual.app import ComposeResult
 from textual.containers import Container, Vertical, Horizontal, VerticalScroll
 from textual.suggester import SuggestFromList
 from textual.validation import Validator, ValidationResult
 from textual.widgets import Tree, Button, Input
 from textual.screen import ModalScreen
+import asyncio
 
-from fts.app.backend.contacts import get_users, get_user_list, get_contacts
+from fts.app.backend.contacts import get_users, get_user_list, get_contacts, add_contact, remove_contact
 
 
 class Contacts(Container):
     def compose(self) -> ComposeResult:
-        # Active section
-        contacts = get_users()
-
         with Vertical(id="contactpanel"):
             with VerticalScroll(id="contactscroll"):
-                tree: Tree[str] = Tree("Contacts", id="contacttree")
+                tree = Tree("Contacts", id="contacttree")
                 tree.root.expand()
-                online = tree.root.add("Online", expand=True)
-                offline = tree.root.add("Offline", expand=True)
-                for contact in contacts['online']:
-                    online.add_leaf(contact)
-
-                for contact in contacts['offline']:
-                    offline.add_leaf(contact)
-
+                self.online_branch = tree.root.add("Online", expand=True)
+                self.offline_branch = tree.root.add("Offline", expand=True)
+                self.widget_tree = tree
                 yield tree
 
             with Horizontal(id="contactbuttonbar"):
                 yield Button("add contact", variant="success", id="addcontact")
                 yield Button("remove contact", variant="error", id="removecontact")
+
+    async def on_mount(self):
+        # Initial population
+        await reload_contacts(self.widget_tree, self.online_branch, self.offline_branch)
+
+        # Auto-refresh every 5 seconds
+        async def refresh_loop():
+            while True:
+                await asyncio.sleep(1)
+                await reload_contacts(self.widget_tree, self.online_branch, self.offline_branch)
+
+        asyncio.create_task(refresh_loop())
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Event handler called when a button is pressed."""
@@ -40,15 +46,46 @@ class Contacts(Container):
             self.app.push_screen(RemoveContact(), self.handle_remove_input)
 
     def handle_add_input(self, result: tuple[str, str] | None):
-        if not result:
-            #Todo: call contacts to add
-            pass
+        if result:
+            add_contact(result[0], result[1])
+            reload_contacts(self.widget_tree, self.online_branch, self.offline_branch)  # update tree immediately
 
     def handle_remove_input(self, result: str | None):
-        if not result:
-            # Todo: call contacts to remove
-            pass
+        if result:
+            remove_contact(result)
+            reload_contacts(self.widget_tree, self.online_branch, self.offline_branch)  # update tree immediately
 
+
+async def reload_contacts(tree: Tree, online_node, offline_node):
+    # Fetch contacts in a background thread
+    contacts = await asyncio.to_thread(get_users) or {}
+
+    # Preserve expanded state
+    online_expanded = online_node.is_expanded
+    offline_expanded = offline_node.is_expanded
+
+    # Clear old leaves (synchronous)
+    for child in list(online_node.children):
+        child.remove()
+    for child in list(offline_node.children):
+        child.remove()
+
+    # Add new leaves (synchronous)
+    for contact in contacts.get("online", []):
+        online_node.add_leaf(contact)
+    for contact in contacts.get("offline", []):
+        offline_node.add_leaf(contact)
+
+    # Restore expanded state (synchronous)
+    if online_expanded:
+        online_node.expand()
+    else:
+        online_node.collapse()
+
+    if offline_expanded:
+        offline_node.expand()
+    else:
+        offline_node.collapse()
 
 class AddContact(ModalScreen[tuple[str, str] | None]):
     """Modal for adding a contact.
