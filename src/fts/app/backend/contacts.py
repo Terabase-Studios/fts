@@ -163,7 +163,20 @@ def discover(timeout=0.5) -> list[Any] | None:
     # Create UDP socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-    sock.bind(("0.0.0.0", 0))  # OS assigns a free port
+    # Bind to the first suitable non-loopback IPv4 local address instead of all interfaces
+    local_ip = None
+    for iface, addrs in psutil.net_if_addrs().items():
+        for addr in addrs:
+            if addr.family == socket.AF_INET and not addr.address.startswith("127."):
+                local_ip = addr.address
+                break
+        if local_ip:
+            break
+    if local_ip:
+        sock.bind((local_ip, 0))
+    else:
+        # Fallback: bind to '127.0.0.1' (loopback) as the last resort
+        sock.bind(("127.0.0.1", 0))
     sock.settimeout(timeout)
 
     broadcasts = get_broadcast_addresses()
