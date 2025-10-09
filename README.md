@@ -3,6 +3,8 @@
 **FTS** (File Transfer System) is a lightweight CLI tool for file transfers, chatrooms, and more.
 It’s designed for fast local-network sharing, simple chat creation, and utility management in a single binary.
 
+The github repo may be found [here](https://github.com/Terabase-Studios/fts)
+
 > \[!CAUTION]
 > FTS should NEVER be run on a public network without permission from the **proper authorities**; there are safeguards in place to prevent fts from running on public networks
 
