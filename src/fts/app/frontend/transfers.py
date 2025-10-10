@@ -1,11 +1,12 @@
+import asyncio
+
 from textual.app import ComposeResult
 from textual.containers import VerticalScroll, Container
-from textual.widget import Widget
-import asyncio
 from textual.widgets import Collapsible, Label
 
-from fts.app.config import LOGS
 from fts.app.backend.history import get_history
+from fts.app.config import LOGS
+
 
 class LogEntry(Container):
     def __init__(self, entry):
@@ -39,7 +40,7 @@ class Transfer(Container):
     async def on_mount(self):
         if self.history_container:
             # Run once immediately
-            asyncio.create_task(reload_history(self.history_container))
+            asyncio.create_task(reload_history(self.history_container, first_run=True))
 
             # Auto-refresh every 5 seconds
             async def refresh_loop():
@@ -49,7 +50,7 @@ class Transfer(Container):
 
             asyncio.create_task(refresh_loop())
 
-async def reload_history(container: Container, logs_file=LOGS):
+async def reload_history(container: Container, logs_file=LOGS, first_run=False):
     """
     Reload the History section asynchronously.
     Preserves existing LogEntry collapsibles; removes old entries; adds new ones.
@@ -75,7 +76,7 @@ async def reload_history(container: Container, logs_file=LOGS):
         if entry["id"] not in old_entry_ids:
             await container.mount(LogEntry(entry), before=0)
 
-    if not history:
+    if not history and (old_entry_ids or first_run):
         await container.mount(Label("Past transfers will show up here"))
 
     # Adjust height dynamically

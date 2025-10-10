@@ -24,6 +24,7 @@ from fts.config import (
 from fts.core import secure as secure
 from fts.utilities import format_bytes, parse_byte_string
 
+
 def cmd_send(args, logger):
     """Send a single file."""
     try:

@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 import os
 import sys
+
 from fts.core.aliases import resolve_alias, resolve_args
 from fts.core.logger import setup_logging
-from fts.core.secure import is_public_network
 from fts.core.parser import create_parser
+from fts.core.secure import is_public_network
+from fts.app.main import start
 
 # --- Lazy command loader with caching ---
 _command_cache = {}
@@ -92,6 +94,10 @@ def main():
         logger.critical('FTS is disabled on public network\n')
         sys.exit(0)
     args = None
+
+    if len(sys.argv) == 1:
+        start()
+        return
 
     try:
         parser = create_parser()

@@ -1,11 +1,11 @@
-from docutils.nodes import contact
+import asyncio
+
 from textual.app import ComposeResult
 from textual.containers import Container, Vertical, Horizontal, VerticalScroll
+from textual.screen import ModalScreen
 from textual.suggester import SuggestFromList
 from textual.validation import Validator, ValidationResult
 from textual.widgets import Tree, Button, Input
-from textual.screen import ModalScreen
-import asyncio
 
 from fts.app.backend.contacts import get_users, get_user_list, get_contacts, add_contact, remove_contact
 

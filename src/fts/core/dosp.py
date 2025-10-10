@@ -1,7 +1,8 @@
-import time
 import threading
+import time
 from collections import deque, defaultdict
 from typing import Tuple, Deque, Dict, Any
+
 from fts.config import DOSP_ENABLED, MAX_REQS_PER_MIN, MAX_BYTES_PER_MIN, BAN_SECONDS, REQUEST_WINDOW
 
 

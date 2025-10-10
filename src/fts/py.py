@@ -1,11 +1,12 @@
+import sys
 from argparse import Namespace
+
 from fts.commands.sender import cmd_send
 from fts.commands.server import cmd_open
 from fts.core.aliases import resolve_args, load_aliases, cmd_alias
 from fts.core.detatched import cmd_close
 from fts.core.logger import setup_logging
-
-from fts.core.secure import cmd_clear_fingerprint
+from fts.core.secure import cmd_clear_fingerprint, is_public_network
 
 logger = setup_logging()
 
@@ -74,3 +75,8 @@ def remove_alias(name: str, type: str):
         value = None
     )
     cmd_alias(args, logger)
+
+if is_public_network("-v" in sys.argv or "--verbose" in sys.argv):
+    logger = setup_logging()
+    logger.critical('FTS is disabled on public network\n')
+    sys.exit(0)

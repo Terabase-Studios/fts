@@ -4,6 +4,7 @@
 
 #contactbuttonbar {
     height: 3;
+    width: 1fr
 }
 
 #contactscroll {
@@ -11,10 +12,12 @@
 
 #addcontact {
     width: 50%;
+    min-width: 25%
 }
 
 #removecontact {
     width: 50%;
+    min-width: 25%
 }
 
 AddContact {

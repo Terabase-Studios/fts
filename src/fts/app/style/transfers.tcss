@@ -6,6 +6,7 @@ LogEntry {
     min-width: 50;
     padding: 1;
     align: left top;
+    min-width: 25%
 }
 
 #logtab {

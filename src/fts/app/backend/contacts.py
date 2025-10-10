@@ -1,21 +1,18 @@
+import asyncio
+import ipaddress
+import json
+import os
+import socket
+import threading
+import time
 from typing import Any
 
-from fts.app.backend.utilities import await_me_maybe
-from fts.app.config import CONTACTS_FILE, SEEN_IPS_FILE
-
 import psutil
-import socket
-import ipaddress
-import asyncio
-import threading
-import json
-import time
-import os
 
-DISCOVERY_PORT = 8000
-DISCOVERY_MESSAGE = b"CHECK"
-DISCOVERY_RESPOND = b"RECIEVE"
+from fts.app.config import CONTACTS_FILE, SEEN_IPS_FILE, DISCOVERY_PORT
 
+DISCOVERY_MESSAGE = b"CHECK123"
+DISCOVERY_RESPOND = b"RECIEVE456"
 
 def get_contacts():
     try:
@@ -91,6 +88,8 @@ def get_users():
     online_users_final = map_users(raw_online_users)
     offline_users_final = map_users(raw_offline_users)
 
+    _contact_map = contacts
+
     return {'online': online_users_final, 'offline': offline_users_final}
 
 
@@ -98,6 +97,39 @@ def get_user_list():
     users = get_users()
     users_list = users['online'] + users['offline']
     return users_list
+
+
+def replace_with_contacts(to_replace: str | list[str]):
+    # Load contacts
+    try:
+        with open(CONTACTS_FILE, "r") as f:
+            contacts: dict = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        contacts = {}
+    keys = list(contacts.keys())
+
+    if to_replace is list[str]:
+        new_list: list[str] = []
+        for contact in to_replace:
+            if contact in keys:
+                new_list.append(contacts[contact])
+            else:
+                new_list.append(contact)
+
+        return new_list
+
+    try:
+        to_replace = str(to_replace)
+    except:
+        pass
+
+    if type(to_replace) == str:
+        if to_replace in keys:
+            return contacts[to_replace]
+        else:
+            return to_replace
+    else:
+        return to_replace
 
 
 def get_broadcast_addresses():

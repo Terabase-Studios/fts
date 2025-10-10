@@ -1,11 +1,10 @@
 import logging
+import random
 import re
 import shutil
+import string
 import sys
 import textwrap
-import string
-import random
-
 
 from filelock import FileLock
 from prompt_toolkit import print_formatted_text
