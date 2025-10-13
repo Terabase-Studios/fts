@@ -12,4 +12,4 @@ SEEN_IPS_FILE = os.path.join(APP_DIR, "seen_ips.json")
 CONTACTS_FILE = os.path.join(APP_DIR, "contacts.json")
 
 
-LOGS = ["C:\\Users\\cybor\\Downloads\\log.txt", "D:\log.txt"]
+LOGS = ["C:\\Users\\cybor\\Downloads\\log.txt", "D:\\log.txt"]

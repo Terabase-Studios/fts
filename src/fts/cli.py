@@ -6,7 +6,6 @@ from fts.core.aliases import resolve_alias, resolve_args
 from fts.core.logger import setup_logging
 from fts.core.parser import create_parser
 from fts.core.secure import is_public_network
-from fts.app.main import start
 
 # --- Lazy command loader with caching ---
 _command_cache = {}
@@ -96,6 +95,7 @@ def main():
     args = None
 
     if len(sys.argv) == 1:
+        from fts.app.main import start
         start()
         return
 

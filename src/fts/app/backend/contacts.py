@@ -47,19 +47,22 @@ def remove_contact(name: str):
     with open(CONTACTS_FILE, "w") as f:
         json.dump(contacts, f)
 
+def get_seen_users():
+    if os.path.exists(SEEN_IPS_FILE):
+        try:
+            with open(SEEN_IPS_FILE, "r") as f:
+                return json.load(f)
+        except json.JSONDecodeError:
+            return []
+
+    return []
 
 def get_users():
     # Discover current online users
     online_users: list = discover()
 
     # Load previously seen users from SEEN_IPS_FILE
-    seen_users = []
-    if os.path.exists(SEEN_IPS_FILE):
-        try:
-            with open(SEEN_IPS_FILE, "r") as f:
-                seen_users = json.load(f)
-        except json.JSONDecodeError:
-            seen_users = []
+    seen_users = get_seen_users()
 
     # Merge old and new users, avoiding duplicates
     all_seen_users = list(dict.fromkeys(seen_users + online_users))  # preserves order, removes duplicates
@@ -195,20 +198,7 @@ def discover(timeout=0.5) -> list[Any] | None:
     # Create UDP socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-    # Bind to the first suitable non-loopback IPv4 local address instead of all interfaces
-    local_ip = None
-    for iface, addrs in psutil.net_if_addrs().items():
-        for addr in addrs:
-            if addr.family == socket.AF_INET and not addr.address.startswith("127."):
-                local_ip = addr.address
-                break
-        if local_ip:
-            break
-    if local_ip:
-        sock.bind((local_ip, 0))
-    else:
-        # Fallback: bind to '127.0.0.1' (loopback) as the last resort
-        sock.bind(("127.0.0.1", 0))
+    sock.bind(("0.0.0.0", 0))  # OS assigns a free port
     sock.settimeout(timeout)
 
     broadcasts = get_broadcast_addresses()
@@ -254,11 +244,19 @@ def start_discovery_responder():
 
     async def _run_responder():
         loop = asyncio.get_event_loop()
-        transport, protocol = await loop.create_datagram_endpoint(
-            lambda: DiscoveryResponder(),
-            local_addr=("0.0.0.0", DISCOVERY_PORT),
-            allow_broadcast=True,
-        )
+        success = False
+        while not success:
+            try:
+                transport, protocol = await loop.create_datagram_endpoint(
+                    lambda: DiscoveryResponder(),
+                    local_addr=("0.0.0.0", DISCOVERY_PORT),
+                    allow_broadcast=True,
+                )
+            except:
+                success = False
+                time.sleep(1)
+            else:
+                success = True
         try:
             await asyncio.Future()  # Run forever
         finally:

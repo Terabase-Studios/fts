@@ -1,4 +1,27 @@
-css = """
+css = '''
+#chatbox {
+    margin: 1 1 1 1;
+    height: 1fr;
+    width: 1fr;
+}
+
+#chatbar {
+    height: 4;
+    width: 1fr;
+    margin-top: 1;
+    padding: 0;
+}
+
+#chatsend {
+    width: 6;
+    min-width: 5%;
+    margin-right: 1;
+}
+
+#chatinput {
+    width: 1fr;
+}
+
 #contactpanel{
     height: 1fr;
 }
@@ -101,6 +124,7 @@ LogEntry {
     min-width: 50;
     padding: 1;
     align: left top;
+    min-width: 25%
 }
 
 #logtab {
@@ -114,5 +138,4 @@ LogEntry {
 .success {
     outline: wide green;
 }
-
-"""
+'''

@@ -7,7 +7,8 @@ from textual.suggester import SuggestFromList
 from textual.validation import Validator, ValidationResult
 from textual.widgets import Tree, Button, Input
 
-from fts.app.backend.contacts import get_users, get_user_list, get_contacts, add_contact, remove_contact
+from fts.app.backend.contacts import get_users, get_user_list, get_contacts, add_contact, remove_contact, \
+    get_seen_users, replace_with_contacts
 
 
 class Contacts(Container):
@@ -102,8 +103,8 @@ class AddContact(ModalScreen[tuple[str, str] | None]):
                 yield Input(
                     placeholder="Contact Ip",
                     id="addcontactip",
-                    suggester=SuggestFromList(get_user_list(), case_sensitive=True),
-                    validators=[Blank()]
+                    suggester=SuggestFromList([i for i in get_seen_users() if replace_with_contacts(i) not in get_contacts()], case_sensitive=True),
+                    validators=[Blank(), IsNoncontactUser()]
                 )
                 with Horizontal(id="addcontactbuttonbar"):
                     yield Button("add", variant="success", id="addcontactfinal")
@@ -181,3 +182,16 @@ class Blank(Validator):
     @staticmethod
     def is_not_empty(value: str) -> bool:
         return not value == ""
+
+class IsNoncontactUser(Validator):
+    def validate(self, value: str) -> ValidationResult:
+        """Check a string is equal to its reverse."""
+        if self.is_user(value):
+            return self.success()
+        else:
+            return self.failure("Value is not an user!")
+
+    @staticmethod
+    def is_user(value: str) -> bool:
+        users = [i for i in get_seen_users() if replace_with_contacts(i) not in get_contacts()]
+        return value in users

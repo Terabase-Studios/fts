@@ -80,4 +80,4 @@ async def reload_history(container: Container, logs_file=LOGS, first_run=False):
         await container.mount(Label("Past transfers will show up here"))
 
     # Adjust height dynamically
-    container.styles.height = max(len(container.children) * 15, 30)
+    container.styles.height = ((len(container.children)-1) * 15) + 1

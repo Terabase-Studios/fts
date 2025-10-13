@@ -6,6 +6,7 @@ from fts.app.backend.contacts import start_discovery_responder
 from fts.app.frontend.contacts import Contacts
 from fts.app.frontend.transfers import Transfer
 from fts.app.frontend.chat import Chat
+from fts.app.frontend.sending import Sending
 
 from fts.app.style.tcss import css
 
@@ -21,10 +22,11 @@ class FTSApp(App):
         "style\\main.tcss",
         "style\\contacts.tcss",
         "style\\transfers.tcss",
-        "style\\chat.tcss"
+        "style\\chat.tcss",
+        "style\\sending.tcss",
     ]
 
-    #CSS = css
+    CSS = css
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -33,7 +35,7 @@ class FTSApp(App):
         with Vertical():
             with Horizontal(id="toprow"):
                 yield Contacts(id="toprowa")
-                yield Placeholder(id="toprowb")
+                yield Sending(id="toprowb")
                 yield Placeholder(id="toprowc")
 
             with Horizontal(id="bottomrow"):
