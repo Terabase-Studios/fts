@@ -11,12 +11,13 @@ LogEntry {
 
 #logtab {
     background: 0%;
+    background: $boost;
 }
 
 .error {
-    outline: wide red;
+    outline: wide $error;
 }
 
 .success {
-    outline: wide green;
+    outline: wide $success;
 }

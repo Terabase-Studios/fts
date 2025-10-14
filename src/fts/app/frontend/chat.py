@@ -3,7 +3,7 @@ from textual.containers import VerticalScroll, Container, Vertical, Horizontal
 from textual.widgets import Collapsible, Label, RichLog, Input, Button
 
 from fts.app.backend.chat import send, CHAT_KEY, CHAT_PORT, start_chat_listener
-from fts.app.backend.contacts import replace_with_contacts, get_users
+from fts.app.backend.contacts import replace_with_contact, get_users
 
 import sys
 
@@ -48,7 +48,7 @@ class Chat(Container):
             return  # ignore non-chat packets
 
         message = data[len(CHAT_KEY):].decode("utf-8", errors="ignore")
-        sender = replace_with_contacts(addr[0])
+        sender = replace_with_ip(addr[0])
 
         color = self.color_for_sender(sender)
         log.write(f"[bold {color}]{sender}:[/bold {color}] {message}")

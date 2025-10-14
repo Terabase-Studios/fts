@@ -6,6 +6,7 @@ import socket
 import threading
 import time
 from typing import Any
+from typing import Union, List
 
 import psutil
 
@@ -13,6 +14,22 @@ from fts.app.config import CONTACTS_FILE, SEEN_IPS_FILE, DISCOVERY_PORT
 
 DISCOVERY_MESSAGE = b"CHECK123"
 DISCOVERY_RESPOND = b"RECIEVE456"
+
+class OnlineUsers:
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.online: list[str] = []
+
+    def set_online(self, users: list[str]):
+        with self.lock:
+            self.online = users.copy()
+
+    def get_online(self) -> list[str]:
+        with self.lock:
+            return self.online.copy()
+
+# Global instance
+ONLINE_USERS = OnlineUsers()
 
 def get_contacts():
     try:
@@ -58,6 +75,7 @@ def get_seen_users():
     return []
 
 def get_users():
+    global ONLINE_USERS
     # Discover current online users
     online_users: list = discover()
 
@@ -92,6 +110,8 @@ def get_users():
     offline_users_final = map_users(raw_offline_users)
 
     _contact_map = contacts
+    # Update the global variable safely
+    ONLINE_USERS.set_online(online_users_final)
 
     return {'online': online_users_final, 'offline': offline_users_final}
 
@@ -102,36 +122,37 @@ def get_user_list():
     return users_list
 
 
-def replace_with_contacts(to_replace: str | list[str]):
-    # Load contacts
+def load_contacts() -> dict[str, str]:
+    """Load contacts dictionary from file safely."""
     try:
         with open(CONTACTS_FILE, "r") as f:
-            contacts: dict = json.load(f)
+            return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
-        contacts = {}
-    keys = list(contacts.keys())
+        return {}
 
-    if to_replace is list[str]:
-        new_list: list[str] = []
-        for contact in to_replace:
-            if contact in keys:
-                new_list.append(contacts[contact])
-            else:
-                new_list.append(contact)
 
-        return new_list
-
+def replace_with_contact(to_replace: Union[str, List[str]]) -> Union[str, List[str]]:
+    """Replace IP(s) with contact name(s)."""
+    contacts = load_contacts()
+    if isinstance(to_replace, list):
+        return [contacts.get(item, item) for item in to_replace]
     try:
-        to_replace = str(to_replace)
-    except:
-        pass
+        return contacts.get(str(to_replace), to_replace)
+    except Exception:
+        return to_replace
 
-    if type(to_replace) == str:
-        if to_replace in keys:
-            return contacts[to_replace]
-        else:
-            return to_replace
-    else:
+
+def replace_with_ip(to_replace: Union[str, List[str]]) -> Union[str, List[str]]:
+    """Replace contact name(s) with IP(s)."""
+    contacts = load_contacts()
+    # invert the dictionary: contact name -> IP
+    inverted = {v: k for k, v in contacts.items()}
+
+    if isinstance(to_replace, list):
+        return [inverted.get(item, item) for item in to_replace]
+    try:
+        return inverted.get(str(to_replace), to_replace)
+    except Exception:
         return to_replace
 
 

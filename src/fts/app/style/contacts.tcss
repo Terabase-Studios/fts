@@ -27,7 +27,7 @@ AddContact {
 #addcontactcontainer {
     height: 11;
     width: 100;
-    border: vkey;
+    border: vkey $success;
 }
 
 #addcontactfinal {
@@ -47,6 +47,6 @@ RemoveContact {
 #removecontactcontainer {
     height: 8;
     width: 100;
-    border: vkey;
+    border: vkey $error;
 }
 

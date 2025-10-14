@@ -12,14 +12,20 @@ Vertical {
 
 #toprow {
     height: 60%;
+    background: $surface;
+
 }
 
 #toprowa {
     width: 25%;
     height: 1fr;
+    border: vkey $secondary-lighten-1;
+
 }
 
 #toprowb {
+    border: vkey $secondary-lighten-1;
+
     width: 50%;
 }
 
@@ -29,13 +35,18 @@ Vertical {
 
 
 #bottomrow {
+    background: $surface;
+    border: hkey $secondary;
     height: 40%;
 }
 
 #bottomrowa {
   width: 50%;
+  border: vkey $secondary;
+
 }
 
 #bottomrowb {
   width: 50%;
+  border: vkey $secondary;
 }
