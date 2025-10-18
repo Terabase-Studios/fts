@@ -1,4 +1,3 @@
 fix window shrinking removing sending buttons
-add scrollbar for the contacts selection in sending
 Add sending backend
 Add requesting backend and frontend

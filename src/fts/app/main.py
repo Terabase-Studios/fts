@@ -1,24 +1,27 @@
+import ctypes
+import sys
+import asyncio
+import time
+
 from textual.app import App, ComposeResult
 from textual.containers import Vertical, Horizontal
-from textual.widgets import Header, Footer, Placeholder
 
+import fts.app.backend.transfer as transfer
 from fts.app.backend.contacts import start_discovery_responder
-from fts.app.frontend.contacts import Contacts
-from fts.app.frontend.transfers import Transfer
+from fts.app.backend.transfer import TransferHandler
 from fts.app.frontend.chat import Chat
+from fts.app.frontend.contacts import Contacts
+from fts.app.frontend.requests import Requests
 from fts.app.frontend.sending import Sending
-
-import sys
-import ctypes
-
+from fts.app.frontend.transfers import Transfers
 from fts.app.style.tcss import css
 
-def setup():
+
+def setup(transfer_ui: Transfers, requests_ui: Requests) -> None:
     start_discovery_responder()
+    transfer.transfer_handler = TransferHandler(transfer_ui, requests_ui)
 
 class FTSApp(App):
-
-    setup()
 
     CSS_PATH = [
         "style\\main.tcss",
@@ -26,6 +29,7 @@ class FTSApp(App):
         "style\\transfers.tcss",
         "style\\chat.tcss",
         "style\\sending.tcss",
+        "style\\requests.tcss",
     ]
 
     CSS = css
@@ -38,11 +42,15 @@ class FTSApp(App):
             with Horizontal(id="toprow"):
                 yield Contacts(id="toprowa")
                 yield Sending(id="toprowb")
-                yield Placeholder(id="toprowc")
+                requests = Requests(id="toprowc")
+                yield requests
 
             with Horizontal(id="bottomrow"):
                 yield Chat(id="bottomrowa")
-                yield Transfer(id="bottomrowb")
+                transfers = Transfers(id="bottomrowb")
+                yield transfers
+
+        setup(transfer_ui=transfers, requests_ui=requests)
 
 
 def start():

@@ -1,4 +1,4 @@
-LogEntry {
+LogEntry, InactiveEntry {
     background: $boost;
     outline: wide darkgrey;
     height: Auto;
@@ -6,12 +6,18 @@ LogEntry {
     min-width: 50;
     padding: 1;
     align: left top;
-    min-width: 25%
+    min-width: 25%;
 }
 
 #logtab {
     background: 0%;
     background: $boost;
+    overflow-x: auto;
+}
+
+#logview {
+    text-wrap: wrap;
+    text-overflow: ellipsis;
 }
 
 .error {
@@ -20,4 +26,28 @@ LogEntry {
 
 .success {
     outline: wide $success;
+}
+
+InactiveEntry {
+    outline: wide $primary;
+}
+
+#inactive_entry {
+    padding: 1;
+}
+
+#active_container, #inactive_container {
+    height: Auto;
+}
+
+#inactive_bar {
+    height: Auto;
+    width: 100%;
+}
+
+#cancel_entry {
+    width: 8;
+    min-width: 8;
+    min-height: 0;
+    align: right middle;
 }

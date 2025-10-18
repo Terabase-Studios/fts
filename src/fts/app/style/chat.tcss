@@ -3,6 +3,7 @@
     background: $boost;
     height: 1fr;
     width: 1fr;
+    overflow-y: auto;
 }
 
 #chatbar {

@@ -1,7 +1,8 @@
 import socket
-import asyncio
 import threading
+
 from textual.app import App
+
 from fts.app.backend.contacts import get_broadcast_addresses, has_public_broadcast
 from fts.app.config import CHAT_PORT
 

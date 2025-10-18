@@ -1,22 +1,20 @@
-import sys
+import asyncio
+import base64
+import tempfile
+import tkinter as tk
+import zlib
+from pathlib import Path
+from tkinter import filedialog
+from typing import Dict
 
+from textual import on
 from textual.app import ComposeResult
 from textual.containers import VerticalScroll, Container, Vertical, Horizontal
-from textual.widgets import Collapsible, Label, Input, Button, Checkbox, Placeholder, SelectionList
+from textual.validation import Validator, ValidationResult
+from textual.widgets import Input, Button, SelectionList
 from textual.widgets.selection_list import Selection
-from textual import on
 
-import tkinter as tk
-from tkinter import filedialog
-import tempfile
-import zlib
-import base64
-import asyncio
-from typing import Dict, Iterable
-import time
-
-from pathlib import Path
-
+import fts.app.backend.transfer as transfer
 from fts.app.backend.contacts import ONLINE_USERS, replace_with_ip
 
 
@@ -27,7 +25,7 @@ class FileSelector(Horizontal):
 
     """An input that accepts pasted or dragged file paths."""
     def compose(self) -> ComposeResult:
-        yield Input(placeholder="Drag a file here or click Browse...", id="file_input")
+        yield Input(placeholder="Drag a file here or click Browse...", id="file_input", validators=[IsValidPath()])
         yield Button("Browse", id="browse_button", variant="primary")
 
     @on(Input.Changed, "#file_input")
@@ -68,8 +66,9 @@ class FileSelector(Horizontal):
 class ContactSelector(Container):
     def compose(self) -> ComposeResult:
         with VerticalScroll(id="contact_scroll"):
-            self.selection_list = SelectionList(id="contact_selection_list")
-            yield self.selection_list
+            with VerticalScroll(id="contact_selection_list"):
+                self.selection_list = SelectionList()
+                yield self.selection_list
 
     async def on_mount(self):
         # Internal mapping: contact_value -> option_id (string)
@@ -143,7 +142,8 @@ async def load_contacts(selection_list: SelectionList, contact_map: Dict[str, st
             try:
                 selection_list.add_option(sel)
                 contact_map[contact] = option_id
-            except Exception:                pass
+            except Exception:
+                    pass
 
     # If list became empty, show a placeholder item
     if not new_contacts and (existing_set or first_run):
@@ -151,6 +151,11 @@ async def load_contacts(selection_list: SelectionList, contact_map: Dict[str, st
 
 
 class Sending(Container):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.running_tasks = []
+
+
     def compose(self) -> ComposeResult:
         with Vertical():
             self.file_selector = FileSelector()  # keep a reference
@@ -164,7 +169,19 @@ class Sending(Container):
                 yield Button("Deselect All", id="deselect_all_button", variant="error")
                 yield Button("Send", id="file_send_button", variant="primary")
 
-    def on_button_pressed(self, event: Button.Pressed) -> None:
+    def start_send_all(self, contacts, file_path, transfer):
+        async def send_all(contacts, file_path, transfer):
+            tasks = [
+                transfer.transfer_handler.send(ip, file_path)
+                for ip in contacts
+            ]
+            await asyncio.gather(*tasks)
+
+        task = asyncio.create_task(send_all(contacts, file_path, transfer))
+        self.running_tasks.append(task)
+        task.add_done_callback(lambda t: self.running_tasks.remove(t))
+
+    async def on_button_pressed(self, event: Button.Pressed) -> None:
         button_id = event.button.id
 
         # make sure we can access the SelectionList inside ContactSelector
@@ -188,4 +205,20 @@ class Sending(Container):
             if not contacts or not file_path or len(contacts) < 1:
                 return
 
-            # todo: Insert backend here
+            contact_selector.deselect_all()
+
+            self.start_send_all(contacts, file_path, transfer)
+
+
+class IsValidPath(Validator):
+    def validate(self, value: str) -> ValidationResult:
+        """Check a string is equal to its reverse."""
+        if self.is_user(value):
+            return self.success()
+        else:
+            return self.failure("Value is not an user!")
+
+    @staticmethod
+    def is_user(value: str) -> bool:
+        path = Path(value)
+        return path.exists() and path.is_file()

@@ -38,13 +38,16 @@ ContactSelector {
 }
 
 #select_all_button{
-    width: 2fr;
+    width: 40%;
+    min-width: 10%;
 }
 
 #deselect_all_button{
-    width: 2fr;
+    width: 40%;
+    min-width: 10%;
 }
 
 #file_send_button{
-    width: 1fr;
+    width: 20%;
+    min-width: 5%;
 }

@@ -31,6 +31,8 @@ Vertical {
 
 #toprowc {
     width: 25%;
+    height: 1fr;
+    border: vkey $secondary-lighten-1;
 }
 
 

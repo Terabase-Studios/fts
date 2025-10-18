@@ -7,7 +7,7 @@ from textual.suggester import SuggestFromList
 from textual.validation import Validator, ValidationResult
 from textual.widgets import Tree, Button, Input
 
-from fts.app.backend.contacts import get_users, get_user_list, get_contacts, add_contact, remove_contact, \
+from fts.app.backend.contacts import get_users, get_contacts, add_contact, remove_contact, \
     get_seen_users, replace_with_contact
 
 
@@ -23,8 +23,8 @@ class Contacts(Container):
                 yield tree
 
             with Horizontal(id="contactbuttonbar"):
-                yield Button("add contact", variant="success", id="addcontact")
-                yield Button("remove contact", variant="error", id="removecontact")
+                yield Button("Add contact", variant="success", id="addcontact")
+                yield Button("Remove contact", variant="error", id="removecontact")
 
     async def on_mount(self):
         # Initial population
