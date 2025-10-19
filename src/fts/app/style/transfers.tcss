@@ -1,7 +1,6 @@
 LogEntry, InactiveEntry {
     background: $boost;
     outline: wide darkgrey;
-    height: Auto;
     margin: 0 4 0 0;
     min-width: 50;
     padding: 1;
@@ -13,6 +12,7 @@ LogEntry, InactiveEntry {
     background: 0%;
     background: $boost;
     overflow-x: auto;
+    min-height: 0;
 }
 
 #logview {
@@ -30,6 +30,7 @@ LogEntry, InactiveEntry {
 
 InactiveEntry {
     outline: wide $primary;
+    height: Auto;
 }
 
 #inactive_entry {

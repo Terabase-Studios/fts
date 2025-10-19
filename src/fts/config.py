@@ -42,6 +42,7 @@ BATCH_SIZE = 4                     # number of chunks sent together in a batch
 FLUSH_SIZE = (1024 * 1024) * 16    # when to flush/send an aggregated buffer (16 MiB)
 MAX_SEND_RETRIES = 5               # number of times to retry a failed send operation
 PROGRESS_INTERVAL = 0              # progress update interval in seconds (0 = every update)
+MID_DOWNLOAD_EXT  = ".ftsdownload"                 # extension of files during installation
 
 # -------------------------
 # Compression
@@ -73,7 +74,7 @@ RECEIVING_PID = os.path.join(APP_DIR, "fts_receiver.pid")  # pid file for receiv
 # Server DDoS protection (per-IP limits)
 # -------------------------
 # Toggle enforcement of simple in-memory protections.
-DOSP_ENABLED = True                    # if False, protector code can be bypassed
+DOSP_ENABLED = False                    # if False, protector code can be bypassed
 
 # Limits and windows (tweak according to deployment & capacity)
 MAX_REQS_PER_MIN = 30                  # max requests per IP per minute

@@ -8,6 +8,7 @@ import time
 import zlib
 
 from tqdm.asyncio import tqdm_asyncio as tqdm
+from pathlib import Path
 
 import fts.flags as transferflags
 from fts.config import (
@@ -18,6 +19,7 @@ from fts.config import (
     BATCH_SIZE,
     PROGRESS_INTERVAL,
     RECEIVING_PID,
+    MID_DOWNLOAD_EXT,
 )
 from fts.core import secure as secure
 from fts.core.detatched import start_detached
@@ -208,14 +210,16 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
 
         os.makedirs(output_dir, exist_ok=True)
 
+        temp_path = Path(out_path).with_suffix(MID_DOWNLOAD_EXT)
+
 
         # --- Receive file ---
-        received = await receive_linear(reader, filesize, out_path, client_id, logger, progress_bar=progress_bar, rate_limit=rate_limit)
+        received = await receive_linear(reader, filesize, temp_path, client_id, logger, progress_bar=progress_bar, rate_limit=rate_limit)
 
 
         if received < filesize:
             logger.error(f"{client_id}: Incomplete file received: {format_bytes(received)}/{format_bytes(filesize)}")
-            os.remove(out_path)
+            os.remove(temp_path)
             return
 
         await writer.drain()
@@ -225,7 +229,9 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
 
         # --- Decompress if needed ---
         if flags & transferflags.FLAG_COMPRESSED:
-            out_path = await asyncio.to_thread(decompress_file, out_path, client_id, logger)
+            temp_path = await asyncio.to_thread(decompress_file, temp_path, client_id, logger)
+
+        temp_path.rename(Path(out_path))
 
     except Exception as e:
         logger.exception(f"{client_id}: Error receiving file: {e}")

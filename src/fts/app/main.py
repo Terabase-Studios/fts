@@ -52,6 +52,9 @@ class FTSApp(App):
 
         setup(transfer_ui=transfers, requests_ui=requests)
 
+    async def action_quit(self) -> None:
+        transfer.transfer_handler.cancel_all()
+        await super().action_quit()
 
 def start():
     if sys.platform == "win32":  # Check if running on Windows

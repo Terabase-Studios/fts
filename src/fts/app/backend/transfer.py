@@ -4,11 +4,15 @@ import json
 import socket
 import threading
 import time
+from functools import partial
 from pathlib import Path
 from ssl import SSLContext
 
 import fts.core.secure as secure
+import fts.py as fts
 from fts.app.backend.contacts import replace_with_contact
+from fts.app.config import SAVE_DIR, LOG_FILE
+from fts.core.logger import setup_logging
 
 TRANSFER_PORT = 9064
 REQUEST_MSG = b"request"
@@ -29,6 +33,13 @@ class NullLogger():
     def addHandler(self, *a, **kw): pass
 
 Logger = NullLogger()
+
+
+async def get_free_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(('', 0))
+        return int(s.getsockname()[1])
+
 
 class RequestResponder():
     def __init__(self, port: int = TRANSFER_PORT):
@@ -54,15 +65,10 @@ class RequestResponder():
         msg = await reader.read(len(REQUEST_MSG))
         if msg == REQUEST_MSG:
             addr = writer.get_extra_info('peername')[0]
-            port = await self._get_free_port()
+            port = await get_free_port()
             writer.write(bytes(str(port), 'utf-8') + b'\n')
             await self.queue.put((addr, port))
             return
-
-    async def _get_free_port(self) -> int:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.bind(('', 0))
-            return s.getsockname()[1]
 
 
 class TransferHandler:
@@ -73,6 +79,8 @@ class TransferHandler:
         self.sending_entries = {}
         self.receiving_entries = {}
         self._lock = asyncio.Lock()
+
+        fts.logger = LOG_FILE
 
         if receive:
             # Start responder in its own thread
@@ -144,7 +152,12 @@ class TransferHandler:
 
                 writer.write(ACCEPT_MSG + b'\n')
                 await writer.drain()
+                # noinspection PyTypeChecker
+                new_port: int = await get_free_port()
+                writer.write(bytes(str(new_port), "utf-8") + b'\n')
+                await writer.drain()
 
+                await self.run_in_thread(fts.open, SAVE_DIR, entry.target, new_port, 1, protected=False, max_concurrent_transfers=1)
 
             except Exception as e:
                 self.transfer_ui.notify(f"{e}", title="Error recieving transfer", severity="error")
@@ -168,7 +181,6 @@ class TransferHandler:
                 await server.wait_closed()
 
         asyncio.create_task(handle_once())
-
 
     async def send(self, target: str, filepath: str):
         writer = None
@@ -259,6 +271,12 @@ class TransferHandler:
 
             transfer.transfer_ui.remove()
 
+            await reader.readline()
+            new_port = await reader.readline()
+            new_port = new_port.decode("utf-8").strip()
+            print(new_port)
+
+            await self.run_in_thread(fts.send, filepath, target, new_port)
 
         except Exception as e:
             self.transfer_ui.notify(f"{e}", title="Error sending transfer", severity="error")
@@ -270,6 +288,36 @@ class TransferHandler:
 
             await asyncio.sleep(100)
 
+    async def run_in_thread(self, func, *args, **kwargs):
+        """
+        Async wrapper that runs `func` in a separate thread safely.
+        """
+
+        def safe_run(func, *args, **kwargs):
+            """
+            Runs a function safely, even if it uses asyncio.run() internally.
+            Should be called from a separate thread.
+            """
+            try:
+                return func(*args, **kwargs)
+            except RuntimeError as e:
+                if "asyncio.run() cannot be called from a running event loop" in str(e):
+                    # Function tried to run its own event loop — run it in a new thread
+                    # Already in a thread here, so just run normally
+                    return func(*args, **kwargs)
+                else:
+                    raise
+        return await asyncio.to_thread(partial(safe_run, func, *args, **kwargs))
+
+    def cancel_all(self):
+        for receiving in self.sending_entries.values():
+            transfer = receiving[1]
+            transfer.cancelled.set()
+
+        for sending in self.sending_entries.values():
+            transfer = sending[1]
+            transfer.cancelled.set()
+
 
 class Transfer():
     def __init__(self, entry, entry_id):
@@ -279,6 +327,8 @@ class Transfer():
         self.entry_id = entry_id
         self.request_ui = None
         self.transfer_ui = None
+        self.progress = 0
+        self.max_progress = 0
 
 
 class Entry():
