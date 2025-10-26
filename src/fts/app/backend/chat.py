@@ -1,12 +1,37 @@
 import socket
 import threading
+import json
 
 from textual.app import App
 
-from fts.app.backend.contacts import get_broadcast_addresses, has_public_broadcast
-from fts.app.config import CHAT_PORT
+from fts.app.backend.contacts import get_broadcast_addresses, has_public_broadcast, replace_with_ip
+from fts.app.config import CHAT_PORT, MUTED_FILE
 
-CHAT_KEY = b"FTSCHATMSG"
+CHAT_KEY: bytes = b"FTSCHATMSG"
+
+class MutedUsers:
+    def __init__(self, file_path: str):
+        self.lock = threading.Lock()
+        self.file_path = file_path
+
+        try:
+            with open(file_path, "r") as f:
+                self.muted: list[str] = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            self.muted: list[str] = []
+
+    def set_muted(self, users: list[str]):
+        with self.lock:
+            self.muted = users.copy()
+            with open(self.file_path, "w") as f:
+                json.dump(self.muted, f)
+
+    def get_muted(self) -> list[str]:
+        with self.lock:
+            return self.muted.copy()
+
+# Global instance
+MUTED_USERS = MutedUsers(MUTED_FILE)
 
 def send(msg, timeout=0.5) -> str:
     try:
@@ -28,7 +53,7 @@ def send(msg, timeout=0.5) -> str:
             sock.sendto(msg, (baddr, CHAT_PORT))
     except Exception as e:
         sock.close()
-        return e.message
+        return e
 
     sock.close()
     return ""
@@ -46,7 +71,8 @@ def start_chat_listener(app: App, port: int, callback):
         while True:
             try:
                 data, addr = sock.recvfrom(4096)
-                app.call_from_thread(callback, data, addr)
+                if addr[0].strip() not in replace_with_ip(MUTED_USERS.get_muted()):
+                    app.call_from_thread(callback, data, addr)
             except Exception as e:
                 print("UDP listener error:", e)
                 break

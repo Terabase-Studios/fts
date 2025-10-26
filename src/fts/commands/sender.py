@@ -22,10 +22,11 @@ from fts.config import (
     MAX_SEND_RETRIES
 )
 from fts.core import secure as secure
+from fts.manager import Manager
 from fts.utilities import format_bytes, parse_byte_string
 
 
-def cmd_send(args, logger):
+def cmd_send(args, logger, manager=None):
     """Send a single file."""
     try:
         path = resolve_path(args.path)
@@ -45,7 +46,7 @@ def cmd_send(args, logger):
             return
 
     try:
-        asyncio.run(send_file(path, args.ip, args.port, logger, progress_bar=args.progress, name=args.name, compress=not args.nocompress, rate_limit=limit))
+        asyncio.run(send_file(path, args.ip, args.port, logger, progress_bar=args.progress, name=args.name, compress=not args.nocompress, rate_limit=limit, manager=manager))
     except KeyboardInterrupt:
         raise KeyboardInterrupt
 
@@ -165,10 +166,24 @@ async def send_file(
     name: str = None,
     compress: bool = False,
     rate_limit: int = 0,
+    manager: Manager = None
 ):
     """
     Asynchronously send a file over a secure socket with optional compression and rate limiting.
     """
+    if manager:
+        if manager.in_use:
+            manager = None
+            logger.warning("Cannot use the same manager twice!\n Detaching manager")
+        else:
+            manager.in_use = True
+            manager.type = "send"
+
+    if manager:
+        manager.state = "starting"
+        if manager.cancelled:
+            logger.error("Manager cancelled transfer")
+            return
 
     file_path = os.path.abspath(os.path.expanduser(file_path))
     if not os.path.isfile(file_path):
@@ -178,9 +193,19 @@ async def send_file(
     filesize = os.path.getsize(file_path)
     filename = name or os.path.basename(file_path)
     flags = 0
+    if manager:
+        manager.max_progress = filesize
+        if manager.cancelled:
+            logger.error("Manager cancelled transfer")
+            return
 
     # Compress if requested
     try:
+        if manager:
+            manager.state = "compressing"
+            if manager.cancelled:
+                logger.error("Manager cancelled transfer")
+                return
         file_path, filesize, compressed = compress_file(
             file_path, filename, filesize, logger, compress
         )
@@ -188,6 +213,8 @@ async def send_file(
             flags |= transferflags.FLAG_COMPRESSED
     except Exception as e:
         logger.error(f"Compression failed: {e}\n")
+        if manager:
+            manager.state = "failed"
         return
 
     port = port or DEFAULT_FILE_PORT
@@ -205,28 +232,47 @@ async def send_file(
 
         logger.info(f"Sending '{filename}' ({format_bytes(filesize)}) from {file_path}")
         logger.debug(f"Awaiting server approval")
+        if manager:
+            if manager.cancelled:
+                logger.error("Manager cancelled transfer")
+                return
+            manager.state = "transferring"
         while True:
             try:
                 ack = await reader.readexactly(4)
                 if ack == b"HOLD":
                     logger.info("Transfer on hold, the transfer will continue when server is ready")
+                    if manager:
+                        if manager.cancelled:
+                            logger.error("Manager cancelled transfer")
+                            return
+                        manager.state = "hold"
                 elif ack != b"SEND":
                     logger.error("Send request denied by receiver")
+                    if manager:
+                        manager.state = "failed"
                     return
                 else:
                     break
 
             except:
                 logger.error("Failed to recieve permission from receiver")
+                if manager:
+                    manager.state = "failed"
                 return
 
         logger.debug(f"Successfully received server permission")
 
         # Send file using asyncio-based pipeline
-        sent = await send_linear(file_path, filesize, writer, progress_bar, logger, rate_limit)
+        sent = await send_linear(file_path, filesize, writer, progress_bar, logger, rate_limit, manager=manager)
 
         if sent < filesize:
-            logger.error("Not all bytes were sent")
+            logger.warning("Not all bytes were sent")
+            if manager:
+                manager.state = "failed"
+                if manager.cancelled:
+                    logger.error("Manager cancelled transfer")
+                    raise Exception("Manager cancelled transfer")
             return
 
         # --- Wait for confirmation ---
@@ -234,6 +280,8 @@ async def send_file(
             ack = await reader.readexactly(4)
             if ack != b"OKAY":
                 logger.error("Did not receive confirmation from receiver")
+                if manager:
+                    manager.state = "failed"
                 return
 
             logger.info(f"File sent successfully: {filename}")
@@ -242,12 +290,19 @@ async def send_file(
 
         logger.info(f"Secure connection to ('{host}', {port}) closed")
         writer.close()
+        if manager:
+            manager.progress = sent
+            manager.state = "finished"
 
 
     except asyncio.CancelledError:
+        if manager:
+            manager.state = "failed"
         raise KeyboardInterrupt
     except Exception as e:
         logger.error(f"Error sending file: {e}\n")
+        if manager:
+            manager.state = "failed"
         return
 
 
@@ -266,19 +321,23 @@ async def connect_with_retry(host, port, logger, retries: int = 5, delay: int = 
     return None, None
 
 
-async def send_linear(file_path, filesize, writer, progress_bar, logger, rate_limit: int = 0):
+async def send_linear(file_path, filesize, writer, progress_bar, logger, rate_limit: int = 0, manager: Manager = None):
     """
     Ultra-fast async file sender using thread-based blocking file reads.
     Avoids blocking event loop and unnecessary memory copies.
+    Gracefully handles receiver disconnects.
     """
 
     loop = asyncio.get_running_loop()
     old_handler = loop.get_exception_handler()
 
     def quiet_handler(loop, context):
-        if "SL connection is closed" in str(context.get("exception")):
-            return  # swallow the spam
-        if old_handler is not None:
+        exc = context.get("exception")
+        msg = str(exc or context.get("message", ""))
+        if any(s in msg for s in ("SSL connection is closed", "Transport is closed", "Connection reset")):
+            # swallow harmless post-shutdown spam
+            return
+        if old_handler:
             old_handler(loop, context)
         else:
             loop.default_exception_handler(context)
@@ -297,75 +356,84 @@ async def send_linear(file_path, filesize, writer, progress_bar, logger, rate_li
     sent = 0
     next_send_time = time.monotonic()
     last_progress_update = time.monotonic()
-    start_time = 0
-    end_time = 0
+    start_time = time.monotonic()
+    end_time = start_time
 
-    # Helper function to read a chunk in a thread
     def read_chunk(f, size):
         return f.read(size)
 
     try:
-        start_time = time.monotonic()
-        with open(file_path, "rb") as f:  # regular blocking file
+        with open(file_path, "rb") as f:
             while True:
-                # Read a large chunk in a thread to avoid blocking event loop
                 chunk = await asyncio.to_thread(read_chunk, f, BUFFER_SIZE * BATCH_SIZE)
                 if not chunk:
                     break
 
-                mv = memoryview(chunk)
-                batch_size_bytes = len(mv)
+                try:
+                    writer.write(chunk)
+                except (ConnectionResetError, BrokenPipeError, SSLError):
+                    logger.warning("Receiver disconnected during send.")
+                    break
 
-                writer.write(mv)
+                if manager and manager.cancelled:
+                    logger.error("Manager cancelled transfer")
+                    raise Exception("Manager cancelled transfer")
 
                 # Bandwidth limiting
                 if rate_limit > 0:
                     now = time.monotonic()
-                    target_time = batch_size_bytes / rate_limit
+                    target_time = len(chunk) / rate_limit
                     if now < next_send_time:
                         await asyncio.sleep(next_send_time - now)
                     next_send_time = max(now, next_send_time) + target_time
 
-                sent += batch_size_bytes
+                sent += len(chunk)
 
-                # Only drain if buffer is large
+                # Drain only if buffer is large
+                if writer.transport.is_closing():
+                    logger.error("Disconnected from receiver")
+                    break
                 if writer.transport.get_write_buffer_size() > FLUSH_SIZE:
-                    await writer.drain()
-                    pass
+                    try:
+                        await writer.drain()
+                    except (ConnectionResetError, BrokenPipeError, SSLError):
+                        logger.warning("Drain failed: receiver closed connection.")
+                        break
 
                 # Update progress periodically
                 now = time.monotonic()
                 if progress_bar and now - last_progress_update >= PROGRESS_INTERVAL:
                     progress.n = sent
                     progress.refresh()
+                    if manager:
+                        if manager.cancelled:
+                            logger.error("Manager cancelled transfer")
+                            raise Exception("Manager cancelled transfer")
+                        manager.progress = sent
                     last_progress_update = now
 
-        # Final drain
-        await writer.drain()
+        # Final drain, safely
+        try:
+            await writer.drain()
+        except (ConnectionResetError, BrokenPipeError, SSLError):
+            pass
+
         if progress_bar:
             progress.n = sent
             progress.refresh()
+            if manager:
+                manager.progress = sent
 
         end_time = time.monotonic()
 
     except asyncio.CancelledError:
         raise
-    except (ConnectionResetError, BrokenPipeError) as e:
-        if sent < filesize:
-            logger.error(f"Connection closed: {e}")
-            raise
-    except SSLError as e:
-        logger.error(f"SSL connection closed: {e}")
-        raise
-    except ConnectionError as e:
-        logger.error(f"Connection error: {e}")
-        raise
     except Exception as e:
-        logger.error(f"{e}")
+        logger.error(f"Error in send_linear: {e}")
         raise
     finally:
-        duration = end_time - start_time
         progress.close()
         loop.set_exception_handler(old_handler)
-        logger.debug(f"Transferred {format_bytes(sent)} in {duration:.2f} seconds: ({format_bytes(sent/duration)}/s)")
+        duration = max(0.001, end_time - start_time)
+        logger.debug(f"Transferred {format_bytes(sent)} in {duration:.2f}s ({format_bytes(sent/duration)}/s)")
         return sent

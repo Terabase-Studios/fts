@@ -2,17 +2,20 @@ import asyncio
 import hashlib
 import json
 import socket
+import sys
 import threading
 import time
 from functools import partial
 from pathlib import Path
 from ssl import SSLContext
 
+from click import progressbar
+
 import fts.core.secure as secure
 import fts.py as fts
-from fts.app.backend.contacts import replace_with_contact
-from fts.app.config import SAVE_DIR, LOG_FILE
-from fts.core.logger import setup_logging
+from fts.app.backend.contacts import replace_with_contact, ONLINE_USERS, replace_with_ip
+from fts.app.config import SAVE_DIR, LOG_FILE, logger
+from fts.manager import Manager
 
 TRANSFER_PORT = 9064
 REQUEST_MSG = b"request"
@@ -36,9 +39,11 @@ Logger = NullLogger()
 
 
 async def get_free_port() -> int:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(('', 0))
-        return int(s.getsockname()[1])
+   with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+    	s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    	s.bind(('', 0))
+    	port = s.getsockname()[1]
+    	return port
 
 
 class RequestResponder():
@@ -52,6 +57,7 @@ class RequestResponder():
         asyncio.run(self._run_responder(self.port))
 
     async def _run_responder(self, port: int):
+        logger.info(f"Reponder started")
         while True:
             try:
                 ssl_context: SSLContext = secure.get_server_context()
@@ -62,13 +68,19 @@ class RequestResponder():
                 await asyncio.sleep(1)
 
     async def _respond(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
-        msg = await reader.read(len(REQUEST_MSG))
-        if msg == REQUEST_MSG:
-            addr = writer.get_extra_info('peername')[0]
-            port = await get_free_port()
-            writer.write(bytes(str(port), 'utf-8') + b'\n')
-            await self.queue.put((addr, port))
-            return
+        try:
+            logger.info(f"Reponder responding")
+            msg = await reader.read(len(REQUEST_MSG))
+            if msg == REQUEST_MSG:
+                addr = writer.get_extra_info('peername')[0]
+                port = await get_free_port()
+                writer.write(bytes(str(port), 'utf-8') + b'\n')
+                logger.debug(f"Adding {addr}({port}) to queue")
+                await self.queue.put((addr, port))
+                logger.debug(f"Added to queue: {list(self.queue._queue)}")
+                return
+        except Exception as e:
+            logger.error(f"Responser failed: {e}")
 
 
 class TransferHandler:
@@ -80,24 +92,24 @@ class TransferHandler:
         self.receiving_entries = {}
         self._lock = asyncio.Lock()
 
-        fts.logger = LOG_FILE
-
         if receive:
             # Start responder in its own thread
             self.responder = RequestResponder()
             loop = asyncio.get_event_loop()
-            task = loop.create_task(self.check_queue())
+            loop.create_task(self.check_queue())
 
     async def check_queue(self):
         while True:
             sender = await self.responder.queue.get()  # await asyncio.Queue
             if sender:
+                logger.debug(f"Found item in queue: {sender}")
                 await self.respond_to_requests(sender)
             await asyncio.sleep(1)
             loop = asyncio.get_event_loop()
             task = loop.create_task(self.check_queue())
 
     async def respond_to_requests(self, sender: tuple[str, int]):
+        logger.info("Receive started")
         host, port = sender
         ssl_context = secure.get_server_context()
 
@@ -105,6 +117,7 @@ class TransferHandler:
         connection_handled = asyncio.Event()
 
         async def handle_recieve(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
+            logger.info("Receive server started")
             try:
                 data = await reader.readline()
                 if not data:
@@ -140,11 +153,14 @@ class TransferHandler:
                         if transfer.cancelled.is_set():
                             writer.write(REJECT_MSG + b"\n")
                             await writer.drain()
-                            break
+                            raise Exception("Cancelled Transfer")
                         if transfer.accepted.is_set():
                             writer.write(ACCEPT_MSG + b"\n")
                             await writer.drain()
                             break
+                        if sender[0] not in replace_with_ip(ONLINE_USERS.get_online()):
+                            transfer.request_ui.remove()
+                            raise Exception("Peer went offline")
 
                 if response == REJECT_MSG:
                     transfer.request_ui.remove()
@@ -156,33 +172,53 @@ class TransferHandler:
                 new_port: int = await get_free_port()
                 writer.write(bytes(str(new_port), "utf-8") + b'\n')
                 await writer.drain()
+                transfer.port = int(new_port)
+                manager = Manager(no_dict=True)
+                transfer.manager = manager
 
-                await self.run_in_thread(fts.open, SAVE_DIR, entry.target, new_port, 1, protected=False, max_concurrent_transfers=1)
+                loop = asyncio.get_running_loop()
+                loop.call_soon_threadsafe(self.transfer_ui.add_active, entry, transfer, manager)
+
+                await self.run_in_thread(fts.open, SAVE_DIR, "0.0.0.0", new_port, protected=False, max_concurrent_transfers=1, max_transfers=1, progress=True, manager=manager)
+                manager.progress = manager.max_progress
+                if manager.cancelled:
+                    writer.write(REJECT_MSG + b"\n")
+                if not transfer.cancelled.is_set():
+                    await asyncio.sleep(2)
+
+                transfer.transfer_ui.remove()
 
             except Exception as e:
-                self.transfer_ui.notify(f"{e}", title="Error recieving transfer", severity="error")
+                self.transfer_ui.notify(f"{e}", title="Error receiving transfer", severity="error")
+                logger.error(f"Receive failed: {e}")
 
             finally:
                 writer.close()
                 await writer.wait_closed()
                 connection_handled.set()  # Signal that we're done
+                logger.info("Received function closed")
 
-        server = await asyncio.start_server(
-            handle_recieve,
-            host,
-            port,
-            ssl=ssl_context
-        )
+        try:
+            server = await asyncio.start_server(
+                handle_recieve,
+                "0.0.0.0",
+                port,
+                ssl=ssl_context
+            )
 
-        async def handle_once():
-            async with server:
-                await connection_handled.wait()
-                server.close()
-                await server.wait_closed()
+            async def handle_once():
+                async with server:
+                    await connection_handled.wait()
+                    server.close()
+                    await server.wait_closed()
 
-        asyncio.create_task(handle_once())
+            asyncio.create_task(handle_once())
+        except Exception as e:
+            self.transfer_ui.notify(f"{e}", title="Error receiving transfer", severity="error")
+            logger.error(f"Failed to start server: {e}")
 
     async def send(self, target: str, filepath: str):
+        logger.info("Sending started")
         writer = None
         reader = None
         try:
@@ -255,6 +291,10 @@ class TransferHandler:
                         transfer.transfer_ui.remove()
                         raise Exception("Transfer cancelled")
 
+                    if target not in replace_with_ip(ONLINE_USERS.get_online()):
+                        transfer.transfer_ui.remove()
+                        raise Exception("Peer went offline")
+
 
             if response == ACCEPT_MSG:
                 self.transfer_ui.notify(f"{replace_with_contact(target)} accepted {entry.name}", title="Transfer Accepted", severity="information")
@@ -274,19 +314,32 @@ class TransferHandler:
             await reader.readline()
             new_port = await reader.readline()
             new_port = new_port.decode("utf-8").strip()
-            print(new_port)
+            transfer.port = int(new_port)
+            manager = Manager(no_dict=True)
+            transfer.manager = manager
 
-            await self.run_in_thread(fts.send, filepath, target, new_port)
+            loop = asyncio.get_running_loop()
+            loop.call_soon_threadsafe(self.transfer_ui.add_active, entry, transfer, manager)
+
+            await self.run_in_thread(fts.send, filepath, target, new_port, manager=manager, progress=True)
+            manager.progress = manager.max_progress
+            if manager.cancelled:
+                writer.write(REJECT_MSG + b"\n")
+            if not transfer.cancelled.is_set():
+                await asyncio.sleep(2)
+
+            transfer.transfer_ui.remove()
 
         except Exception as e:
             self.transfer_ui.notify(f"{e}", title="Error sending transfer", severity="error")
+            logger.error(f"Recieve failed: {e}")
 
         finally:
             if writer:
                 writer.close()
                 await writer.wait_closed()
 
-            await asyncio.sleep(100)
+            logger.info("Sending function closed")
 
     async def run_in_thread(self, func, *args, **kwargs):
         """
@@ -310,13 +363,17 @@ class TransferHandler:
         return await asyncio.to_thread(partial(safe_run, func, *args, **kwargs))
 
     def cancel_all(self):
-        for receiving in self.sending_entries.values():
+        for receiving in self.receiving_entries.values():
             transfer = receiving[1]
             transfer.cancelled.set()
+            if transfer.manager:
+                transfer.manager.cancelled = True
 
         for sending in self.sending_entries.values():
             transfer = sending[1]
             transfer.cancelled.set()
+            if transfer.manager:
+                transfer.manager.cancelled = True
 
 
 class Transfer():
@@ -329,6 +386,7 @@ class Transfer():
         self.transfer_ui = None
         self.progress = 0
         self.max_progress = 0
+        self.manager = None
 
 
 class Entry():

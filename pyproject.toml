@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fts-tool"
-version = "2.0.0-alpha3"
+dynamic = ["version"]
 description = "Peer-to-peer file and directory transfer system"
 authors = [
   { name = "Terabase Studios", email = "terabasestudios@gmail.com" }
 ]
 readme = { file = "README.md", content-type = "text/markdown" }
 license = { file = "LICENSE" }
-requires-python = ">=3.13"
+requires-python = ">=3.9"
 keywords = ["file transfer", "cli", "LAN", "fts"]
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -28,8 +28,22 @@ dependencies = [
     "tqdm>=4.67.1",
     "filelock>=3.19.1",
     "textual>=6.2.1",
-    "prompt_toolkit>=3.0.52"
+    "prompt_toolkit>=3.0.52",
+    "click>=8.3.0",
 ]
 
 [project.scripts]
 fts = "fts.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["fts*"]
+
+[project.urls]
+Homepage = "https://github.com/Terabase-Studios/fts"
+Repository = "https://github.com/Terabase-Studios/fts"
+Issues = "https://github.com/Terabase-Studios/fts/issues"
+Documentation = "https://github.com/Terabase-Studios/fts/wiki"
+
+[tool.setuptools.dynamic]
+version = { attr = "fts.__version__" }

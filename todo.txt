@@ -1,3 +1,0 @@
-fix window shrinking removing sending buttons
-Add sending backend
-Add requesting backend and frontend

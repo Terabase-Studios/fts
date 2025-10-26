@@ -2,13 +2,57 @@ import asyncio
 
 from textual.app import ComposeResult
 from textual.containers import VerticalScroll, Container, Vertical, HorizontalScroll
-from textual.widgets import Collapsible, Label, Button
+from textual.widgets import Collapsible, Label, Button, ProgressBar, Log
 
-from fts.app.backend import transfer
 from fts.app.backend.contacts import replace_with_contact
 from fts.app.backend.history import get_history
 from fts.app.config import LOGS
 from fts.utilities import format_bytes
+
+
+class ActiveEntry(Container):
+    def __init__(self, entry, transfer, manager):
+        super().__init__()
+        self.entry = entry
+        self.entry_id = transfer.entry_id
+        self.transfer = transfer
+        self.manager = manager
+        self.progress_timer = None
+        self.label = None
+        transfer.transfer_ui = self
+
+    def compose(self) -> ComposeResult:
+        state = self.manager.state if self.manager.state else "awaiting"
+        heading = f"| {state}: {self.manager.type}, {self.entry.name} ({format_bytes(self.entry.size)}) -> {replace_with_contact(self.entry.target)}:{self.entry.port}"
+        with HorizontalScroll(id="inactive_bar") as scroll:
+            yield Button("cancel", variant="error", id="cancel_entry")
+            self.label = Label(heading, id="inactive_entry")
+            yield self.label
+
+        progressbar = ProgressBar()
+        progressbar.styles.width = "100%"
+        yield progressbar
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "cancel_entry":
+            self.transfer.cancelled.set()
+            self.manager.cancelled = True
+            self.remove()
+
+    def on_mount(self) -> None:
+        self.progress_timer = self.set_interval(1 / 10, self.make_progress)
+
+    def make_progress(self) -> None:
+        """Called automatically to advance the progress bar."""
+        if self.manager.max_progress and self.manager.progress:
+            progress = self.query_one(ProgressBar)
+            progress.update(total=self.manager.max_progress, progress=self.manager.progress)
+
+        state = self.manager.state if self.manager.state else "awaiting"
+        self.label.update(
+            f"| {state}: {self.manager.type}, {self.entry.name} "
+            f"({format_bytes(self.entry.size)}) -> {replace_with_contact(self.entry.target)}:{self.entry.port}"
+        )
 
 
 class InactiveEntry(Container):
@@ -43,9 +87,12 @@ class LogEntry(Container):
     def compose(self) -> ComposeResult:
         entry = self.entry
         heading = f"{entry['start_time']}> {entry['type']}, {entry['file']}"
-        text = "\n".join(entry.get("lines", []))  # put all lines together
+        lines = entry.get("lines", [])
         with Collapsible(title=heading, id="logtab"):
-            yield Label(text, id="logview")
+            log = Log(id="logview")
+            for line in lines:
+                log.write(line+"\n")
+            yield log
 
 
 class Transfers(Container):
@@ -53,7 +100,7 @@ class Transfers(Container):
         self.transfer_count = 0
         with VerticalScroll(id="transferscroll"):
             with Collapsible(title="Active", collapsed=False):
-                yield Label("Current transfers will show up here")
+                #yield Label("Current transfers will show up here")
                 self.active = Vertical(id="active_container")
                 self.inactive = Vertical(id="inactive_container")
                 yield self.active
@@ -79,7 +126,10 @@ class Transfers(Container):
             asyncio.create_task(refresh_loop())
 
     def add_inactive(self, entry, transfer):
-        self.inactive.mount(InactiveEntry(entry=entry, transfer=transfer))
+        self.inactive.mount(InactiveEntry(entry=entry, transfer=transfer), before=0)
+
+    def add_active(self, entry, transfer, manager):
+        self.active.mount(ActiveEntry(entry=entry, transfer=transfer, manager=manager), before=0)
 
 async def reload_history(container: Container, logs_file=LOGS, first_run=False):
     """
@@ -107,8 +157,8 @@ async def reload_history(container: Container, logs_file=LOGS, first_run=False):
         if entry["id"] not in old_entry_ids:
             await container.mount(LogEntry(entry), before=0)
 
-    if not history and (old_entry_ids or first_run):
-        await container.mount(Label("Past transfers will show up here"))
+    #if not history and (old_entry_ids or first_run):
+    #    await container.mount(Label("Past transfers will show up here"))
 
     # Adjust height dynamically
     container.styles.height = max(((len(container.children)-1) * 15) + 1, 30)

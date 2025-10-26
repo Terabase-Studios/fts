@@ -7,6 +7,7 @@ from pathlib import Path
 from tkinter import filedialog
 from typing import Dict
 
+from fts.app.config import logger
 from textual import on
 from textual.app import ComposeResult
 from textual.containers import VerticalScroll, Container, Vertical, Horizontal
@@ -206,6 +207,8 @@ class Sending(Container):
                 return
 
             contact_selector.deselect_all()
+
+            logger.info("Starting transfer requests")
 
             self.start_send_all(contacts, file_path, transfer)
 

@@ -12,8 +12,10 @@ import psutil
 
 from fts.app.config import CONTACTS_FILE, SEEN_IPS_FILE, DISCOVERY_PORT
 
-DISCOVERY_MESSAGE = b"CHECK123"
-DISCOVERY_RESPOND = b"RECIEVE456"
+DISCOVERY_MESSAGE = b"FTSCHECK123"
+DISCOVERY_RESPOND = b"FTSRECIEVE456"
+WHO_IS_MESSAGE = b"FTSWHOIS123"
+WHO_IS_RESPOND = b"FTSTHISISE456"
 
 class OnlineUsers:
     def __init__(self):
@@ -255,6 +257,8 @@ class DiscoveryResponder(asyncio.DatagramProtocol):
     def datagram_received(self, data, addr):
         if data == DISCOVERY_MESSAGE:
             self.transport.sendto(DISCOVERY_RESPOND, addr)
+        elif data.startswith(WHO_IS_MESSAGE):
+            pass
 
     def connection_made(self, transport):
         self.transport = transport

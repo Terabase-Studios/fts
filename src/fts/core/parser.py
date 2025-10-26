@@ -54,7 +54,8 @@ def open_parser_add(parser, parents):
     open_parser.add_argument("-l", "--limit", type=str, metavar="SIZE", help="max recieving speed (e.g. 500KB, 2MB, 1GB)")
     open_parser.add_argument("-p", "--port", type=int, metavar="PORT", help="override port used")
     open_parser.add_argument("--ip", type=str, help="only listen to file transfers from this IP")
-    open_parser.add_argument("-m", "--max-concurrent-transfers", dest="max_transfers", type=int, help="Maximum transfers running at once (Ignored when --unprotected is active)")
+    open_parser.add_argument("-c", "--max-concurrent-transfers", dest="max_transfers", type=int, help="Maximum transfers running at once")
+    open_parser.add_argument("-m", "--max-transfers", dest="max_sends", type=int, help="Maximum total amount of transfers")
 
 def send_parser_add(parser, parents):
     send_parser = parser.add_parser("send", help="connect to the target server and transfer the file", parents=parents)

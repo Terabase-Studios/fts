@@ -10,6 +10,7 @@ from filelock import FileLock
 from prompt_toolkit import print_formatted_text
 from prompt_toolkit.formatted_text import ANSI
 from tqdm.asyncio import tqdm_asyncio as tqdm
+from fts.core.log_cleaner import organize_log
 
 # ANSI colors
 RESET = "\033[0m"
@@ -102,7 +103,7 @@ def setup_logging(verbose=False, quiet=False, logfile=None, line_sep=0, mode="tq
     number = ''.join(random.choices(alphabet, k=6))
     id = f"({id}|{number})"
 
-    logger = logging.getLogger("fts")
+    logger = logging.getLogger(f"fts.{id}")
     logger.handlers.clear()
 
     # Choose stream handler based on mode
@@ -178,7 +179,6 @@ def setup_logging(verbose=False, quiet=False, logfile=None, line_sep=0, mode="tq
                 if self.counter >= self.threshold:
                     self.counter = 0
                     try:
-                        from fts.core.log_cleaner import organize_log
                         with self.lock:  # ensures only one process runs organize_log at a time
                             organize_log(self.logfile_path, self.save_path)
                     except Exception as e:

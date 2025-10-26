@@ -6,9 +6,11 @@ import struct
 import tempfile
 import time
 import zlib
+import re
+from pathlib import Path
+import random, string
 
 from tqdm.asyncio import tqdm_asyncio as tqdm
-from pathlib import Path
 
 import fts.flags as transferflags
 from fts.config import (
@@ -25,11 +27,12 @@ from fts.core import secure as secure
 from fts.core.detatched import start_detached
 from fts.core.dosp import should_receive
 from fts.utilities import format_bytes, parse_byte_string
+from fts.manager import Manager
 
 # Incrementing IDs for each client connection
 _client_ids = itertools.count(1)
 
-def cmd_open(args, logger):
+def cmd_open(args, logger, manager=None):
     """Start TLS receiver server safely with dynamic port handling and shutdown support."""
     if not args.output:
         logger.error("No path given")
@@ -61,11 +64,12 @@ def cmd_open(args, logger):
     # Try dynamic port handling BEFORE running asyncio
     for attempt in range(45):
         try:
-            server_coro = start_server(host, port, output_dir, logger, args.progress, limit, max_sends, args.unprotected, args.max_transfers)
+            server_coro = start_server(host, port, output_dir, logger, args.progress, limit, max_sends, args.unprotected, args.max_transfers, manager=manager)
             asyncio.run(server_coro)
             return
         except OSError as e:
             if port != 0:
+                logger.warning(f"Error connecting to port: {e}")
                 logger.warning(f"Port {port} unavailable, retrying with free port...")
                 port +=1
             else:
@@ -83,7 +87,7 @@ def cmd_open(args, logger):
 
 
 async def start_server(host: str, port: int, output_dir: str, logger,
-                       progress_bar=False, rate_limit: int = 0, max_sends=None, unprotected=False, max_concurrent_transfers=0):
+                       progress_bar=False, rate_limit: int = 0, max_sends=None, unprotected=False, max_concurrent_transfers=0, manager: Manager = None):
     from ssl import SSLContext
     ssl_context: SSLContext = secure.get_server_context()
     os.makedirs(output_dir, exist_ok=True)
@@ -92,22 +96,74 @@ async def start_server(host: str, port: int, output_dir: str, logger,
     current_transfers = 0
     shutdown_event = asyncio.Event()  # will signal server shutdown
 
+    if manager:
+        if manager.in_use:
+            manager = None
+            logger.warning("Cannot use the same manager twice!\n Detaching manager")
+        else:
+            manager.in_use = True
+            manager.type = "receive"
+
     async def handle_connection(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         nonlocal send_counter
         nonlocal current_transfers
+        nonlocal manager
+        nonlocal max_sends
         client_id = next(_client_ids)
         addr = writer.get_extra_info('peername')
         if max_concurrent_transfers and current_transfers >= max_concurrent_transfers:
             writer.write(b"HOLD")
             await writer.drain()
+            if manager:
+                if manager.cancelled:
+                    logger.error("Manager cancelled transfer")
+                    raise Exception("Cancelled by manager")
+
+                if not manager.no_dict:
+                    p = manager.state
+                    p[client_id] = "holding"
+                    manager.state = p
+                else:
+                    manager.state = "holding"
             while current_transfers >= max_concurrent_transfers:
                 await asyncio.sleep(1)
 
 
         try:
+            if manager:
+                if manager.cancelled:
+                    logger.error("Manager cancelled transfer")
+                    raise Exception("Cancelled by manager")
+
+                if not manager.no_dict:
+                    p = manager.state
+                    p[client_id] = "awaiting"
+                    manager.state = p
+                else:
+                    manager.state = "awaiting"
             current_transfers += 1
             file_sent = await handle_client(reader, writer, output_dir, client_id,
-                                            logger, progress_bar, rate_limit, unprotected)
+                                            logger, progress_bar, rate_limit, unprotected, manager=manager)
+
+        except Exception as e:
+            logger.error(f"{client_id}: Unhandled client exception: {e}", exc_info=True)
+            if manager:
+                if not manager.no_dict:
+                    p = manager.state
+                    p[client_id] = "failed"
+                    manager.state = p
+                else:
+                    manager.state = "failed"
+        else:
+            if manager:
+                if not manager.no_dict:
+                    p = manager.state
+                    p[client_id] = "finished"
+                    manager.state = p
+                else:
+                    manager.state = "finished"
+
+        finally:
             current_transfers -= 1
 
             if max_sends is not None:
@@ -117,13 +173,11 @@ async def start_server(host: str, port: int, output_dir: str, logger,
                     logger.info("Maximum transfer requests reached, closing server")
                     shutdown_event.set()  # trigger server shutdown
 
-        except Exception as e:
-            logger.error(f"{client_id}: Unhandled client exception: {e}", exc_info=True)
-        finally:
+
             try:
                 writer.close()
                 await writer.wait_closed()
-            except Exception:
+            except Exception as e:
                 pass
             logger.info(f"{client_id}: Connection from {addr} closed\n")
 
@@ -143,26 +197,58 @@ async def start_server(host: str, port: int, output_dir: str, logger,
 
 def uniquify_filename(filename, directory="."):
     """
-    Ensure filename is unique in the given directory.
-    If filename exists, append or increment a number.
+    Ensures filename is unique in the given directory.
+    Adds or increments (number) suffix only if a conflict exists.
+    Handles cases like:
+        example.txt       → example.txt
+        example.txt*2     → example(1).txt, example(2).txt
+        example(5).txt    → example(6).txt
     """
     base, ext = os.path.splitext(filename)
-    prefix = base.rstrip("0123456789")
-    num_str = base[len(prefix):]
+    path = Path(directory)
 
-    # Start count from existing number or 1 if none
-    start = int(num_str) if num_str.isdigit() else 1
+    # If no file exists, return as-is
+    if not (path / filename).exists():
+        return filename
 
-    candidate = filename
-    for i in itertools.count(start):
-        if not os.path.exists(os.path.join(directory, candidate)):
-            return candidate
-        candidate = f"{prefix}{i}{ext}"
+    # Detect existing numeric suffix (e.g., (5))
+    match = re.search(r"\((\d+)\)$", base)
+    if match:
+        base_name = base[:match.start()]
+    else:
+        base_name = base
 
-    return candidate
+    # Find highest existing number for the pattern
+    existing_numbers = [0]
+    for existing in path.glob(f"{base_name}*{ext}"):
+        m = re.search(rf"^{re.escape(base_name)}\((\d+)\){re.escape(ext)}$", existing.name)
+        if m:
+            existing_numbers.append(int(m.group(1)))
+        elif existing.name == filename:
+            existing_numbers.append(0)
+
+    new_number = max(existing_numbers) + 1
+    return f"{base_name}({new_number}){ext}"
 
 
-async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, output_dir: str, client_id, logger, progress_bar=False, rate_limit: int = 0, unprotected=False):
+async def safe_rename(temp_path: Path, out_path: Path):
+    """
+    Renames temp_path → out_path, automatically increments numeric suffixes like (1), (2), etc.
+    Example:
+        example.txt     → example.txt
+        example.txt     (exists) → example(1).txt
+        example(5).txt  (exists) → example(6).txt
+    """
+    directory = out_path.parent
+    filename = out_path.name
+
+    unique_name = uniquify_filename(filename, str(directory))
+    target = directory / unique_name
+    temp_path.rename(target)
+    return target
+
+
+async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, output_dir: str, client_id, logger, progress_bar=False, rate_limit: int = 0, unprotected=False, manager: Manager = None):
     addr = writer.get_extra_info("peername")
     logger.info(f"{client_id}: Secure connection from {addr}")
 
@@ -208,18 +294,48 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
             raise Exception("Sender request denied by server")
         await writer.drain()
 
+        if manager:
+            if manager.cancelled:
+                logger.error("Manager cancelled transfer")
+                raise Exception("Cancelled by manager")
+
+            if not manager.no_dict:
+                p = manager.state
+                p[client_id] = "transferring"
+                manager.state = p
+                p = manager.max_progress
+                p[client_id] = filesize
+                manager.max_progress = p
+
+            else:
+                manager.state = "transferring"
+                manager.max_progress = filesize
+
+
         os.makedirs(output_dir, exist_ok=True)
 
-        temp_path = Path(out_path).with_suffix(MID_DOWNLOAD_EXT)
-
+        # generate 16 random characters
+        rand = ''.join(random.choices(string.ascii_letters + string.digits, k=16))
+        temp_path = Path(out_path).with_name(f"{Path(out_path).stem}{rand}){Path(out_path).suffix}").with_suffix(MID_DOWNLOAD_EXT)
 
         # --- Receive file ---
-        received = await receive_linear(reader, filesize, temp_path, client_id, logger, progress_bar=progress_bar, rate_limit=rate_limit)
+        received = await receive_linear(reader, filesize, temp_path, client_id, logger, progress_bar=progress_bar, rate_limit=rate_limit, manager=manager)
 
 
         if received < filesize:
             logger.error(f"{client_id}: Incomplete file received: {format_bytes(received)}/{format_bytes(filesize)}")
             os.remove(temp_path)
+            if manager:
+                if manager.cancelled:
+                    logger.error("Manager cancelled transfer")
+                    raise Exception("Cancelled by manager")
+
+                if not manager.no_dict:
+                    p = manager.state
+                    p[client_id] = "failed"
+                    manager.state = p
+                else:
+                    manager.state = "failed"
             return
 
         await writer.drain()
@@ -229,12 +345,35 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
 
         # --- Decompress if needed ---
         if flags & transferflags.FLAG_COMPRESSED:
-            temp_path = await asyncio.to_thread(decompress_file, temp_path, client_id, logger)
+            if manager:
+                if manager.cancelled:
+                    logger.error("Manager cancelled transfer")
+                    raise Exception("Cancelled by manager")
 
-        temp_path.rename(Path(out_path))
+                if not manager.no_dict:
+                    p = manager.state
+                    p[client_id] = "decompressing"
+                    manager.state = p
+                else:
+                    manager.state = "decompressing"
+            temp_path = await asyncio.to_thread(decompress_file, str(temp_path), client_id, logger)
+
+        final_path = await safe_rename(Path(temp_path), Path(out_path))
+        logger.info(f"Saved as: {final_path}")
 
     except Exception as e:
         logger.exception(f"{client_id}: Error receiving file: {e}")
+        if manager:
+            if manager.cancelled:
+                logger.error("Manager cancelled transfer")
+                raise Exception("Cancelled by manager")
+
+            if not manager.no_dict:
+                p = manager.state
+                p[client_id] = "failed"
+                manager.state = p
+            else:
+                manager.state = "failed"
     finally:
         try:
             writer.close()
@@ -242,7 +381,8 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
         except Exception:
             pass
 
-async def receive_linear(reader, filesize, out_path, client_id, logger, progress_bar=False, rate_limit: int = 0):
+
+async def receive_linear(reader, filesize, out_path, client_id, logger, progress_bar=False, rate_limit: int = 0, manager: Manager = None):
     """
     High-performance async file receiver using batch reads and memoryview,
     with thread-based file writes to avoid blocking the event loop and optional rate limiting.
@@ -302,6 +442,17 @@ async def receive_linear(reader, filesize, out_path, client_id, logger, progress
                 if progress_bar and now - last_progress_update >= PROGRESS_INTERVAL:
                     progress.n = received
                     progress.refresh()
+                    if manager:
+                        if manager.cancelled:
+                            logger.error("Manager cancelled transfer")
+                            raise Exception("Manager cancelled transfer")
+
+                        if not manager.no_dict:
+                            p = manager.progress
+                            p[client_id] = received
+                            manager.state = p
+                        else:
+                            manager.progress = received
                     last_progress_update = now
             end_time = time.monotonic()
 
@@ -311,6 +462,8 @@ async def receive_linear(reader, filesize, out_path, client_id, logger, progress
         if progress_bar:
             progress.n = received
             progress.refresh()
+            if manager:
+                manager.progress = received
         progress.close()
         logger.debug(f"{client_id}: Transferred {format_bytes(received)} in {duration:.2f} seconds: ({format_bytes(received / duration)}/s)")
         return received
