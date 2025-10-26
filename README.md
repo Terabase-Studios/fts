@@ -106,5 +106,3 @@ Pull requests are welcome! For major changes, please open an issue first to disc
 * **Do not run FTS on public networks** without proper authorization.
 * FTS is intended for **LAN environments only**.
 * Malicious use of FTS is strictly prohibited.
-
----
