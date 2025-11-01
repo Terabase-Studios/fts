@@ -1,22 +1,22 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=77.0.3"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "fts-tool"
 dynamic = ["version"]
-description = "Peer-to-peer file and directory transfer system"
+description = "Peer-to-peer file and directory transfer system with a built in GUI"
 authors = [
   { name = "Terabase Studios", email = "terabasestudios@gmail.com" }
 ]
-readme = { file = "README.md", content-type = "text/markdown" }
+
+readme = { file = "PyPi-README.md", content-type = "text/markdown" }
 license = { file = "LICENSE" }
 requires-python = ">=3.9"
 keywords = ["file transfer", "cli", "LAN", "fts"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
-    "Operating System :: Microsoft :: Windows",
     "Topic :: Communications :: File Sharing",
     "Topic :: Utilities"
 ]

@@ -62,6 +62,8 @@ class FTSApp(App):
         await super().action_quit()
 
 def start():
+    print(ICON)
+
     if sys.platform == "win32":  # Check if running on Windows
         try:
             ctypes.windll.shcore.SetProcessDpiAwareness(1)
@@ -79,3 +81,28 @@ def start():
         print("Another instance of the FTS App is already running! Only one instance is allowed at a time.")
 
     print('')
+
+ICON = """                                         
+         ██████████████████████              
+ ██████  ██                    ██     ██████ 
+███████████                      ████████████
+███████████                       ███████████
+  ██████ ██      Terabase's       ██ ██████  
+     ██████       FTS-Tool        ██████     
+     ██████        v2.0.1         ██████     
+       ████                       ████       
+        ████     ▌Graphical      █████       
+         ████    Interface▐     ████         
+         █████                 █████         
+         ███████             ███████         
+         ██ ████             ████ ██         
+         ██  █████         █████  ██         
+         ██   █████       █████   ██         
+         ██    █████     █████    ██         
+         ██     █████   █████     ██         
+         ██      █████ █████      ██         
+          ██████████████████████████         
+                   ███████                   
+                   ███████                   
+                    █████         
+"""

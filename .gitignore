@@ -181,4 +181,9 @@ cython_debug/
 .cursorindexingignore
 
 # Security
-token.txt
+secure/
+
+#other
+launcher/
+assets/elevator_pitch.txt
+/assets/press_kit/
