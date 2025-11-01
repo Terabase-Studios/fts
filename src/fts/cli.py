@@ -6,6 +6,7 @@ from fts.core.aliases import resolve_alias, resolve_args
 from fts.core.logger import setup_logging
 from fts.core.parser import create_parser
 from fts.core.secure import is_public_network
+from fts import __version__
 
 # --- Lazy command loader with caching ---
 _command_cache = {}
@@ -95,9 +96,15 @@ def main():
     args = None
 
     if len(sys.argv) == 1:
-        from fts.app.main import start
-        start()
-        return
+        try:
+            print(ICON)
+            from fts.app.main import start
+            start()
+            return
+        except ImportError:
+            pass
+        except Exception as e:
+            print(f"Unhandled FTS-App exception!: {e}")
 
     try:
         parser = create_parser()
@@ -124,3 +131,29 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+XXXX = __version__()
+ICON = f"""                                         
+         ██████████████████████              
+ ██████  ██                    ██     ██████ 
+███████████                      ████████████
+███████████                       ███████████
+  ██████ ██      Terabase's       ██ ██████  
+     ██████       FTS-Tool        ██████     
+     ██████        v{XXXX}         ██████     
+       ████                       ████       
+        ████     ▌Graphical      █████       
+         ████    Interface▐     ████         
+         █████                 █████         
+         ███████             ███████         
+         ██ ████             ████ ██         
+         ██  █████         █████  ██         
+         ██   █████       █████   ██         
+         ██    █████     █████    ██         
+         ██     █████   █████     ██         
+         ██      █████ █████      ██         
+          ██████████████████████████         
+                   ███████                   
+                   ███████                   
+                    █████         
+"""

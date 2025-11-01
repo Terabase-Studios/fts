@@ -17,6 +17,7 @@ from fts.app.frontend.requests import Requests
 from fts.app.frontend.sending import Sending
 from fts.app.frontend.transfers import Transfers
 from fts.app.style.tcss import css
+from fts import __version__
 import fts.py as fts
 
 
@@ -61,9 +62,9 @@ class FTSApp(App):
         await asyncio.sleep(1)
         await super().action_quit()
 
-def start():
-    print(ICON)
-
+def start(print_icon = False):
+    if print_icon:
+        print(ICON)
     if sys.platform == "win32":  # Check if running on Windows
         try:
             ctypes.windll.shcore.SetProcessDpiAwareness(1)
@@ -82,14 +83,15 @@ def start():
 
     print('')
 
-ICON = """                                         
+XXXX = __version__()
+ICON = f"""                                         
          ██████████████████████              
  ██████  ██                    ██     ██████ 
 ███████████                      ████████████
 ███████████                       ███████████
   ██████ ██      Terabase's       ██ ██████  
      ██████       FTS-Tool        ██████     
-     ██████        v2.0.1         ██████     
+     ██████        v{XXXX}         ██████     
        ████                       ████       
         ████     ▌Graphical      █████       
          ████    Interface▐     ████         
