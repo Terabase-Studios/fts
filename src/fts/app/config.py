@@ -2,6 +2,7 @@ import os
 import configparser
 from fts.config import APP_DIR as app_dir
 from fts.core.logger import setup_logging
+from pathlib import Path
 
 # -----------------------------
 # Default Configuration Values
@@ -74,6 +75,7 @@ LOG_FILE      = os.path.join(APP_DIR, "log.txt")
 DEBUG_FILE    = os.path.join(APP_DIR, "debug.txt")
 MUTED_FILE    = os.path.join(APP_DIR, "muted.json")
 CHAT_FILE     = os.path.join(APP_DIR, "chat.json")
+LOCK_FILE     = os.path.join(APP_DIR, "lock.lock")
 
 LOGS = [LOG_FILE]
 

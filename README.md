@@ -17,7 +17,7 @@ Check out the [Documentation](https://github.com/Terabase-Studios/fts/wiki) for 
 
 FTS leverages [Textual](https://textual.textualize.io/) for a sleek, intuitive GUI and uses a custom logger for clean CLI output.
 
-![FTS App GUI](https://github.com/Terabase-Studios/fts/blob/main/assets/fts_app_overview.png)
+![FTS App GUI](https://github.com/Terabase-Studios/fts/blob/main/assets/fts_app_overview.png)  
 ![FTS CLI receiving a file](https://github.com/Terabase-Studios/fts/blob/main/assets/fts_cli_overview.png)
 
 ---
@@ -38,7 +38,6 @@ Install FTS globally using pip:
 
 ```bash
 python -m pip install fts-tool
-
 ```
 
 ## Basic CLI Usage

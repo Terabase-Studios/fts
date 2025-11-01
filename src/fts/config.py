@@ -47,9 +47,64 @@ MID_DOWNLOAD_EXT = ".ftsdownload"
 # Compression
 # -------------------------
 UNCOMPRESSIBLE_EXTS = {
-    ".zip", ".gz", ".bz2", ".xz", ".rar", ".7z",
-    ".jpg", ".jpeg", ".png", ".mp4", ".mp3", ".iso",
-    ".exe", ".7zp", ".tar"
+    # Archives / compressed formats
+    ".zip", ".rar", ".7z", ".tar", ".tgz", ".tbz2", ".txz", ".gz", ".bz2", ".xz",
+    ".lz", ".lzma", ".lz4", ".zst", ".z", ".arj", ".cab", ".ace", ".arc", ".pak",
+    ".unitypackage", ".jar", ".apk", ".war", ".ear", ".deb", ".rpm", ".xar", ".cpio",
+    ".squashfs", ".vpk", ".pkg", ".dmg", ".hfs", ".hfsplus", ".vhd", ".vhdx", ".vmdk",
+    ".vdi", ".qcow2", ".img", ".iso", ".udf", ".7zp", ".tar.gz", ".tar.bz2", ".tar.xz",
+
+    # Images
+    ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".webp", ".heic", ".heif",
+    ".ico", ".svg", ".raw", ".cr2", ".nef", ".orf", ".arw", ".dng", ".raf", ".rw2",
+    ".psd", ".ai", ".xcf", ".cdr", ".indd", ".sketch", ".dwg", ".dxf", ".3ds", ".blend",
+    ".max", ".obj", ".fbx", ".stl", ".dae", ".ply", ".mtl", ".eps",
+
+    # Video
+    ".mp4", ".mkv", ".mov", ".avi", ".flv", ".wmv", ".webm", ".m4v", ".mpg", ".mpeg",
+    ".3gp", ".ogv", ".mts", ".m2ts", ".vob", ".rm", ".rmvb", ".asf", ".ts", ".f4v",
+    ".mxf", ".divx", ".xvid", ".qt", ".yuv",
+
+    # Audio
+    ".mp3", ".aac", ".flac", ".wav", ".wma", ".m4a", ".ogg", ".opus", ".alac", ".aiff",
+    ".au", ".ra", ".amr", ".mka", ".caf", ".mid", ".midi", ".snd", ".pcm",
+
+    # Executables / system
+    ".exe", ".msi", ".dll", ".sys", ".bat", ".com", ".elf", ".app", ".bin", ".sh",
+    ".pyc", ".pyd", ".so", ".class", ".out", ".ipa", ".command", ".vbs", ".ps1",
+
+    # Documents / Office
+    ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".odt", ".ods", ".odp",
+    ".rtf", ".pages", ".key", ".numbers", ".xmind", ".one", ".vsdx", ".epub", ".mobi",
+
+    # Fonts
+    ".ttf", ".otf", ".woff", ".woff2", ".eot", ".fon", ".pfb", ".pfm", ".fnt", ".sfd",
+
+    # Game / engine packages
+    ".pak", ".unitypackage", ".umap", ".uasset", ".bsp", ".wad", ".vpk", ".gma",
+    ".pak01", ".pak02", ".pak03", ".pak04",
+
+    # Database / system files
+    ".db", ".sqlite", ".sqlite3", ".mdb", ".accdb", ".ndb", ".nsf", ".ldb", ".log", ".lock",
+
+    # Miscellaneous compressed / uncommon
+    ".zoo", ".shar", ".sit", ".sitx", ".apkx", ".pxz", ".s7z", ".sbx", ".pakx",
+
+    # Virtual machine / disk images
+    ".vmdk", ".vdi", ".vhd", ".vhdx", ".qcow2", ".img", ".iso", ".bin", ".dmg", ".raw",
+
+    # Backup / snapshot formats
+    ".bak", ".bkf", ".svf", ".tar.old", ".tar.backup", ".snapshot", ".delta",
+
+    # Other media or already compressed
+    ".mp4a", ".webm", ".ogm", ".flv", ".mod", ".vob", ".m2v", ".m1v", ".m2p", ".m2t",
+    ".m2ts", ".mkv", ".mts", ".m2t", ".mxf", ".divx", ".xvid", ".qt", ".yuv",
+
+    # Code archives / packages
+    ".gem", ".whl", ".egg", ".nupkg", ".rpm", ".deb", ".tar.gz", ".tar.bz2",
+
+    # System / firmware
+    ".rom", ".bin", ".img", ".hex", ".uf2", ".dfu", ".fw", ".dfm", ".mbn", ".cap"
 }
 
 # -------------------------
@@ -106,17 +161,8 @@ def _write_default_config(path: str):
         "progress_interval": str(PROGRESS_INTERVAL),
     }
 
-    cp["compression"] = {
-        "uncompressible_exts": _serialize_set(UNCOMPRESSIBLE_EXTS),
-    }
-
     cp["paths"] = {
         "app_dir": APP_DIR,
-        "cert_file": CERT_FILE,
-        "key_file": KEY_FILE,
-        "fingerprint_file": FINGERPRINT_FILE,
-        "aliases_file": ALIASES_FILE,
-        "receiving_pid": RECEIVING_PID,
     }
 
     cp["ddos"] = {
@@ -125,6 +171,10 @@ def _write_default_config(path: str):
         "max_bytes_per_min": str(MAX_BYTES_PER_MIN),
         "ban_seconds": str(BAN_SECONDS),
         "request_window": str(REQUEST_WINDOW),
+    }
+
+    cp["compression"] = {
+        "uncompressible_exts": _serialize_set(UNCOMPRESSIBLE_EXTS),
     }
 
     try:
@@ -182,14 +232,30 @@ def _load_config_from_ini(path: str):
             py_val = _coerce_value(key, raw_val)
             globals()[key.upper()] = py_val
 
+
 def load_or_create_config(path: str = CONFIG_FILE):
     """Ensure config.ini exists and load it."""
+    global CONFIG_FILE, CERT_FILE, KEY_FILE, FINGERPRINT_FILE, ALIASES_FILE, RECEIVING_PID
     p = Path(path)
     if not p.exists():
         _write_default_config(path)
     _load_config_from_ini(path)
+    CONFIG_FILE = os.path.join(APP_DIR, "config.ini")
+    CERT_FILE = os.path.join(APP_DIR, "cert.pem")
+    KEY_FILE = os.path.join(APP_DIR, "key.pem")
+    FINGERPRINT_FILE = os.path.join(APP_DIR, "known_servers.json")
+    ALIASES_FILE = os.path.join(APP_DIR, "aliases.json")
+    RECEIVING_PID = os.path.join(APP_DIR, "fts_receiver.pid")
 
 # ======================================================
 # Auto-run on import
 # ======================================================
+last_config = CONFIG_FILE
 load_or_create_config(CONFIG_FILE)
+warned = False
+while last_config != CONFIG_FILE:
+    if not warned:
+        print('WARNING: Changing APP_DIR is not recommended, as it may cause unpredictable behavior!')
+    load_or_create_config(CONFIG_FILE)
+    last_config = CONFIG_FILE
+

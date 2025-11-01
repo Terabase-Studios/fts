@@ -47,7 +47,11 @@ class FileSelector(Horizontal):
             icon_file.write(ICON)
 
         root = tk.Tk()
-        root.iconbitmap(default=ICON_PATH)
+        try:
+            root.iconbitmap(default=ICON_PATH)
+        except:
+            pass
+
         root.withdraw()
         root.wm_attributes("-topmost", True)
         real_path = filedialog.askopenfilename(initialfile=self.path, initialdir=self.path, title="", )

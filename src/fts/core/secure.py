@@ -57,9 +57,9 @@ def generate_self_signed_cert(cert_file=CERT_FILE, key_file=KEY_FILE) -> bool:
             cert = x509.load_pem_x509_certificate(cert_pem)
             if cert.not_valid_after_utc > now:
                 return False  # Cert is still valid
-            print(f"Certificate expired on {cert.not_valid_after_utc}, regenerating...")
+            print(f"[FTS] TLS certificate expired ({cert.not_valid_after_utc:%Y-%m-%d}), regenerating...")
         except Exception as e:
-            print(f"Failed to read existing certificate: {e}, regenerating...")
+            print(f"[FTS] Failed to read existing certificate: {e}, regenerating...")
 
     # Load or generate private key
     if key_path.exists():
@@ -118,7 +118,7 @@ class FingerprintMismatchError(Exception):
 
 async def connect_with_tofu_async(host: str, port: int, logger):
     """
-    Async TLS connection with TOFU verification.
+    Async TLS connection with TOFU verification (Trust On First Use).
     Returns: (reader, writer)
     """
     # Create SSL context
@@ -134,43 +134,68 @@ async def connect_with_tofu_async(host: str, port: int, logger):
     der_cert = ssl_object.getpeercert(binary_form=True)
     fingerprint = get_fingerprint(der_cert)
 
-    # TOFU verification
-    host_port = f"{host}:{port}"
+    # 🔹 Normalize host to IP for stable trust key
+    try:
+        ip_str = socket.gethostbyname(host)
+    except Exception:
+        ip_str = host  # fallback (should not happen on LAN)
+
     known = load_known_fingerprints()
 
-    if host_port not in known:
-        logger.debug(f"[TOFU] First connection to {host_port}, trusting cert {fingerprint[:16]}...")
-        known[host_port] = fingerprint
+    # 🔹 Backward compatibility: Check both new (IP) and old (host:port) keys
+    host_port_key = f"{host}:{port}"
+    matched_key = None
+
+    # Prefer IP-based key if it exists
+    if ip_str in known:
+        matched_key = ip_str
+    elif host_port_key in known:
+        matched_key = host_port_key  # legacy format
+    else:
+        matched_key = ip_str  # new key
+
+    # 🔹 Trust verification / first use
+    if matched_key not in known:
+        logger.debug(f"[TOFU] First connection to {ip_str}, trusting cert {fingerprint[:16]}...")
+        known[matched_key] = fingerprint
         save_known_fingerprints(known)
     else:
-        if known[host_port] != fingerprint:
+        if known[matched_key] != fingerprint:
             writer.close()
             await writer.wait_closed()
             raise FingerprintMismatchError(
-                f"Server certificate for {host_port} changed!\n"
-                f"Expected {known[host_port][:16]}..., got {fingerprint[:16]}...\n"
-                f"If this is expected, run `fts trust {host}` to accept the new certificate."
+                f"Server certificate for {ip_str} changed!\n"
+                f"Expected {known[matched_key][:16]}..., got {fingerprint[:16]}...\n"
+                f"If this is expected, run `fts trust {ip_str}` to accept the new certificate."
             )
         else:
             logger.debug(f"[TOFU] Verified pinned certificate {fingerprint[:16]}...")
 
+    # 🔹 Optionally clean up old host:port entries if IP entry exists
+    if host_port_key in known and ip_str in known and host_port_key != ip_str:
+        del known[host_port_key]
+        save_known_fingerprints(known)
+
     return reader, writer
+
 
 def cmd_clear_fingerprint(args, logger=None):
     """
-    Remove the saved fingerprint for the given host (supports host:port keying).
+    Remove the saved fingerprint for the given host or IP (supports legacy host:port keys).
     """
-    host_port = args.ip
+    target = args.ip
     fps = load_known_fingerprints()
-    keys_to_delete = [fp for fp in fps if host_port in fp]
+
+    # 🔹 Try both IP and host:port removal
+    keys_to_delete = [key for key in fps if target in key]
 
     if keys_to_delete:
         for key in keys_to_delete:
             del fps[key]
         save_known_fingerprints(fps)
-        msg = f"Cleared stored fingerprint for {host_port}"
+        msg = f"Cleared stored fingerprint(s) for {target}"
     else:
-        msg = f"No stored fingerprint found for {host_port}"
+        msg = f"No stored fingerprint found for {target}"
 
     if logger:
         logger.info(msg)
@@ -181,9 +206,6 @@ def cmd_clear_fingerprint(args, logger=None):
 def is_public_network(debug: bool = False) -> bool:
     """
     Check if the machine's primary network is public.
-
-    Args:
-        debug (bool): If True, logs detailed IP checks.
 
     Returns:
         True if the primary outbound IP is globally routable (public).
@@ -205,8 +227,7 @@ def is_public_network(debug: bool = False) -> bool:
                 "link-local" if ip_obj.is_link_local else
                 "reserved/multicast"
             )
-            if result:
-                print(f"Primary outbound IP: {local_ip} ({reason}) → Public: {result}")
+            print(f"Primary outbound IP: {local_ip} ({reason}) → Public: {result}")
 
         return result
 

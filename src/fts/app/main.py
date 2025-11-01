@@ -5,8 +5,10 @@ from fts.app.config import LOG_FILE
 from textual.app import App, ComposeResult
 from textual.containers import Vertical, Horizontal
 import asyncio
+from filelock import FileLock, Timeout
 
 import fts.app.backend.transfer as transfer
+from fts.app.config import LOCK_FILE
 from fts.app.backend.contacts import start_discovery_responder
 from fts.app.backend.transfer import TransferHandler
 from fts.app.frontend.chat import Chat
@@ -67,4 +69,13 @@ def start():
             # Handle cases where SetProcessDpiAwareness might not be available
             pass
 
-    FTSApp().run()
+    lock = FileLock(LOCK_FILE)
+
+    try:
+        # Try to acquire the lock for 1 second
+        with lock.acquire(timeout=1):
+            FTSApp().run()
+    except Timeout:
+        print("Another instance of the FTS App is already running! Only one instance is allowed at a time.")
+
+    print('')
