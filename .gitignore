@@ -186,4 +186,4 @@ secure/
 #other
 launcher/
 assets/elevator_pitch.txt
-/assets/press_kit/
+*.svg

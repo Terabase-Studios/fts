@@ -1,4 +1,4 @@
-[# FTS (File Transfer System)
+# FTS (File Transfer System)
 
 **FTS** is a lightweight CLI tool and GUI application for fast local-network file transfers and communication. Key features include:
 
@@ -9,4 +9,4 @@
 
 FTS is designed for local networks and **should never be used on public networks without permission**.  
 
-Check out the [Documentation](https://github.com/Terabase-Studios/fts/wiki) for installation, usage guides, and more project details! =)]([]())
+Check out the [Documentation](https://github.com/Terabase-Studios/fts/wiki) for installation, usage guides, and more project details! =)
