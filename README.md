@@ -1,3 +1,5 @@
+![FTS Banner](https://github.com/Terabase-Studios/fts/blob/main/assets/icons/banner.png)  
+
 # FTS (File Transfer System)
 
 **FTS** is a lightweight CLI tool and GUI application for fast local-network file transfers and communication. Key features include:
