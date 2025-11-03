@@ -2,7 +2,7 @@
 
 # FTS (File Transfer System)
 
-**FTS** is a lightweight CLI tool and GUI application for fast local-network file transfers and communication. Key features include:
+**FTS** is a lightweight CLI tool and TUI application for fast local-network file transfers and communication. Key features include:
 
 * LAN chat
 * Contacts & online users
@@ -17,9 +17,9 @@ Check out the [Documentation](https://github.com/Terabase-Studios/fts/wiki) for 
 
 ## FTS Aesthetic
 
-FTS leverages [Textual](https://textual.textualize.io/) for a sleek, intuitive GUI and uses a custom logger for clean CLI output.
+FTS leverages [Textual](https://textual.textualize.io/) for a sleek, intuitive TUI and uses a custom logger for clean CLI output.
 
-![FTS App GUI](https://github.com/Terabase-Studios/fts/blob/main/assets/fts_app_overview.png)  
+![FTS App TUI](https://github.com/Terabase-Studios/fts/blob/main/assets/fts_app_overview.png)  
 ![FTS CLI receiving a file](https://github.com/Terabase-Studios/fts/blob/main/assets/fts_cli_overview.png)
 
 ---
@@ -67,7 +67,7 @@ fts send "C:\Users\You\Desktop\project.zip" 127.0.0.1 --progress
 
 ## Basic App Usage
 
-Run the FTS App interface (GUI) without any arguments:
+Run the FTS App interface (TUI) without any arguments:
 
 ```bash
 fts
@@ -87,7 +87,7 @@ From here you can:
 
 ## Project State
 
-FTS development is currently paused after the release of version 2.0. The project remains active, and future updates will be released. All issues and pull requests will be addressed promptly.
+FTS development is currently paused after the release of version 2.0.4 The project remains active, and future updates will be released. All issues and pull requests will be addressed promptly.
 
 ---
 

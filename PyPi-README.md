@@ -1,6 +1,6 @@
 # FTS (File Transfer System)
 
-**FTS** is a lightweight CLI tool and GUI application for fast local-network file transfers and communication. Key features include:
+**FTS** is a lightweight CLI tool and TUI application for fast local-network file transfers and communication. Key features include:
 
 * LAN chat
 * Contacts & online users

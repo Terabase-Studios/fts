@@ -102,7 +102,7 @@ def main():
             start()
             return
         except ImportError:
-            pass
+            print(f"Missing Fts-App!: {e}")
         except Exception as e:
             print(f"Unhandled FTS-App exception!: {e}")
 

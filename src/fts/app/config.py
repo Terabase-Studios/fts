@@ -7,10 +7,11 @@ from pathlib import Path
 # -----------------------------
 # Default Configuration Values
 # -----------------------------
+save_dir_default = os.path.expanduser("~/Downloads/fts")
 DEFAULTS = {
     "DISCOVERY_PORT": 6064,
     "CHAT_PORT": 7064,
-    "SAVE_DIR": "Downloads/fts",
+    "SAVE_DIR": save_dir_default,
     "VERBOSE_LOGGING": "true"
 }
 
