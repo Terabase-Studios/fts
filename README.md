@@ -104,6 +104,5 @@ Pull requests are welcome! For major changes, please open an issue first to disc
 
 ## Safety and Usage Notes
 
-* **Do not run FTS on public networks** without proper authorization.
+* **Please do not run FTS on public networks** without proper authorization.
 * FTS is intended for **LAN environments only**.
-* Malicious use of FTS is strictly prohibited.
