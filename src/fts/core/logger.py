@@ -7,8 +7,6 @@ import sys
 import textwrap
 
 from filelock import FileLock
-from prompt_toolkit import print_formatted_text
-from prompt_toolkit.formatted_text import ANSI
 from tqdm.asyncio import tqdm_asyncio as tqdm
 from fts.core.log_cleaner import organize_log
 
@@ -36,14 +34,6 @@ class TqdmLoggingHandler(logging.Handler):
             msg = self.format(record)
             tqdm.write(msg, file=sys.stderr)  # keeps bars on stdout, logs on stderr
             sys.stderr.flush()
-        except Exception:
-            self.handleError(record)
-
-class PTKLoggingHandler(logging.Handler):
-    def emit(self, record):
-        try:
-            msg = self.format(record)
-            print_formatted_text(ANSI(msg))
         except Exception:
             self.handleError(record)
 
@@ -106,11 +96,7 @@ def setup_logging(verbose=False, quiet=False, logfile=None, line_sep=0, mode="tq
     logger = logging.getLogger(f"fts.{id}")
     logger.handlers.clear()
 
-    # Choose stream handler based on mode
-    if mode == "ptk":
-        stream_handler = PTKLoggingHandler()
-    else:
-        stream_handler = TqdmLoggingHandler()
+    stream_handler = TqdmLoggingHandler()
     stream_handler.setFormatter(ColorFormatter(line_sep=line_sep))
     logger.addHandler(stream_handler)
 

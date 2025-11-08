@@ -28,7 +28,6 @@ dependencies = [
     "tqdm>=4.67.1",
     "filelock>=3.19.1",
     "textual>=6.2.1",
-    "prompt_toolkit>=3.0.52",
     "click>=8.3.0",
 ]
 

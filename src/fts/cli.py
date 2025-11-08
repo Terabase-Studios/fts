@@ -104,7 +104,7 @@ def main():
             from fts.app.main import start
             start()
             return
-        except ImportError:
+        except ImportError as e:
             print(f"Missing Fts-App!: {e}")
         except Exception as e:
             print(f"Unhandled FTS-App exception!: {e}")
