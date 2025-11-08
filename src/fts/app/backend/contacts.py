@@ -48,7 +48,7 @@ def add_contact(name: str, value: str):
     except:
         contacts = {}
 
-    contacts[value] = name
+    contacts[value] = name.strip().replace(" ", "_")
 
     with open(CONTACTS_FILE, "w") as f:
         json.dump(contacts, f)

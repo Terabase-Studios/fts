@@ -20,9 +20,12 @@ def load_cmd(module_path, func_name):
                 mod = __import__(module_path, fromlist=[func_name])
                 _command_cache[key] = getattr(mod, func_name)
             except (ImportError, AttributeError) as e:
+                import traceback
+                tb = e.__traceback__
+                traceback_str = ''.join(traceback.format_tb(tb))
                 logger.error(
                     "Failed to load command. Your install may be corrupted.\n"
-                    "Run 'fts update --repair' or reinstall.\n"
+                    f"{traceback_str}",
                     f"{e}"
                 )
                 sys.exit(1)

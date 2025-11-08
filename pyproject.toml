@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "fts-tool"
 dynamic = ["version"]
-description = "Peer-to-peer file and directory transfer system with a built in GUI"
+description = "A lightweight CLI tool and TUI application for fast local-network file transfers and communication."
 authors = [
   { name = "Terabase Studios", email = "terabasestudios@gmail.com" }
 ]
