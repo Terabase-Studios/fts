@@ -87,7 +87,7 @@ From here you can:
 
 ## Project State
 
-FTS development is currently paused after the release of version 2.0.4 The project remains active, and future updates will be released. All issues and pull requests will be addressed promptly.
+FTS development is currently paused after the release of version 2.0.5 The project remains active, and future updates will be released. All issues and pull requests will be addressed promptly.
 
 ---
 
