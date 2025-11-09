@@ -81,6 +81,7 @@ def ensure_func(args):
         "version": ("fts.commands.misc", "cmd_version"),
         "trust": ("fts.core.secure", "cmd_clear_fingerprint"),
         "alias": ("fts.core.aliases", "cmd_alias"),
+        "cache": ("fts.commands.cache", "cmd_cache"),
     }
 
     if args.command in mapping:
@@ -92,10 +93,14 @@ def ensure_func(args):
 
 # --- Main CLI setup ---
 def main():
+    if "--version" in sys.argv:
+        print(__version__(), '\n')
+        sys.exit(0)
+
     if is_public_network("-v" in sys.argv or "--verbose" in sys.argv):
         logger = setup_logging()
         logger.critical('FTS is disabled on public network\n')
-        sys.exit(0)
+        sys.exit(1)
     args = None
 
     if len(sys.argv) == 1:

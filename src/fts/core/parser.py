@@ -17,7 +17,7 @@ def create_parser() -> argparse.ArgumentParser:
         help="enable verbose debug output"
     )
     log_parent.add_argument(
-        "--logfile",
+        "-log", "--logfile",
         type=pathlib.Path,
         help="log output to a file",
     )
@@ -42,6 +42,7 @@ def create_parser() -> argparse.ArgumentParser:
     close_parser_add(subparsers, parents)
     trust_parser_add(subparsers, parents)
     alias_parser_add(subparsers, parents)
+    cache_parser_add(subparsers, parents)
     return parser
 
 
@@ -82,3 +83,81 @@ def alias_parser_add(parser, parents):
     alias_parser.add_argument("type", nargs="?", type=str, choices=["ip", "dir"],
                               help="type of alias (required for 'add/remove')")
     alias_parser.add_argument("-y", "--yes", action="store_true", help="force command and ignore all warnings",)
+
+def cache_parser_add(parser, parents):
+    """
+    Adds the 'cache' subcommand for managing cache and data cleanup.
+    """
+    # Main 'cache' parser
+    cache_parser = parser.add_parser(
+        "cache",
+        help="Manage cache and data inside ~/.fts",
+        parents=parents
+    )
+
+    # Create subparsers under 'cache'
+    subparsers = cache_parser.add_subparsers(
+        title="subcommands",
+        dest="subcommand",
+        required=True,
+        help="Subcommands for cache management"
+    )
+
+    def show_subparser_add(subparser, parents):
+        show_parser = subparser.add_parser(
+            "show",
+            help="Display the cache as a tree with the size and purpose of each file",
+            parents=parents
+        )
+
+        show_parser.add_argument("-y", "--yes", action="store_true", help="force command and ignore all warnings",)
+
+
+    def backup_subparser_add(subparser, parents):
+        backup_parser = subparser.add_parser(
+            "backup",
+            help="Save a copy of the current cache",
+            parents=parents
+        )
+
+        backup_parser.add_argument("-y", "--yes", action="store_true", help="force command and ignore all warnings",)
+
+
+    def restore_subparser_add(subparser, parents):
+        restore_parser = subparser.add_parser(
+            "restore",
+            help="Restore the cache to the last backup",
+            parents=parents
+        )
+
+        restore_parser.add_argument("-y", "--yes", action="store_true", help="force command and ignore all warnings",)
+
+
+    def clean_subparser_add(subparser, parents):
+        clean_parser = subparser.add_parser(
+            "clean",
+            help="Perform cache cleanup at various levels",
+            parents=parents
+        )
+
+        clean_parser.add_argument("-y", "--yes", action="store_true", help="force command and ignore all warnings",)
+
+        clean_parser.add_argument(
+            "-l",
+            "--level",
+            choices=["clean", "clear", "reset", "purge"],
+            default="clean",
+            help=(
+                "Specifies cleanup depth (default: clean):\n"
+                "  clean - Remove chats, seen IPs, transfer logs.\n"
+                "  clear - Also remove debug logs, contacts, muted users.\n"
+                "  reset - Also remove configuration files, seen fingerprints, and aliases.\n"
+                "  purge - Delete the entire ~/.fts directory."
+            )
+        )
+
+    show_subparser_add(subparsers, parents)
+    backup_subparser_add(subparsers, parents)
+    restore_subparser_add(subparsers, parents)
+    clean_subparser_add(subparsers, parents)
+

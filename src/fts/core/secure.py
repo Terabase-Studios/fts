@@ -227,7 +227,8 @@ def is_public_network(debug: bool = False) -> bool:
                 "link-local" if ip_obj.is_link_local else
                 "reserved/multicast"
             )
-            print(f"Primary outbound IP: {local_ip} ({reason}) → Public: {result}")
+            if result:
+                print(f"Primary outbound IP: {local_ip} ({reason}) → Public: {result}")
 
         return result
 

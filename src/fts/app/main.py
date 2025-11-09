@@ -65,6 +65,7 @@ class FTSApp(App):
 def start(print_icon = False):
     if print_icon:
         print(ICON)
+
     if sys.platform == "win32":  # Check if running on Windows
         try:
             ctypes.windll.shcore.SetProcessDpiAwareness(1)
