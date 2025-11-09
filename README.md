@@ -8,6 +8,7 @@
 * Contacts & online users
 * Intuitive file transfers with progress display
 * Transfer history tracking
+* Encrypted file transfers
 
 FTS is designed for local networks and **should never be used on public networks without permission**.  
 
@@ -87,7 +88,7 @@ From here you can:
 
 ## Project State
 
-FTS development is currently paused after the release of version 2.0.5 The project remains active, and future updates will be released. All issues and pull requests will be addressed promptly.
+FTS development is currently paused after the release of version 2.1.0 The project remains active, and future updates will be released. All issues and pull requests will be addressed promptly.
 
 ---
 
