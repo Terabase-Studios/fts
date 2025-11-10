@@ -467,7 +467,7 @@ async def receive_linear(reader, filesize, out_path, client_id, logger, progress
                 manager.progress = received
         progress.close()
         logger.debug(f"{client_id}: Transferred {format_bytes(received)} in {duration:.2f} seconds: ({format_bytes(received / duration)}/s)")
-        return received
+    return received
 
 
 # --- Sync helper functions for CPU-bound work ---
