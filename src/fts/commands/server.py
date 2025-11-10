@@ -1,14 +1,15 @@
 import asyncio
 import itertools
 import os
+import random
+import re
 import shutil
+import string
 import struct
 import tempfile
 import time
 import zlib
-import re
 from pathlib import Path
-import random, string
 
 from tqdm.asyncio import tqdm_asyncio as tqdm
 
@@ -26,8 +27,8 @@ from fts.config import (
 from fts.core import secure as secure
 from fts.core.detatched import start_detached
 from fts.core.dosp import should_receive
-from fts.utilities import format_bytes, parse_byte_string
 from fts.manager import Manager
+from fts.utilities import format_bytes, parse_byte_string
 
 # Incrementing IDs for each client connection
 _client_ids = itertools.count(1)

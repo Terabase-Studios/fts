@@ -2,11 +2,11 @@
 import os
 import sys
 
+from fts import __version__
 from fts.core.aliases import resolve_alias, resolve_args
 from fts.core.logger import setup_logging
 from fts.core.parser import create_parser
 from fts.core.secure import is_public_network
-from fts import __version__
 
 # --- Lazy command loader with caching ---
 _command_cache = {}

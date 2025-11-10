@@ -1,5 +1,5 @@
 from fts.app.backend.chat import MUTED_USERS
-from fts.app.backend.contacts import replace_with_contact, replace_with_ip, get_seen_users, ONLINE_USERS
+from fts.app.backend.contacts import replace_with_contact, replace_with_ip, get_seen_users
 
 
 def is_cmd(cmd: str) -> bool:

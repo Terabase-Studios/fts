@@ -1,5 +1,6 @@
-import threading
 import copy
+import threading
+
 
 class Manager:
     def __init__(self, no_dict=False):

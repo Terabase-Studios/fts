@@ -1,6 +1,6 @@
+import json
 import socket
 import threading
-import json
 
 from textual.app import App
 

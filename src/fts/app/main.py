@@ -1,24 +1,25 @@
+import asyncio
 import ctypes
 import sys
 
-from fts.app.config import LOG_FILE
+from filelock import FileLock, Timeout
 from textual.app import App, ComposeResult
 from textual.containers import Vertical, Horizontal
-import asyncio
-from filelock import FileLock, Timeout
 
 import fts.app.backend.transfer as transfer
-from fts.app.config import LOCK_FILE
+import fts.py as fts
+from fts import __version__
 from fts.app.backend.contacts import start_discovery_responder
+from fts.app.backend.plugins.importer import load_plugins
 from fts.app.backend.transfer import TransferHandler
+from fts.app.config import LOCK_FILE
+from fts.app.config import LOG_FILE
 from fts.app.frontend.chat import Chat
 from fts.app.frontend.contacts import Contacts
 from fts.app.frontend.requests import Requests
 from fts.app.frontend.sending import Sending
 from fts.app.frontend.transfers import Transfers
 from fts.app.style.tcss import css
-from fts import __version__
-import fts.py as fts
 
 
 def setup(transfer_ui: Transfers, requests_ui: Requests) -> None:
@@ -65,6 +66,8 @@ class FTSApp(App):
 def start(print_icon = False):
     if print_icon:
         print(ICON)
+
+    load_plugins()
 
     if sys.platform == "win32":  # Check if running on Windows
         try:

@@ -1,8 +1,7 @@
 import os
 import shutil
-import time
-import zipfile
 import tempfile
+import zipfile
 
 
 def cmd_cache(args, logger):
@@ -161,9 +160,11 @@ def backup(args, logger):
 def clean(args, logger, level=-1, yes=False):
     app_found = True
     try:
+        from fts.app.config import APP_DIR as TUI_APP_DIR
         from fts.app.config import CONFIG_PATH as APP_CONFIG_PATH
         from fts.app.config import (SEEN_IPS_FILE, CONTACTS_FILE, LOG_FILE,
-                                    DEBUG_FILE, MUTED_FILE, CHAT_FILE, LOCK_FILE)
+                                    DEBUG_FILE, MUTED_FILE, CHAT_FILE, LOCK_FILE,
+                                    PLUGIN_DIR)
     except (ModuleNotFoundError, ImportError):
         app_found = False
 
@@ -224,8 +225,9 @@ def clean(args, logger, level=-1, yes=False):
     # Level 2: reset
     if level >= 2:
         if app_found:
-            safe_remove(APP_CONFIG_PATH)
-        for f in [CONFIG_FILE, ALIASES_FILE]:
+            for f in [APP_CONFIG_PATH, PLUGIN_DIR, TUI_APP_DIR]:
+                safe_remove(f)
+        for f in [CONFIG_FILE, ALIASES_FILE, FINGERPRINT_FILE]:
             safe_remove(f)
 
     # Level 3: purge

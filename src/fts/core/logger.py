@@ -8,6 +8,7 @@ import textwrap
 
 from filelock import FileLock
 from tqdm.asyncio import tqdm_asyncio as tqdm
+
 from fts.core.log_cleaner import organize_log
 
 # ANSI colors

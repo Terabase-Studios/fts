@@ -2,19 +2,16 @@ import asyncio
 import hashlib
 import json
 import socket
-import sys
 import threading
 import time
 from functools import partial
 from pathlib import Path
 from ssl import SSLContext
 
-from click import progressbar
-
 import fts.core.secure as secure
 import fts.py as fts
 from fts.app.backend.contacts import replace_with_contact, ONLINE_USERS, replace_with_ip
-from fts.app.config import SAVE_DIR, LOG_FILE, logger
+from fts.app.config import SAVE_DIR, logger
 from fts.manager import Manager
 
 TRANSFER_PORT = 9064

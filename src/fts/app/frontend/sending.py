@@ -7,7 +7,6 @@ from pathlib import Path
 from tkinter import filedialog
 from typing import Dict
 
-from fts.app.config import logger
 from textual import on
 from textual.app import ComposeResult
 from textual.containers import VerticalScroll, Container, Vertical, Horizontal
@@ -17,6 +16,7 @@ from textual.widgets.selection_list import Selection
 
 import fts.app.backend.transfer as transfer
 from fts.app.backend.contacts import ONLINE_USERS, replace_with_ip
+from fts.app.config import logger
 
 
 class FileSelector(Horizontal):

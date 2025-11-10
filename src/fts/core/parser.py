@@ -151,7 +151,7 @@ def cache_parser_add(parser, parents):
                 "Specifies cleanup depth (default: clean):\n"
                 "  clean - Remove chats, seen IPs, transfer logs.\n"
                 "  clear - Also remove debug logs, contacts, muted users.\n"
-                "  reset - Also remove configuration files, seen fingerprints, and aliases.\n"
+                "  reset - Also remove configuration files, seen fingerprints, aliases, and the plugin dir.\n"
                 "  purge - Delete the entire ~/.fts directory."
             )
         )

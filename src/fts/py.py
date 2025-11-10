@@ -1,15 +1,13 @@
-import copy
 import sys
-import threading
 from argparse import Namespace
 
-from fts.manager import Manager
 from fts.commands.sender import cmd_send
 from fts.commands.server import cmd_open
 from fts.core.aliases import resolve_args, load_aliases, cmd_alias
 from fts.core.detatched import cmd_close
 from fts.core.logger import setup_logging
 from fts.core.secure import cmd_clear_fingerprint, is_public_network
+from fts.manager import Manager
 
 logger = setup_logging()
 

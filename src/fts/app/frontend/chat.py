@@ -1,17 +1,16 @@
 import colorsys
-import random
 import json
+import random
 
+from textual import events
 from textual.app import ComposeResult
 from textual.containers import Container, Horizontal
-from textual import events
-from textual.selection import Selection
 from textual.suggester import SuggestFromList
 from textual.widgets import RichLog, Input, Button
 
 from fts.app.backend.chat import send, CHAT_KEY, CHAT_PORT, start_chat_listener
-from fts.app.backend.contacts import replace_with_contact, get_users
 from fts.app.backend.commands import COMMAND_KEYS, execute
+from fts.app.backend.contacts import replace_with_contact, get_users
 from fts.app.config import CHAT_FILE
 
 

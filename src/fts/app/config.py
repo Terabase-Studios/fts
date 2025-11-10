@@ -1,8 +1,8 @@
-import os
 import configparser
+import os
+
 from fts.config import APP_DIR as app_dir
 from fts.core.logger import setup_logging
-from pathlib import Path
 
 # -----------------------------
 # Default Configuration Values
@@ -12,7 +12,8 @@ DEFAULTS = {
     "DISCOVERY_PORT": 6064,
     "CHAT_PORT": 7064,
     "SAVE_DIR": save_dir_default,
-    "VERBOSE_LOGGING": "true"
+    "VERBOSE_LOGGING": "true",
+    "PLUGINS_ENABLED": "false",
 }
 
 # -----------------------------
@@ -66,6 +67,7 @@ DISCOVERY_PORT = get_config_value("DISCOVERY_PORT")
 CHAT_PORT = get_config_value("CHAT_PORT")
 SAVE_DIR = get_config_value("SAVE_DIR")
 VERBOSE_LOGGING = get_config_value("VERBOSE_LOGGING")
+PLUGINS_ENABLED = get_config_value("PLUGINS_ENABLED")
 
 # -----------------------------
 # File Paths
@@ -77,6 +79,8 @@ DEBUG_FILE    = os.path.join(APP_DIR, "debug.txt")
 MUTED_FILE    = os.path.join(APP_DIR, "muted.json")
 CHAT_FILE     = os.path.join(APP_DIR, "chat.json")
 LOCK_FILE     = os.path.join(APP_DIR, "lock.lock")
+
+PLUGIN_DIR    = os.path.join(APP_DIR, "plugins\\")
 
 LOGS = [LOG_FILE]
 
