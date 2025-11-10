@@ -88,7 +88,7 @@ From here you can:
 
 ## Project State
 
-FTS development is currently paused after the release of version 2.1.0 while a new roadmap is created! The 2.1.0 Roadmap has come to a close. The project remains active, and future updates will be released. All issues and pull requests will be addressed promptly.
+FTS development remains active, and future updates will be released. All issues and pull requests will be addressed promptly.
 
 ---
 
