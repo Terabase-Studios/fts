@@ -80,7 +80,7 @@ MUTED_FILE    = os.path.join(APP_DIR, "muted.json")
 CHAT_FILE     = os.path.join(APP_DIR, "chat.json")
 LOCK_FILE     = os.path.join(APP_DIR, "lock.lock")
 
-PLUGIN_DIR    = os.path.join(APP_DIR, "plugins\\")
+PLUGIN_DIR    = os.path.join(APP_DIR, "plugins")
 
 LOGS = [LOG_FILE]
 

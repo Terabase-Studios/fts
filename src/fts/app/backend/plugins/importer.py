@@ -40,8 +40,16 @@ def load_plugins():
         if enabled.lower() != "true":
             continue
 
-        plugin_path = os.path.join(PLUGIN_DIR, plugin_name + ".py")
-        if not os.path.exists(plugin_path):
+        normalized_name = plugin_name.lower() + ".py"
+        plugin_path = None
+
+        # Find the matching file ignoring case
+        for file in os.listdir(PLUGIN_DIR):
+            if file.lower() == normalized_name:
+                plugin_path = os.path.join(PLUGIN_DIR, file)
+                break
+
+        if not plugin_path or not os.path.exists(plugin_path):
             print(f"[PLUGIN WARN] {plugin_name} not found in plugin directory.")
             continue
 
