@@ -52,9 +52,15 @@ def load_plugins():
             loaded_plugins[plugin_name] = module
 
             # Run setup() if it exists
-            if hasattr(module, "setup"):
-                module.setup()
-            print(f"[PLUGIN LOADED] {plugin_name}")
+            if hasattr(module, "setup_plugin"):
+                module.setup_plugin()
+                print(f"[PLUGIN LOADED] {plugin_name}")
+            else:
+                print(f"[PLUGIN ERROR] {plugin_name} does not have setup_plugin method.")
+                try:
+                    time.sleep(3)
+                except KeyboardInterrupt:
+                    pass
         except Exception as e:
             print(f"[PLUGIN ERROR] Failed to load {plugin_name}: {e}")
             traceback.print_exc()

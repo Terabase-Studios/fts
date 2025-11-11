@@ -38,14 +38,16 @@ import os
 import types
 from typing import Any, Callable
 
+import fts.app.backend.commands as commands
 import fts.app.backend.contacts as fts_contacts
 import fts.app.config as config
 from fts.app.backend.chat import MUTED_USERS
-from fts.app.backend.contacts import replace_with_ip, get_seen_users
+from fts.app.backend.commands import _get_second_arg
+from fts.app.backend.contacts import replace_with_ip, get_seen_users, replace_with_contact
 from fts.app.config import SEEN_IPS_FILE
 
 BLACKLIST_FILE = os.path.join(config.PLUGIN_DIR, "ip_blacklist.txt")
-blacklist = None
+blacklist = []
 
 def copy_func(f: Callable) -> Callable:
     g = types.FunctionType(
@@ -91,20 +93,101 @@ def blacklister(*args, timeout: float = 0.5, **kwargs) -> list[Any] | None:
     except Exception as e:
         return None
 
-def setup():
+def setup_plugin():
     """Patch FTS discover() with blacklister."""
     global blacklist
     fts_contacts.discover = blacklister
-    blacklist = load_blacklist()
+    blacklist = replace_with_ip(load_blacklist())
 
     # mute blacklisted
     muted = MUTED_USERS.get_muted()
     muted += blacklist
-    MUTED_USERS.set_muted(muted)
+    MUTED_USERS.set_muted(list(set(muted)))
 
     # remove seen blacklisted
     seen_users = get_seen_users()
     seen_users = [r for r in seen_users if r not in blacklist]
     with open(SEEN_IPS_FILE, "w") as f:
         json.dump(seen_users, f)
+
+    load_commands()
+
+
+def _blacklist(cmd: str):
+    global blacklist
+    ip = _get_second_arg(cmd)
+    ip = replace_with_ip(ip)
+    users = replace_with_ip(get_seen_users())
+    if ip not in users:
+        return "IP is not a valid user"
+
+    blacklist.append(ip.strip())
+
+    # mute blacklisted
+    muted = MUTED_USERS.get_muted()
+    muted += blacklist
+    MUTED_USERS.set_muted(list(set(muted)))
+
+    # remove seen blacklisted
+    seen_users = get_seen_users()
+    seen_users = [r for r in seen_users if r not in blacklist]
+    with open(SEEN_IPS_FILE, "w") as f:
+        json.dump(seen_users, f)
+
+    update_blacklist()
+
+    return f"Blacklisted {replace_with_contact(ip)}"
+
+def _unblacklist(cmd: str):
+    global blacklist
+    ip = _get_second_arg(cmd)
+    ip = replace_with_ip(ip)
+    if ip not in blacklist:
+        return "IP is not blacklisted"
+
+    blacklist.pop(blacklist.index(ip.strip()))
+    update_blacklist()
+
+    return f"Unblacklisted {replace_with_contact(ip)}\nYou need to manually unmute them with `!unmute`\nThe user will not appear until the next time they are online"
+
+def _blacklisted(cmd: str):
+    global blacklist
+    if blacklist:
+        return "Blacklisted:\n\t" + "\n\t".join(replace_with_contact(blacklist))
+    else:
+        return "No users blacklisted."
+
+
+def update_blacklist():
+    """Replace all IPs/contacts in the blacklist while preserving the top comments."""
+    global blacklist
+    with open(BLACKLIST_FILE, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+
+    header = []
+    for line in lines:
+        if line.lstrip().startswith("#"):
+            header.append(line.rstrip('\n'))
+        else:
+            break
+
+    # Clean user entries
+    user_lines = [str(u).strip() for u in blacklist if str(u).strip()]
+
+    # Write back header + new entries
+    with open(BLACKLIST_FILE, 'w', encoding='utf-8') as f:
+        for h in header:
+            f.write(h + '\n')
+        for u in user_lines:
+            f.write(u + '\n')
+
+
+def load_commands() -> None:
+    commands.COMMANDS["!blacklisted"] = ("\tUsage: !ai <message>\n\tlist blacklisted users", _blacklisted)
+    commands.COMMAND_KEYS.append("!blacklisted")
+    commands.COMMANDS["!blacklist"] = ("\tUsage: !ai <message>\n\tban a user from your fts TUI", _blacklist)
+    commands.COMMAND_KEYS.append("!blacklist")
+    commands.COMMANDS["!unblacklist"] = ("\tUsage: !ai <message>\n\tre-add a user to your fts TUI", _unblacklist)
+    commands.COMMAND_KEYS.append("!unblacklist")
+
 

@@ -67,7 +67,7 @@ def _unmute(cmd: str):
         return "IP is not muted"
 
     muted_users = MUTED_USERS.get_muted()
-    muted_users.pop(muted_users.index(ip))
+    muted_users.pop(muted_users.index(ip.strip()))
     MUTED_USERS.set_muted(muted_users)
     return f"Unmuted {replace_with_contact(ip)}"
 

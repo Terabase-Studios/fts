@@ -26,9 +26,9 @@ from gpt4all import GPT4All
 import fts.app.backend.commands as commands
 
 SYSTEM_PROMPT = (
-    "You are FTS Assistant, a concise and practical AI built into a developer tool. "
-    "Answer clearly and directly without fluff. "
-    "If unsure, admit it briefly. Keep answers under 20 words."
+    "You are FTS Assistant, an AI designed to help users with FTS-Tool. "
+    "Provide clear, practical guidance on commands, plugins, chat, and network features. "
+    "Answer directly and concisely, under 20 words. Admit if unsure."
 )
 
 model = None
@@ -44,12 +44,12 @@ def _query(cmd: str):
 
     with model.chat_session(system_prompt=SYSTEM_PROMPT):
         # Generate using chat session (preserves context automatically)
-        reply = model.generate(query, temp=0.7, max_tokens=40)
+        reply = model.generate(query, temp=0.7, max_tokens=80)
         reply = reply.strip().replace("\n", " ")
 
     return f"[blue]You:[/blue] {query}\n[blue]AI[/blue]: {reply}"
 
-def setup():
+def setup_plugin():
     global model
     print("[AI Command] (Downloading and) loading model into memory...")
     model = GPT4All("Phi-3-mini-4k-instruct.Q4_0.gguf")
