@@ -43,7 +43,6 @@ from fts.app.config import CHAT_FILE
 
 INPUT_HISTORY_FILE = os.path.join(PLUGIN_DIR, "improved_chat_input_history.json")
 
-
 def copy_func(f: Callable) -> Callable:
     g = types.FunctionType(
         f.__code__,
@@ -185,9 +184,9 @@ def new_send_message(self):
 def setup_plugin():
     global original_send_message, original_on_mount
     normalize_colors(CHAT_FILE)
+    chat.Chat.on_udp_message = on_udp_message
+    chat.Chat._send_message = new_send_message
     original_on_mount = copy_func(chat.Chat.on_mount)
     original_send_message = copy_func(chat.Chat._send_message)
     chat.Chat.on_mount = on_mount
     chat.Chat._send_message = send_message
-    chat.Chat.on_udp_message = on_udp_message
-    chat.Chat._send_message = new_send_message
