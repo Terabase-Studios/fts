@@ -183,7 +183,10 @@ def new_send_message(self):
 
 def setup_plugin():
     global original_send_message, original_on_mount
-    normalize_colors(CHAT_FILE)
+    try:
+        normalize_colors(CHAT_FILE)
+    except FileNotFoundError:
+        pass
     chat.Chat.on_udp_message = on_udp_message
     chat.Chat._send_message = new_send_message
     original_on_mount = copy_func(chat.Chat.on_mount)
