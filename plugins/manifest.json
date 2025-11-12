@@ -1,0 +1,58 @@
+{
+  "plugins": [
+    {
+      "name": "ai_chat",
+      "title": "FTS AI Chat Plugin (Novelty)",
+      "description": "Adds a self-hosted GPT4All chatbot to FTS via the `!ai` command.",
+      "version": "1.0",
+      "repo_path": "ai_chat/",
+      "entry": "AiCommand.py",
+      "config": "AiCommand.json"
+    },
+    {
+      "name": "chat_meter",
+      "title": "FTS Chat Meter Plugin",
+      "description": "Protects FTS chat from flooding by rate-limiting messages per IP using a token bucket system.",
+      "version": "1.0",
+      "repo_path": "chat_meter/",
+      "entry": "ChatMeter.py",
+      "config": "ChatMeter.json"
+    },
+    {
+      "name": "chat_only",
+      "title": "FTS Chat-Only Plugin",
+      "description": "Runs FTS in chat-only mode, disabling non-chat TUI components for a clean, focused interface.",
+      "version": "1.0",
+      "repo_path": "chat_only/",
+      "entry": "ChatOnly.py",
+      "config": "ChatOnly.json"
+    },
+    {
+      "name": "improved_chat",
+      "title": "FTS Improved Chat Plugin",
+      "description": "Adds multiline message support, persistent input history, and consistent user color mapping to FTS chat.",
+      "version": "1.0",
+      "repo_path": "improved_chat/",
+      "entry": "ImprovedChat.py",
+      "config": "ImprovedChat.json"
+    },
+    {
+      "name": "blacklist",
+      "title": "FTS Blacklist Plugin",
+      "description": "Blocks unwanted IPs from appearing in the TUI or connecting to unsafe hosts using an editable blacklist file.",
+      "version": "1.0",
+      "repo_path": "blacklist/",
+      "entry": "IpBlacklist.py",
+      "config": "IpBlacklist.json"
+    },
+    {
+      "name": "theme",
+      "title": "FTS Theme Plugin",
+      "description": "Adds theming support to FTS via a `theme.ini` file with customizable colors and UI settings.",
+      "version": "1.0",
+      "repo_path": "theme/",
+      "entry": "ThemeCustomizer.py",
+      "config": "ThemeCustomizer.json"
+    }
+  ]
+}

@@ -26,10 +26,13 @@ from gpt4all import GPT4All
 import fts.app.backend.commands as commands
 
 SYSTEM_PROMPT = (
-    "You are FTS Assistant, an AI designed to help users with FTS-Tool. "
-    "Provide clear, practical guidance on commands, plugins, chat, and network features. "
+    "You are FTS Assistant, an AI designed to help users with FTS-Tool(which stands for File Transfer System). "
+    "Provide clear, practical general guidance, plugins, and general network advice. "
     "Answer directly and concisely, under 20 words. Admit if unsure."
-    "When assisting users, always mention the github link: https://github.com/Terabase-Studios/fts"
+    "use double spaces for newlines, use these often to format your text."
+    "When assisting users, always mention the github link: https://github.com/Terabase-Studios/fts  "
+    "Never give examples of specific commands, only general advice."
+    "Do not talk about other tools unrelated to FTS-Tool"
 )
 
 model = None
@@ -45,7 +48,7 @@ def _query(cmd: str):
 
     with model.chat_session(system_prompt=SYSTEM_PROMPT):
         # Generate using chat session (preserves context automatically)
-        reply = model.generate(query, temp=0.7, max_tokens=80)
+        reply = model.generate(query, temp=0.7, max_tokens=160)
         reply = reply.strip().replace("\n", " ")
 
     return f"[blue]You:[/blue] {query}\n[blue]AI[/blue]: {reply}"

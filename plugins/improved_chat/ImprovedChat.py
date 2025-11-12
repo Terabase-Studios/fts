@@ -23,6 +23,8 @@ Usage:
 - Place this plugin in your FTS plugin directory.
 """
 
+BOOT_PRIORITY = 1
+
 import functools
 import types
 from typing import Callable
@@ -190,6 +192,6 @@ def setup_plugin():
     chat.Chat.on_udp_message = on_udp_message
     chat.Chat._send_message = new_send_message
     original_on_mount = copy_func(chat.Chat.on_mount)
-    original_send_message = copy_func(chat.Chat._send_message)
+    original_send_message = copy_func(new_send_message)
     chat.Chat.on_mount = on_mount
     chat.Chat._send_message = send_message

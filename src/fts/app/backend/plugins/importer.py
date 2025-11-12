@@ -6,48 +6,41 @@ import traceback
 
 from fts.app.config import PLUGIN_DIR, CONFIG_PATH, PLUGINS_ENABLED
 
+DEFAULT_PRIORITY = 3  # Default boot priority if plugin doesn't define BOOT_PRIORITY
 
 def load_plugins():
     if not PLUGINS_ENABLED:
         return
-    # Step 1: Create plugin directory if it doesn't exist
-    os.makedirs(PLUGIN_DIR, exist_ok=True)
 
-    # Step 2: Scan for all .py files in plugin directory
+    os.makedirs(PLUGIN_DIR, exist_ok=True)
     plugin_files = [f for f in os.listdir(PLUGIN_DIR) if f.endswith(".py")]
 
-    # Step 3: Load or create config.ini
+    # Load or create config.ini
     config = configparser.ConfigParser()
     if os.path.exists(CONFIG_PATH):
         config.read(CONFIG_PATH)
     if "plugins" not in config:
         config["plugins"] = {}
 
-    # Add new plugins to config with default enabled=True if not already present
+    # Add new plugins to config with default enabled=True
     for plugin_file in plugin_files:
         plugin_name = plugin_file[:-3]  # remove .py
-
         if plugin_name not in config["plugins"]:
-            config["plugins"][plugin_name] = "true"
+            answer = input(f"Do you want to enable the plugin '{plugin_name}'? [y/N]: ").strip().lower()
+            config["plugins"][plugin_name] = "true" if answer == "y" else "false"
 
-    # Save updated config
     with open(CONFIG_PATH, "w") as f:
         config.write(f)
 
-    # Step 4: Import enabled plugins and run setup
-    loaded_plugins = {}
+    # Step 4: Import enabled plugins
+    loaded_plugins = []
+
     for plugin_name, enabled in config["plugins"].items():
         if enabled.lower() != "true":
             continue
 
         normalized_name = plugin_name.lower() + ".py"
-        plugin_path = None
-
-        # Find the matching file ignoring case
-        for file in os.listdir(PLUGIN_DIR):
-            if file.lower() == normalized_name:
-                plugin_path = os.path.join(PLUGIN_DIR, file)
-                break
+        plugin_path = next((os.path.join(PLUGIN_DIR, f) for f in os.listdir(PLUGIN_DIR) if f.lower() == normalized_name), None)
 
         if not plugin_path or not os.path.exists(plugin_path):
             print(f"[PLUGIN WARN] {plugin_name} not found in plugin directory.")
@@ -57,20 +50,36 @@ def load_plugins():
             spec = importlib.util.spec_from_file_location(plugin_name, plugin_path)
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
-            loaded_plugins[plugin_name] = module
 
-            # Run setup() if it exists
+            # Determine boot priority
+            priority = getattr(module, "BOOT_PRIORITY", DEFAULT_PRIORITY)
+            loaded_plugins.append((priority, plugin_name, module))
+
+        except Exception as e:
+            print(f"[PLUGIN ERROR] Failed to load {plugin_name}: {e}")
+            traceback.print_exc()
+            try:
+                time.sleep(3)
+            except KeyboardInterrupt:
+                pass
+
+    # Sort by priority (highest last)
+    loaded_plugins.sort(key=lambda x: x[0])
+
+    # Run setup_plugin in boot order
+    for _, plugin_name, module in loaded_plugins:
+        try:
             if hasattr(module, "setup_plugin"):
                 module.setup_plugin()
                 print(f"[PLUGIN LOADED] {plugin_name}")
             else:
-                print(f"[PLUGIN ERROR] {plugin_name} does not have setup_plugin method.")
+                print(f"[PLUGIN ERROR] {plugin_name} has no setup_plugin method.")
                 try:
                     time.sleep(3)
                 except KeyboardInterrupt:
                     pass
         except Exception as e:
-            print(f"[PLUGIN ERROR] Failed to load {plugin_name}: {e}")
+            print(f"[PLUGIN ERROR] setup_plugin failed for {plugin_name}: {e}")
             traceback.print_exc()
             try:
                 time.sleep(3)

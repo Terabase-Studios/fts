@@ -63,6 +63,9 @@ class FTSApp(App):
         await asyncio.sleep(1)
         await super().action_quit()
 
+    def on_mount(self) -> None:
+        pass
+
 def start(print_icon = False):
     if print_icon:
         print(ICON)

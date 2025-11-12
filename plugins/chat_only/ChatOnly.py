@@ -65,7 +65,7 @@ def _toggle(cmd: str):
         return "Next boot will be chat-only"
     else:
         with open(DISABLED_FILE, "w") as file:
-            file.write("This file tells ChatOnly to boot in normal modey")
+            file.write("This file tells ChatOnly to boot in normal mode")
         return "Next boot will be normal"
 
 def setup_plugin():
