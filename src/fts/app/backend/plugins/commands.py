@@ -1,9 +1,10 @@
 import textwrap
 import json
 import os
+import configparser
 
 from fts.app.backend.plugins.installer import fetch_manifest, list_available_plugins, install_plugin
-from fts.app.config import PLUGIN_DIR
+from fts.app.config import PLUGIN_DIR, CONFIG_PATH
 from fts import __version__
 
 def cmd_plugins(args, logger):
@@ -35,6 +36,8 @@ def cmd_plugins(args, logger):
                 reinstall_plugins(outdated, logger)
             else:
                 logger.info("All plugins up-to-date")
+        case "uninstall":
+            uninstall_plugin(args.plugin, all_files=args.all, logger=logger)
         case _:
             logger.error(f"Unknown subcommand : {args.subcommand}")
 
@@ -212,3 +215,72 @@ def get_installed_plugins(logger=None):
             continue
 
     return installed
+
+
+def uninstall_plugin(plugin_name, all_files=False, logger=None):
+    """
+    Uninstall a plugin by removing its .py and .json files.
+    If all_files=True, also delete any files listed under "addons" in the plugin's JSON.
+    """
+    config_path = None
+
+    # Find the plugin config
+    for f in os.listdir(PLUGIN_DIR):
+        if f.lower() == plugin_name.lower() + ".json":
+            config_path = os.path.join(PLUGIN_DIR, f)
+            break
+
+    if not config_path or not os.path.exists(config_path):
+        if logger: logger.error(f"Plugin '{plugin_name}' not found in {PLUGIN_DIR}")
+        return
+
+    # Load plugin JSON
+    try:
+        with open(config_path, "r", encoding="utf-8") as cf:
+            data = json.load(cf)
+    except Exception as e:
+        if logger: logger.error(f"Failed to read config for '{plugin_name}': {e}")
+        return
+
+    # Delete the main .py entry file
+    py_file = os.path.join(PLUGIN_DIR, data.get("entry", ""))
+    if os.path.exists(py_file):
+        try:
+            os.remove(py_file)
+            if logger: logger.info(f"Deleted {py_file}")
+        except Exception as e:
+            if logger: logger.error(f"Failed to delete {py_file}: {e}")
+
+    # Delete the JSON config itself
+    try:
+        os.remove(config_path)
+        if logger: logger.info(f"Deleted {config_path}")
+    except Exception as e:
+        if logger: logger.error(f"Failed to delete {config_path}: {e}")
+
+    # Optionally delete additional addon files listed in "addons"
+    if all_files:
+        for addon_file in data.get("addons", []):
+            addon_path = os.path.join(PLUGIN_DIR, addon_file)
+            if os.path.exists(addon_path):
+                try:
+                    os.remove(addon_path)
+                    if logger: logger.info(f"Deleted addon file {addon_path}")
+                except Exception as e:
+                    if logger: logger.error(f"Failed to delete addon file {addon_path}: {e}")
+
+
+    # Remove plugin from CONFIG_PATH [plugins] section
+    try:
+        cfg = configparser.ConfigParser()
+        cfg.read(CONFIG_PATH)
+
+        # normalize key names: remove case-insensitive match
+        plugin_key = plugin_name.lower()
+        if cfg.has_section("plugins") and plugin_key in cfg["plugins"]:
+            cfg.remove_option("plugins", plugin_key)
+            with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+                cfg.write(f)
+            if logger: logger.info(f"Removed '{plugin_name}' from config [{CONFIG_PATH}]")
+    except Exception as e:
+        if logger: logger.error(f"Failed to update CONFIG_PATH: {e}")

@@ -213,7 +213,18 @@ def plugins_parser_add(parser, parents):
 
         upgrade_parser.add_argument("-f", "--force", action="store_true", help="reinstall all installed plugins",)
 
+    def uninstall_subparser_install(subparser, parents):
+        uninstall_parser = subparser.add_parser(
+            "uninstall",
+            help="Uninstall a plugin",
+            parents=parents
+        )
+
+        uninstall_parser.add_argument("plugin", type=str, help="plugin to install",)
+        uninstall_parser.add_argument("-a", "--all", action="store_true", help="uninstall plugin generated files in the cache",)
+
 
     show_subparser_add(subparsers, parents)
     install_subparser_install(subparsers, parents)
     upgrade_subparser_install(subparsers, parents)
+    uninstall_subparser_install(subparsers, parents)
