@@ -1,6 +1,7 @@
 import textwrap
 import json
 import os
+import shutil
 import configparser
 
 from fts.app.backend.plugins.installer import fetch_manifest, list_available_plugins, install_plugin
@@ -18,11 +19,25 @@ def cmd_plugins(args, logger):
     match args.subcommand:
         case "show":
             if not args.plugin:
-                list_plugins()
+                try:
+                    list_plugins()
+                except Exception as e:
+                    logger.error(f"Failed to get plugins: {e}")
             else:
                 show_plugin_details(args.plugin, logger)
         case "install":
-            install_plugin(args.plugin, logger)
+            all = [i for i in args.plugin if i.lower() == "all"]
+            if all:
+                manifest = fetch_manifest()
+                args.plugin = {p['name'].lower(): p for p in manifest.get("plugins", []) if
+                                  isinstance(p, dict) and "name" in p}
+
+            for plugin in args.plugin:
+                try:
+                    install_plugin(plugin, logger)
+                except Exception as e:
+                    logger.error(f"Failed to install plugin {args.plugin}: {e}")
+                print("-"*80)
         case "upgrade":
             if args.force:
                 reinstall_plugins(get_installed_plugins(), logger)
@@ -37,7 +52,12 @@ def cmd_plugins(args, logger):
             else:
                 logger.info("All plugins up-to-date")
         case "uninstall":
-            uninstall_plugin(args.plugin, all_files=args.all, logger=logger)
+            all_installed = [i for i in args.plugin]
+            if all_installed:
+                args.plugin = [i["name"] for i in get_installed_plugins(logger=logger)]
+            for plugin in args.plugin:
+                uninstall_plugin(plugin, all_files=args.all, logger=logger)
+                print("-"*80)
         case _:
             logger.error(f"Unknown subcommand : {args.subcommand}")
 
@@ -284,3 +304,13 @@ def uninstall_plugin(plugin_name, all_files=False, logger=None):
             if logger: logger.info(f"Removed '{plugin_name}' from config [{CONFIG_PATH}]")
     except Exception as e:
         if logger: logger.error(f"Failed to update CONFIG_PATH: {e}")
+
+    # Delete __pycache__ directory for that plugin
+    pycache_dir = os.path.join(PLUGIN_DIR, "__pycache__")
+
+    if os.path.isdir(pycache_dir):
+        try:
+            shutil.rmtree(pycache_dir)
+            if logger: logger.info(f"Deleted {pycache_dir}")
+        except Exception as e:
+            if logger: logger.error(f"Failed to delete {pycache_dir}: {e}")

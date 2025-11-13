@@ -44,11 +44,12 @@ def create_parser() -> argparse.ArgumentParser:
     alias_parser_add(subparsers, parents)
     cache_parser_add(subparsers, parents)
     try:
-        import fts.app.backend.plugins.config
+        from fts.app.config import PLUGINS_ENABLED
     except:
         pass
     else:
-        plugins_parser_add(subparsers, parents)
+        if PLUGINS_ENABLED:
+            plugins_parser_add(subparsers, parents)
     return parser
 
 
@@ -202,7 +203,7 @@ def plugins_parser_add(parser, parents):
             parents=parents
         )
 
-        install_parser.add_argument("plugin", type=str, help="plugin to install",)
+        install_parser.add_argument("plugin", type=str, nargs='+', help="plugin to install, use all for all plugins",)
 
     def upgrade_subparser_install(subparser, parents):
         upgrade_parser = subparser.add_parser(
@@ -220,8 +221,8 @@ def plugins_parser_add(parser, parents):
             parents=parents
         )
 
-        uninstall_parser.add_argument("plugin", type=str, help="plugin to install",)
-        uninstall_parser.add_argument("-a", "--all", action="store_true", help="uninstall plugin generated files in the cache",)
+        uninstall_parser.add_argument("plugin", type=str, nargs='+', help="plugin to install",)
+        uninstall_parser.add_argument("-a", "--all", action="store_true", help="uninstall plugin generated files in the cache, use all for all plugins",)
 
 
     show_subparser_add(subparsers, parents)

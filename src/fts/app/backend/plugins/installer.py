@@ -14,7 +14,7 @@ def fetch_manifest():
 def install_plugin(name, logger=None):
     if logger: logger.info(f"Fetching manifest")
     manifest = fetch_manifest()
-    entry = next((p for p in manifest["plugins"] if p["name"] == name), None)
+    entry = next((p for p in manifest["plugins"] if p["name"].lower() == name.lower()), None)
     if not entry:
         if logger: logger.error(f"Plugin '{name}' not found in manifest.")
         return False

@@ -98,7 +98,7 @@ class AddContact(ModalScreen[tuple[str, str] | None]):
                 yield Input(
                     placeholder="Contact Name",
                     id="addcontactname",
-                    validators = [Blank()]
+                    validators = [Blank(), IsNotAlreadyContact()]
                 )
                 yield Input(
                     placeholder="Contact Ip",
@@ -161,7 +161,6 @@ class RemoveContact(ModalScreen[str | None]):
 
 class CheckContact(Validator):
     def validate(self, value: str) -> ValidationResult:
-        """Check a string is equal to its reverse."""
         if self.is_contact(value):
             return self.success()
         else:
@@ -185,7 +184,6 @@ class Blank(Validator):
 
 class IsNoncontactUser(Validator):
     def validate(self, value: str) -> ValidationResult:
-        """Check a string is equal to its reverse."""
         if self.is_user(value):
             return self.success()
         else:
@@ -195,3 +193,15 @@ class IsNoncontactUser(Validator):
     def is_user(value: str) -> bool:
         users = [i for i in get_seen_users() if replace_with_contact(i) not in get_contacts()]
         return value in users
+
+class IsNotAlreadyContact(Validator):
+    def validate(self, value: str) -> ValidationResult:
+        if not self.is_contact(value):
+            return self.success()
+        else:
+            return self.failure("Contact already exists!")
+
+    @staticmethod
+    def is_contact(value: str) -> bool:
+        contacts = get_contacts()
+        return value in contacts

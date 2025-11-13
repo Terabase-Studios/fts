@@ -1,5 +1,6 @@
 from fts.app.backend.chat import MUTED_USERS
 from fts.app.backend.contacts import replace_with_contact, replace_with_ip, get_seen_users
+from fts.app.config import logger
 
 
 def is_cmd(cmd: str) -> bool:
@@ -18,6 +19,9 @@ def execute(cmd: str) ->  (bool, str):
             resonse = _run_cmd(cmd)
             return True, f"--------------------\n{resonse}\n"
         except Exception as e:
+            import traceback
+            traceback = traceback.format_exc()
+            logger.error(f"Failed To run command! {e}\n{traceback}")
             return True, f"--------------------\n{e}\n"
 
 def _run_cmd(cmd: str):
@@ -32,7 +36,6 @@ def _get_second_arg(cmd):
         return cmd.split(" ")[1]
     except IndexError:
         raise Exception("Argument not found")
-
 
 
 def _help(cmd: str):
