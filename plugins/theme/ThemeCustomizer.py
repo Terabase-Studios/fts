@@ -22,11 +22,13 @@ Usage:
 - Optionally, edit `theme.ini` to adjust colors or variables.
 """
 
-import os
 import configparser
+import os
+
 from textual.theme import Theme
-from fts.app.config import PLUGIN_DIR
+
 import fts.app.main as main
+from fts.app.config import PLUGIN_DIR
 
 THEME_PATH = os.path.join(PLUGIN_DIR, "theme.ini")
 

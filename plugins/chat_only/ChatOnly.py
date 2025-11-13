@@ -20,7 +20,6 @@ Usage:
 - Use !chat_only_toggle to switch between chat-only mode and normal after a restart.
 """
 
-from textual.app import ComposeResult
 import os
 import sys
 

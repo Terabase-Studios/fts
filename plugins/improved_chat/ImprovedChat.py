@@ -25,37 +25,23 @@ Usage:
 
 BOOT_PRIORITY = 1
 
-import functools
-import types
-from typing import Callable
-import os
-import json
-import re
-import random
 import colorsys
+import json
+import os
+import random
+import re
 
-import fts.app.frontend.chat as chat
-from fts.app.config import PLUGIN_DIR
 from textual.widgets import RichLog, Input
 
+import fts.app.frontend.chat as chat
 from fts.app.backend.chat import send, CHAT_KEY
 from fts.app.backend.commands import execute
 from fts.app.backend.contacts import replace_with_contact
+from fts.app.backend.plugins.utils import copy_func
 from fts.app.config import CHAT_FILE
+from fts.app.config import PLUGIN_DIR
 
 INPUT_HISTORY_FILE = os.path.join(PLUGIN_DIR, "improved_chat_input_history.json")
-
-def copy_func(f: Callable) -> Callable:
-    g = types.FunctionType(
-        f.__code__,
-        f.__globals__,
-        name=f.__name__,
-        argdefs=f.__defaults__,
-        closure=f.__closure__
-    )
-    g = functools.update_wrapper(g, f)
-    g.__kwdefaults__ = getattr(f, "__kwdefaults__", None)
-    return g
 
 
 def color_for_sender(sender: str) -> str:

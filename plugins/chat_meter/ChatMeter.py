@@ -20,27 +20,15 @@ Usage:
 """
 
 import time
-import functools
-import types
-from typing import Callable
 from collections import defaultdict
-from fts.app.backend.contacts import replace_with_contact
-import fts.app.frontend.chat as chat
+
 from textual.widgets import RichLog
 
-PLUGIN_NAME = "ChatMeter"
+import fts.app.frontend.chat as chat
+from fts.app.backend.contacts import replace_with_contact
+from fts.app.backend.plugins.utils import copy_func
 
-def copy_func(f: Callable) -> Callable:
-    g = types.FunctionType(
-        f.__code__,
-        f.__globals__,
-        name=f.__name__,
-        argdefs=f.__defaults__,
-        closure=f.__closure__
-    )
-    g = functools.update_wrapper(g, f)
-    g.__kwdefaults__ = getattr(f, "__kwdefaults__", None)
-    return g
+PLUGIN_NAME = "ChatMeter"
 
 class TokenBucket:
     def __init__(self, max_tokens=5, refill_rate=1):

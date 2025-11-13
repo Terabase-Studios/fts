@@ -1,4 +1,9 @@
 {
+  "metadata": [
+    {
+      "version": "2.2.0"
+    }
+  ],
   "plugins": [
     {
       "name": "ai_chat",

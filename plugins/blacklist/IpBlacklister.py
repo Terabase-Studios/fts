@@ -32,11 +32,9 @@ Usage:
 Warning: This plugin currently does not block file transfer requests!
 """
 
-import functools
 import json
 import os
-import types
-from typing import Any, Callable
+from typing import Any
 
 import fts.app.backend.commands as commands
 import fts.app.backend.contacts as fts_contacts
@@ -44,22 +42,12 @@ import fts.app.config as config
 from fts.app.backend.chat import MUTED_USERS
 from fts.app.backend.commands import _get_second_arg
 from fts.app.backend.contacts import replace_with_ip, get_seen_users, replace_with_contact
+from fts.app.backend.plugins.utils import copy_func
 from fts.app.config import SEEN_IPS_FILE
 
 BLACKLIST_FILE = os.path.join(config.PLUGIN_DIR, "ip_blacklist.txt")
 blacklist = []
 
-def copy_func(f: Callable) -> Callable:
-    g = types.FunctionType(
-        f.__code__,
-        f.__globals__,
-        name=f.__name__,
-        argdefs=f.__defaults__,
-        closure=f.__closure__
-    )
-    g = functools.update_wrapper(g, f)
-    g.__kwdefaults__ = getattr(f, "__kwdefaults__", None)
-    return g
 
 # Store original function
 base_discover = copy_func(fts_contacts.discover)
