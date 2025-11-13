@@ -52,8 +52,8 @@ def cmd_plugins(args, logger):
             else:
                 logger.info("All plugins up-to-date")
         case "uninstall":
-            all_installed = [i for i in args.plugin]
-            if all_installed:
+            all = [i for i in args.plugin if i.lower() == "all"]
+            if all:
                 args.plugin = [i["name"] for i in get_installed_plugins(logger=logger)]
             for plugin in args.plugin:
                 uninstall_plugin(plugin, all_files=args.all, logger=logger)
