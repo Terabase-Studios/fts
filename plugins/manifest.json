@@ -28,7 +28,7 @@
     {
       "name": "chat_only",
       "title": "FTS Chat-Only Plugin",
-      "authors": ["Terabase (terabasestudios@gmail.com)"],,
+      "authors": ["Terabase (terabasestudios@gmail.com)"],
       "description": "Runs FTS in chat-only mode, disabling non-chat TUI components for a clean, focused interface.",
       "version": "1.0.0",
       "repo_path": "chat_only/",
