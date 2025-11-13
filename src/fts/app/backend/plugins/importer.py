@@ -26,8 +26,8 @@ def load_plugins():
     for plugin_file in plugin_files:
         plugin_name = plugin_file[:-3]  # remove .py
         if plugin_name not in config["plugins"]:
-            answer = input(f"Do you want to enable the plugin '{plugin_name}'? [y/N]: ").strip().lower()
-            config["plugins"][plugin_name] = "true" if answer == "y" else "false"
+            answer = input(f"Do you want to enable the plugin '{plugin_name}'? [Y/n]: ").strip().lower()
+            config["plugins"][plugin_name] = "false" if answer == "n" else "true"
 
     with open(CONFIG_PATH, "w") as f:
         config.write(f)

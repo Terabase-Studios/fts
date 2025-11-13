@@ -13,7 +13,7 @@ DEFAULTS = {
     "CHAT_PORT": 7064,
     "SAVE_DIR": save_dir_default,
     "VERBOSE_LOGGING": "true",
-    "PLUGINS_ENABLED": "false",
+    "PLUGINS_ENABLED": "true",
 }
 
 # -----------------------------

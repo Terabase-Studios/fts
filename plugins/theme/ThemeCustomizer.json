@@ -5,6 +5,7 @@
   "authors": ["Terabase (terabasestudios@gmail.com)"],
   "description": "Adds theming support to FTS via a `theme.ini` file with customizable colors and UI settings.",
   "entry": "ThemeCustomizer.py",
+  "addons": ["theme.ini"],
   "dependencies": [],
   "enabled": true
 }

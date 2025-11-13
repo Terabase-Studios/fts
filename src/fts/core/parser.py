@@ -193,7 +193,27 @@ def plugins_parser_add(parser, parents):
             parents=parents
         )
 
-        show_parser.add_argument("-p", "--plugin", type=str, help="Show detailed information on an installed plugin",)
+        show_parser.add_argument("-p", "--plugin", type=str, help="show detailed information on an installed plugin",)
+
+    def install_subparser_install(subparser, parents):
+        install_parser = subparser.add_parser(
+            "install",
+            help="Install or update a plugin",
+            parents=parents
+        )
+
+        install_parser.add_argument("plugin", type=str, help="plugin to install",)
+
+    def upgrade_subparser_install(subparser, parents):
+        upgrade_parser = subparser.add_parser(
+            "upgrade",
+            help="Update all installed plugins",
+            parents=parents
+        )
+
+        upgrade_parser.add_argument("-f", "--force", action="store_true", help="reinstall all installed plugins",)
 
 
     show_subparser_add(subparsers, parents)
+    install_subparser_install(subparsers, parents)
+    upgrade_subparser_install(subparsers, parents)

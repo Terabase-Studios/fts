@@ -5,6 +5,7 @@
   "authors": ["Terabase (terabasestudios@gmail.com)"],
   "description": "Blocks unwanted IPs from appearing in the TUI or connecting to unsafe hosts using an editable blacklist file.",
   "entry": "IpBlacklist.py",
+  "addons": ["ip_blacklist.txt"],
   "dependencies": [],
   "enabled": true
 }
