@@ -2,10 +2,9 @@
   "name": "chat_only",
   "title": "FTS Chat-Only Plugin",
   "version": "1.0.0",
-  "authors": "Terabase (terabasestudios@gmail.com)",
+  "authors": ["Terabase (terabasestudios@gmail.com)"],
   "description": "Runs FTS in chat-only mode, disabling non-chat TUI components for a clean, focused interface.",
   "entry": "ChatOnly.py",
   "dependencies": [],
-  "load_priority": 30,
   "enabled": true
 }

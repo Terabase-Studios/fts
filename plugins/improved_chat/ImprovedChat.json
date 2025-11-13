@@ -2,10 +2,9 @@
   "name": "improved_chat",
   "title": "FTS Improved Chat Plugin",
   "version": "1.0.0",
-  "authors": "Terabase (terabasestudios@gmail.com)",
+  "authors": ["Terabase (terabasestudios@gmail.com)"],
   "description": "Adds multiline message support, persistent input history, and consistent user color mapping to FTS chat.",
   "entry": "ImprovedChat.py",
   "dependencies": [],
-  "load_priority": 35,
   "enabled": true
 }

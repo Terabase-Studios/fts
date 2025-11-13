@@ -82,6 +82,7 @@ def ensure_func(args):
         "trust": ("fts.core.secure", "cmd_clear_fingerprint"),
         "alias": ("fts.core.aliases", "cmd_alias"),
         "cache": ("fts.commands.cache", "cmd_cache"),
+        "plugins": ("fts.app.backend.plugins.commands", "cmd_plugins"),
     }
 
     if args.command in mapping:

@@ -43,6 +43,12 @@ def create_parser() -> argparse.ArgumentParser:
     trust_parser_add(subparsers, parents)
     alias_parser_add(subparsers, parents)
     cache_parser_add(subparsers, parents)
+    try:
+        import fts.app.backend.plugins.config
+    except:
+        pass
+    else:
+        plugins_parser_add(subparsers, parents)
     return parser
 
 
@@ -161,3 +167,33 @@ def cache_parser_add(parser, parents):
     restore_subparser_add(subparsers, parents)
     clean_subparser_add(subparsers, parents)
 
+def plugins_parser_add(parser, parents):
+    """
+    Adds the 'cache' subcommand for managing cache and data cleanup.
+    """
+    # Main 'cache' parser
+    cache_parser = parser.add_parser(
+        "plugins",
+        help="Manage TUI plugins",
+        parents=parents
+    )
+
+    # Create subparsers under 'cache'
+    subparsers = cache_parser.add_subparsers(
+        title="subcommands",
+        dest="subcommand",
+        required=True,
+        help="Subcommands for cache management"
+    )
+
+    def show_subparser_add(subparser, parents):
+        show_parser = subparser.add_parser(
+            "show",
+            help="Display a list of available plugins to install",
+            parents=parents
+        )
+
+        show_parser.add_argument("-p", "--plugin", action="store_true", help="Show detailed information on an installed plugin",)
+
+
+    show_subparser_add(subparsers, parents)
