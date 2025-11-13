@@ -3,13 +3,13 @@ import json
 import urllib.request
 from fts.app.config import PLUGIN_DIR
 
-GITHUB_BASE = "https://raw.githubusercontent.com/Terabase-Studios/fts/main/plugins/"
+GITHUB_BASE = "https://raw.githubusercontent.com/Terabase-Studios/fts/refs/heads/main/plugins/"
 
 
 def fetch_manifest():
     url = GITHUB_BASE + "manifest.json"
     with urllib.request.urlopen(url) as r:
-        return json.load(r)
+        return json.loads(r.read().decode())
 
 
 def install_plugin_from_manifest(name, logger=None):
@@ -32,6 +32,6 @@ def install_plugin_from_manifest(name, logger=None):
 
 def list_available_plugins():
     manifest = fetch_manifest()
-    return [(p["name"], p["version"], p["description"]) for p in manifest["plugins"]]
+    return [(p["name"], p["version"], p["description"], [["author"]]) for p in manifest["plugins"]]
 
-print(fetch_manifest())
+print(install_plugin_from_manifest('ai_chat'))
