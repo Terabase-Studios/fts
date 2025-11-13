@@ -6,7 +6,7 @@
   ],
   "plugins": [
     {
-      "name": "ai_chat",
+      "name": "AiCommand",
       "title": "FTS AI Chat Plugin (Novelty)",
       "authors": ["Terabase (terabasestudios@gmail.com)"],
       "description": "Adds a self-hosted GPT4All chatbot to FTS via the `!ai` command.",
@@ -16,7 +16,7 @@
       "config": "AiCommand.json"
     },
     {
-      "name": "chat_meter",
+      "name": "ChatMeter",
       "title": "FTS Chat Meter Plugin",
       "authors": ["Terabase (terabasestudios@gmail.com)"],
       "description": "Protects FTS chat from flooding by rate-limiting messages per IP using a token bucket system.",
@@ -26,7 +26,7 @@
       "config": "ChatMeter.json"
     },
     {
-      "name": "chat_only",
+      "name": "ChatOnly",
       "title": "FTS Chat-Only Plugin",
       "authors": ["Terabase (terabasestudios@gmail.com)"],
       "description": "Runs FTS in chat-only mode, disabling non-chat TUI components for a clean, focused interface.",
@@ -36,7 +36,7 @@
       "config": "ChatOnly.json"
     },
     {
-      "name": "improved_chat",
+      "name": "ImprovedChat",
       "title": "FTS Improved Chat Plugin",
       "authors": ["Terabase (terabasestudios@gmail.com)"],
       "description": "Adds multiline message support, persistent input history, and consistent user color mapping to FTS chat.",
@@ -46,7 +46,7 @@
       "config": "ImprovedChat.json"
     },
     {
-      "name": "blacklist",
+      "name": "IpBlacklist",
       "title": "FTS Blacklist Plugin",
       "authors": ["Terabase (terabasestudios@gmail.com)"],
       "description": "Blocks unwanted IPs from appearing in the TUI or connecting to unsafe hosts using an editable blacklist file.",
@@ -56,7 +56,7 @@
       "config": "IpBlacklist.json"
     },
     {
-      "name": "theme",
+      "name": "ThemeCustomizer",
       "title": "FTS Theme Plugin",
       "authors": ["Terabase (terabasestudios@gmail.com)"],
       "description": "Adds theming support to FTS via a `theme.ini` file with customizable colors and UI settings.",

@@ -1,5 +1,5 @@
 {
-  "name": "blacklist",
+  "name": "IpBlacklist",
   "title": "FTS Blacklist Plugin",
   "version": "1.0.0",
   "authors": ["Terabase (terabasestudios@gmail.com)"],

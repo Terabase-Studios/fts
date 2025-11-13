@@ -193,7 +193,7 @@ def plugins_parser_add(parser, parents):
             parents=parents
         )
 
-        show_parser.add_argument("-p", "--plugin", action="store_true", help="Show detailed information on an installed plugin",)
+        show_parser.add_argument("-p", "--plugin", type=str, help="Show detailed information on an installed plugin",)
 
 
     show_subparser_add(subparsers, parents)
