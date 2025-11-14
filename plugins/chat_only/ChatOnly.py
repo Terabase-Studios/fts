@@ -100,7 +100,7 @@ def setup_plugin():
     app.FTSApp.on_mount = on_mount
 
     commands.COMMANDS["!chat_only_toggle"] = (
-        "\tUsage: !chat_only_toggle\n\tToggle chat-only mode. Effective after restart",
+        "\tUsage: !chat_only_toggle\n\tToggle chat-only mode. Effective after a small delay",
         _toggle,
     )
     commands.COMMAND_KEYS.append("!chat_only_toggle")
