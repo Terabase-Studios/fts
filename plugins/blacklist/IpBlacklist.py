@@ -171,11 +171,11 @@ def update_blacklist():
 
 
 def load_commands() -> None:
-    commands.COMMANDS["!blacklisted"] = ("\tUsage: !ai <message>\n\tlist blacklisted users", _blacklisted)
+    commands.COMMANDS["!blacklisted"] = ("\tUsage: !blacklisted ip\n\tlist blacklisted users", _blacklisted)
     commands.COMMAND_KEYS.append("!blacklisted")
-    commands.COMMANDS["!blacklist"] = ("\tUsage: !ai <message>\n\tban a user from your fts TUI", _blacklist)
+    commands.COMMANDS["!blacklist"] = ("\tUsage: !blacklist ip\n\tban a user from your fts TUI", _blacklist)
     commands.COMMAND_KEYS.append("!blacklist")
-    commands.COMMANDS["!unblacklist"] = ("\tUsage: !ai <message>\n\tre-add a user to your fts TUI", _unblacklist)
+    commands.COMMANDS["!unblacklist"] = ("\tUsage: !unblacklist ip\n\tre-add a user to your fts TUI", _unblacklist)
     commands.COMMAND_KEYS.append("!unblacklist")
 
 
