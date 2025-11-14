@@ -13,7 +13,7 @@ def load_plugins():
         return
 
     os.makedirs(PLUGIN_DIR, exist_ok=True)
-    plugin_files = [f for f in os.listdir(PLUGIN_DIR) if f.endswith(".py")]
+    plugin_files = [f for f in os.listdir(PLUGIN_DIR) if f.endswith(".py") and "no_include" not in f]
 
     # Load or create config.ini
     config = configparser.ConfigParser()
