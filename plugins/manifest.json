@@ -29,8 +29,8 @@
       "name": "ChatOnly",
       "title": "FTS Chat-Only Plugin",
       "authors": ["Terabase (terabasestudios@gmail.com)"],
-      "description": "Runs FTS in chat-only mode, disabling non-chat TUI components for a clean, focused interface.",
-      "version": "1.0.0",
+      "description": "Runs FTS in chat-only mode, disabling non-chat TUI components for a clean, focused interface with a !toggle_chat_mode command.",
+      "version": "1.1.0",
       "repo_path": "chat_only/",
       "entry": "ChatOnly.py",
       "config": "ChatOnly.json"
@@ -60,7 +60,7 @@
       "title": "FTS Theme Plugin",
       "authors": ["Terabase (terabasestudios@gmail.com)"],
       "description": "Adds theming support to FTS via a `theme.ini` file with customizable colors and UI settings.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "repo_path": "theme/",
       "entry": "ThemeCustomizer.py",
       "config": "ThemeCustomizer.json"

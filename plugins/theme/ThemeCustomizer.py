@@ -29,6 +29,7 @@ from textual.theme import Theme
 
 import fts.app.main as main
 from fts.app.config import PLUGIN_DIR
+from fts.app.backend.plugins.utils import copy_func
 
 THEME_PATH = os.path.join(PLUGIN_DIR, "theme.ini")
 
@@ -102,12 +103,17 @@ def load_theme():
         variables=vars_section,
     )
 
+original_on_mount = None
 
 def set_theme(self):
+    global original_on_mount
+    original_on_mount(self)
     new_theme = load_theme()
     self.register_theme(new_theme)
     self.theme = new_theme.name
 
 
 def setup_plugin():
+    global original_on_mount
+    original_on_mount = copy_func(main.FTSApp.on_mount)
     main.FTSApp.on_mount = set_theme

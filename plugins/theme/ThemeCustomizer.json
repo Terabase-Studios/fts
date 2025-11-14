@@ -1,7 +1,7 @@
 {
   "name": "ThemeCustomizer",
   "title": "FTS Theme Plugin",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "authors": ["Terabase (terabasestudios@gmail.com)"],
   "description": "Adds theming support to FTS via a `theme.ini` file with customizable colors and UI settings.",
   "entry": "ThemeCustomizer.py",

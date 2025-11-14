@@ -21,6 +21,7 @@ from fts.app.frontend.sending import Sending
 from fts.app.frontend.transfers import Transfers
 from fts.app.style.tcss import css
 
+fts_app = None
 
 def setup(transfer_ui: Transfers, requests_ui: Requests) -> None:
     fts.logger = LOG_FILE
@@ -40,7 +41,7 @@ class FTSApp(App):
 
     CSS = css
 
-    def compose(self) -> ComposeResult:
+    def compose(self=None) -> ComposeResult:
         #yield Header()
         #yield Footer()
 
@@ -67,6 +68,7 @@ class FTSApp(App):
         pass
 
 def start(print_icon = False):
+    global fts_app
     if print_icon:
         print(ICON)
 
@@ -83,8 +85,9 @@ def start(print_icon = False):
 
     try:
         # Try to acquire the lock for 1 second
-        with lock.acquire(timeout=1):
-            FTSApp().run()
+        with ((lock.acquire(timeout=1))):
+            fts_app = FTSApp()
+            fts_app.run()
     except Timeout:
         print("Another instance of the FTS App is already running! Only one instance is allowed at a time.")
 
