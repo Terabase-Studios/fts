@@ -6,6 +6,5 @@
   "description": "Blocks unwanted IPs from appearing in the TUI using an editable blacklist file and commands.",
   "entry": "IpBlacklist.py",
   "addons": ["ip_blacklist.txt"],
-  "dependencies": [],
-  "enabled": true
+  "dependencies": []
 }

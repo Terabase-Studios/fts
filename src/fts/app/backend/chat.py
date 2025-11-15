@@ -1,4 +1,5 @@
 import json
+import time
 import socket
 import threading
 
@@ -58,25 +59,29 @@ def send(msg, timeout=0.5) -> str:
     sock.close()
     return ""
 
+
+def chat_listener(app: App, port: int, callback):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    sock.bind(("", port))
+    while True:
+        try:
+            data, addr = sock.recvfrom(4096)
+            if addr[0].strip() not in replace_with_ip(MUTED_USERS.get_muted()):
+                app.call_from_thread(callback, data, addr)
+        except Exception as e:
+            print("UDP listener error:", e)
+            time.sleep(0.1)
+            continue
+
 def start_chat_listener(app: App, port: int, callback):
     """
     Start a background thread that listens for UDP broadcast packets.
     Calls `callback(data, addr)` on the main thread.
     """
-    def listen():
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        sock.bind(("", port))
-        while True:
-            try:
-                data, addr = sock.recvfrom(4096)
-                if addr[0].strip() not in replace_with_ip(MUTED_USERS.get_muted()):
-                    app.call_from_thread(callback, data, addr)
-            except Exception as e:
-                print("UDP listener error:", e)
-                break
-
-    thread = threading.Thread(target=listen, daemon=True)
+    thread = threading.Thread(target=chat_listener, daemon=True, args=(app, port, callback))
     thread.start()
     return thread
+
+

@@ -6,6 +6,5 @@
   "description": "Runs FTS in chat-only mode, disabling non-chat TUI components for a clean, focused interface with a !toggle_chat_mode command.",
   "entry": "ChatOnly.py",
   "addons": ["chat_only_disabled.txt"],
-  "dependencies": [],
-  "enabled": true
+  "dependencies": []
 }

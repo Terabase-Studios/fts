@@ -23,7 +23,7 @@ Usage:
 - Place this plugin in your FTS plugin directory.
 """
 
-BOOT_PRIORITY = 1
+BOOT_PRIORITY = 3
 
 import colorsys
 import json

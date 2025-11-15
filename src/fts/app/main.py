@@ -61,7 +61,7 @@ class FTSApp(App):
 
     async def action_quit(self) -> None:
         transfer.transfer_handler.cancel_all()
-        await asyncio.sleep(1)
+        await asyncio.sleep(.01)
         await super().action_quit()
 
     def on_mount(self) -> None:
@@ -71,8 +71,6 @@ def start(print_icon = False):
     global fts_app
     if print_icon:
         print(ICON)
-
-    load_plugins()
 
     if sys.platform == "win32":  # Check if running on Windows
         try:
@@ -86,6 +84,7 @@ def start(print_icon = False):
     try:
         # Try to acquire the lock for 1 second
         with ((lock.acquire(timeout=1))):
+            load_plugins()
             fts_app = FTSApp()
             fts_app.run()
     except Timeout:

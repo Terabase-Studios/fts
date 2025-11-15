@@ -5,6 +5,5 @@
   "authors": ["Terabase (terabasestudios@gmail.com)"],
   "description": "Adds a self-hosted GPT4All chatbot to FTS via the `!ai` command.",
   "entry": "AiCommand.py",
-  "dependencies": [],
-  "enabled": true
+  "dependencies": []
 }

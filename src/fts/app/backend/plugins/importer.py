@@ -6,7 +6,7 @@ import traceback
 
 from fts.app.config import PLUGIN_DIR, CONFIG_PATH, PLUGINS_ENABLED
 
-DEFAULT_PRIORITY = 3  # Default boot priority if plugin doesn't define BOOT_PRIORITY
+DEFAULT_PRIORITY = 5  # Default boot priority if plugin doesn't define BOOT_PRIORITY
 
 def load_plugins():
     if not PLUGINS_ENABLED:

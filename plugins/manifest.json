@@ -40,7 +40,7 @@
       "title": "FTS Improved Chat Plugin",
       "authors": ["Terabase (terabasestudios@gmail.com)"],
       "description": "Adds multiline message support, persistent input history, and consistent user color mapping to FTS chat.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "repo_path": "improved_chat/",
       "entry": "ImprovedChat.py",
       "config": "ImprovedChat.json"
@@ -64,6 +64,16 @@
       "repo_path": "theme/",
       "entry": "ThemeCustomizer.py",
       "config": "ThemeCustomizer.json"
+    },
+    {
+      "name": "OfflineChat",
+      "title": "FTS Offline Chat Plugin",
+      "authors": ["Terabase (terabasestudios@gmail.com)"],
+      "description": "Keeps recording messages even when FTS-TUI is closed. Requires FTS-TUI to be launched once.\nNote: When this plugin is uninstalled it will keep recording messages until device restart!",
+      "version": "1.0.0",
+      "repo_path": "offline_chat/",
+      "entry": "OfflineChat.py",
+      "config": "OfflineChat.json"
     }
   ]
 }
