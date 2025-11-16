@@ -84,7 +84,10 @@ def start(print_icon = False):
     try:
         # Try to acquire the lock for 1 second
         with ((lock.acquire(timeout=1))):
-            load_plugins()
+            try:
+                load_plugins()
+            except Exception as e:
+                print(f"[PLUGIN IMPORTER ERROR] Failed to load plugins: {e}")
             fts_app = FTSApp()
             fts_app.run()
     except Timeout:

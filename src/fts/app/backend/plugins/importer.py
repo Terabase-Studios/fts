@@ -4,6 +4,8 @@ import os
 import time
 import traceback
 
+from fts.app.backend.plugins.verifier import verify_plugins
+from fts.app.backend.plugins.config import SECURE, ERROR_FREEZE_TIME
 from fts.app.config import PLUGIN_DIR, CONFIG_PATH, PLUGINS_ENABLED
 
 DEFAULT_PRIORITY = 5  # Default boot priority if plugin doesn't define BOOT_PRIORITY
@@ -13,7 +15,16 @@ def load_plugins():
         return
 
     os.makedirs(PLUGIN_DIR, exist_ok=True)
-    plugin_files = [f for f in os.listdir(PLUGIN_DIR) if f.endswith(".py") and "no_include" not in f]
+    unverified_plugin_files = [f for f in os.listdir(PLUGIN_DIR) if f.endswith(".py") and "no_include" not in f]
+
+    if SECURE:
+        print("[PLUGIN VERIFIER] Verifying plugins...")
+        plugin_files = verify_plugins(unverified_plugin_files)
+    else:
+        plugin_files = unverified_plugin_files
+
+    if not plugin_files:
+        return
 
     # Load or create config.ini
     config = configparser.ConfigParser()
@@ -35,8 +46,13 @@ def load_plugins():
     # Step 4: Import enabled plugins
     loaded_plugins = []
 
-    for plugin_name, enabled in config["plugins"].items():
-        if enabled.lower() != "true":
+    allowed = {pf[:-3].lower() for pf in plugin_files}
+
+    for plugin_info in config["plugins"].items():
+        plugin_name = plugin_info[0]
+        if plugin_name not in allowed:
+            print(f"[PLUGIN ERROR] {plugin_name} is corrupted or out of date!")
+            time.sleep(ERROR_FREEZE_TIME)
             continue
 
         normalized_name = plugin_name.lower() + ".py"
@@ -59,7 +75,7 @@ def load_plugins():
             print(f"[PLUGIN ERROR] Failed to load {plugin_name}: {e}")
             traceback.print_exc()
             try:
-                time.sleep(3)
+                time.sleep(ERROR_FREEZE_TIME)
             except KeyboardInterrupt:
                 pass
 
@@ -75,13 +91,13 @@ def load_plugins():
             else:
                 print(f"[PLUGIN ERROR] {plugin_name} has no setup_plugin method.")
                 try:
-                    time.sleep(3)
+                    time.sleep(ERROR_FREEZE_TIME)
                 except KeyboardInterrupt:
                     pass
         except Exception as e:
             print(f"[PLUGIN ERROR] setup_plugin failed for {plugin_name}: {e}")
             traceback.print_exc()
             try:
-                time.sleep(3)
+                time.sleep(ERROR_FREEZE_TIME)
             except KeyboardInterrupt:
                 pass

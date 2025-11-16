@@ -4,7 +4,7 @@ import os
 import shutil
 import configparser
 
-from fts.app.backend.plugins.installer import fetch_manifest, list_available_plugins, install_plugin
+from fts.app.backend.plugins.installer import fetch_manifest, list_available_plugins, install_plugin, download_hashes
 from fts.app.config import PLUGIN_DIR, CONFIG_PATH
 from fts import __version__
 
@@ -26,6 +26,15 @@ def cmd_plugins(args, logger):
             else:
                 show_plugin_details(args.plugin, logger)
         case "install":
+            logger.warning("Updating plugin hashes\nAny outdated plugins may not be compatible")
+            try:
+                success = download_hashes()
+            except:
+                success = False
+
+            if not success:
+                logger.error("Failed to update plugin hashes!\nRun `fts plugins upgrade` to try again")
+
             all = [i for i in args.plugin if i.lower() == "all"]
             if all:
                 manifest = fetch_manifest()
@@ -42,6 +51,15 @@ def cmd_plugins(args, logger):
             if args.force:
                 reinstall_plugins(get_installed_plugins(), logger)
                 return
+
+            logger.info("Updating plugin hashes")
+            try:
+                success = download_hashes()
+            except:
+                success = False
+
+            if not success:
+                logger.error("Failed to download plugin hashes")
 
             logger.info("Finding outdated plugins")
             outdated = get_outdated_plugins(logger)
@@ -179,7 +197,6 @@ def get_outdated_plugins(logger=None):
         local_version = local_data.get("version", "0.0.0")
         remote_info = remote_plugins.get(plugin_name.lower())
         if not remote_info:
-            if logger: logger.info(f"No remote info found for '{plugin_name}', skipping.")
             continue
 
         remote_version = remote_info.get("version", "0.0.0")
