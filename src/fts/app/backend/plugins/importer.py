@@ -51,7 +51,7 @@ def load_plugins():
     for plugin_info in config["plugins"].items():
         plugin_name = plugin_info[0]
         if plugin_name not in allowed:
-            print(f"[PLUGIN ERROR] {plugin_name} is corrupted or out of date!")
+            print(f"[PLUGIN ERROR] {plugin_name} is corrupted or out of date!\nRun `fts plugins upgrade -f` to reinstall all plugins.")
             time.sleep(ERROR_FREEZE_TIME)
             continue
 

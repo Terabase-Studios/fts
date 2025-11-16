@@ -223,7 +223,7 @@ def add_offline_messages():
     lines.append(f"{"-" * 40}[OfflineChat]{"-" * 40}")
     for offline_line in offline_lines:
         lines.append(offline_line)
-    lines.append(f"{"-" * 92}")
+    lines.append(f"{"-" * 93}")
 
     with open(CHAT_FILE, "w") as f:
         json.dump(lines, f)
