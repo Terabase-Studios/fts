@@ -12,7 +12,7 @@ def download_hashes(logger=None):
     files_to_download = [HASHES_JSON, HASHES_SIG]
 
     for filename in files_to_download:
-        remote = GITHUB_PLUGIN_DIR + filename
+        remote = GITHUB_PLUGIN_DIR + os.path.basename(filename)
         local = os.path.join(SECURE_PLUGIN_DIR, filename)
         try:
             if logger: logger.info(f"Downloading {filename}...")
