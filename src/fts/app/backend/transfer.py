@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import json
 import socket
+import sys
 import threading
 import time
 from functools import partial
@@ -88,12 +89,31 @@ class TransferHandler:
         self.sending_entries = {}
         self.receiving_entries = {}
         self._lock = asyncio.Lock()
+        self.send_queue = asyncio.Queue()
+        loop = asyncio.get_event_loop()
 
         if receive:
             # Start responder in its own thread
             self.responder = RequestResponder()
-            loop = asyncio.get_event_loop()
             loop.create_task(self.check_queue())
+
+        loop.create_task(self.check_send_queue())
+
+    def send_safe(self, ip, abs_path, library=False):
+        self.send_queue.put_nowait((ip, abs_path, library))
+        logger.info(f"Send safe added: {abs_path}->{ip} to queue")
+
+
+    async def check_send_queue(self):
+        while True:
+            info = await self.send_queue.get()  # await asyncio.Queue
+            if info:
+                logger.debug(f"Found item in send_queue: {info}")
+                await self.send(info[0], info[1], library=info[2])
+            await asyncio.sleep(1)
+            loop = asyncio.get_event_loop()
+            task = loop.create_task(self.check_send_queue())
+
 
     async def check_queue(self):
         while True:
@@ -214,7 +234,11 @@ class TransferHandler:
             self.transfer_ui.notify(f"{e}", title="Error receiving transfer", severity="error")
             logger.error(f"Failed to start server: {e}")
 
-    async def send(self, target: str, filepath: str):
+    async def send(self, target: str, filepath: str, library=False):
+        if library:
+            logger.info(f"Received a library request from {target} for {filepath}")
+            self.transfer_ui.notify(f"Received a library request from {target} for {filepath}", title="Your library")
+
         logger.info("Sending started")
         writer = None
         reader = None

@@ -5,17 +5,20 @@ import sys
 from filelock import FileLock, Timeout
 from textual.app import App, ComposeResult
 from textual.containers import Vertical, Horizontal
+from textual.widgets import TabbedContent, Placeholder
 
 import fts.app.backend.transfer as transfer
 import fts.py as fts
 from fts import __version__
 from fts.app.backend.contacts import start_discovery_responder
+from fts.app.backend.library.network import start_library_responder
 from fts.app.backend.plugins.importer import load_plugins
 from fts.app.backend.transfer import TransferHandler
 from fts.app.config import LOCK_FILE
 from fts.app.config import LOG_FILE
 from fts.app.frontend.chat import Chat
 from fts.app.frontend.contacts import Contacts
+from fts.app.frontend.library import LibraryView
 from fts.app.frontend.requests import Requests
 from fts.app.frontend.sending import Sending
 from fts.app.frontend.transfers import Transfers
@@ -26,36 +29,40 @@ fts_app = None
 def setup(transfer_ui: Transfers, requests_ui: Requests) -> None:
     fts.logger = LOG_FILE
     start_discovery_responder()
+    start_library_responder()
     transfer.transfer_handler = TransferHandler(transfer_ui, requests_ui)
 
 class FTSApp(App):
 
-    #CSS_PATH = [
-    #    "style\\main.tcss",
-    #    "style\\contacts.tcss",
-    #    "style\\transfers.tcss",
-    #    "style\\chat.tcss",
-    #    "style\\sending.tcss",
-    #    "style\\requests.tcss",
-    #]
+    CSS_PATH = [
+        "style\\main.tcss",
+        "style\\contacts.tcss",
+        "style\\transfers.tcss",
+        "style\\chat.tcss",
+        "style\\sending.tcss",
+        "style\\requests.tcss",
+        "style\\library.tcss",
+    ]
 
-    CSS = css
+    #CSS = css
 
     def compose(self=None) -> ComposeResult:
         #yield Header()
         #yield Footer()
 
-        with Vertical():
-            with Horizontal(id="toprow"):
-                yield Contacts(id="toprowa")
-                yield Sending(id="toprowb")
-                requests = Requests(id="toprowc")
-                yield requests
+        with TabbedContent("Main", "Library"):
+            with Vertical():
+                with Horizontal(id="toprow"):
+                    yield Contacts(id="toprowa")
+                    yield Sending(id="toprowb")
+                    requests = Requests(id="toprowc")
+                    yield requests
 
-            with Horizontal(id="bottomrow"):
-                yield Chat(id="bottomrowa")
-                transfers = Transfers(id="bottomrowb")
-                yield transfers
+                with Horizontal(id="bottomrow"):
+                    yield Chat(id="bottomrowa")
+                    transfers = Transfers(id="bottomrowb")
+                    yield transfers
+            yield LibraryView()
 
         setup(transfer_ui=transfers, requests_ui=requests)
 
@@ -66,6 +73,7 @@ class FTSApp(App):
 
     def on_mount(self) -> None:
         pass
+
 
 def start(print_icon = False):
     global fts_app

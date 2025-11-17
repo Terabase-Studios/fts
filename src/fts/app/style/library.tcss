@@ -1,0 +1,36 @@
+LibraryTree {
+    border: tall $accent-darken-3;
+    background: $boost;
+    padding-left: 1;
+    height: auto;
+}
+
+.TreeTab {
+    border: hkey $accent-darken-2;
+    padding: 1;
+    margin: 1;
+    background: $boost;
+}
+
+#library_search {
+    border: hkey $panel;
+    background: $boost;
+    margin: 0 1 0 1;
+}
+
+LibraryPanel {
+    width: 20%;
+    padding: 1;
+    border: tall $secondary-lighten-2;
+    background: $boost-lighten-2;
+}
+
+LibraryTreeDisplay {
+    width: 80%;
+    background: $boost;
+    border: tall $secondary-lighten-2;
+}
+
+#library_refresh {
+    width: 1fr;
+}
