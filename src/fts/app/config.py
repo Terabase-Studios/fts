@@ -11,9 +11,11 @@ save_dir_default = os.path.expanduser("~/Downloads/fts")
 DEFAULTS = {
     "DISCOVERY_PORT": 6064,
     "CHAT_PORT": 7064,
+    "LIBRARY_PORT": 8064,
     "SAVE_DIR": save_dir_default,
     "VERBOSE_LOGGING": "true",
     "PLUGINS_ENABLED": "true",
+    "LIBRARY_ENABLED": "false",
 }
 
 # -----------------------------
@@ -60,14 +62,32 @@ def get_config_value(key: str):
         return str(val).lower() == "true"
     return val
 
+def set_config_value(key: str, value):
+    """Set a value in the Settings section and save the config."""
+
+    # Ensure the section exists
+    if "Settings" not in config:
+        config.add_section("Settings")
+
+    # ConfigParser only stores strings
+    config["Settings"][key] = str(value)
+
+    # Save back to disk
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+        config.write(f)
+
+
 # -----------------------------
 # Apply Config Values
 # -----------------------------
 DISCOVERY_PORT = get_config_value("DISCOVERY_PORT")
 CHAT_PORT = get_config_value("CHAT_PORT")
+LIBRARY_PORT = get_config_value("LIBRARY_PORT")
 SAVE_DIR = get_config_value("SAVE_DIR")
 VERBOSE_LOGGING = get_config_value("VERBOSE_LOGGING")
 PLUGINS_ENABLED = get_config_value("PLUGINS_ENABLED")
+library_enabled = get_config_value("LIBRARY_ENABLED")
+
 
 # -----------------------------
 # File Paths
@@ -82,7 +102,9 @@ LOCK_FILE     = os.path.join(APP_DIR, "lock.lock")
 
 PLUGIN_DIR    = os.path.join(APP_DIR, "plugins")
 
+
 LOGS = [LOG_FILE]
+
 
 # -----------------------------
 # Logger Setup

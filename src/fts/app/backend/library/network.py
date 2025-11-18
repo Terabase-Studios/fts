@@ -11,6 +11,7 @@ import fts.app.backend.transfer as fts_transfer
 from fts.app.backend.library.config import LIBRARY_PORT
 from fts.app.backend.library import FTSLibrary
 from fts.app.config import logger
+import fts.app.config as app_config
 
 LIBRARY_DISCOVER = b"FTSLIBRARYDISCOVER"
 LIBRARY_RESPONSE = b"FTSLIBRARYRESPONSE"
@@ -87,6 +88,10 @@ class DiscoveryResponder:
 
     async def handle_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         try:
+            if not app_config.library_enabled:
+                writer.close()
+                await writer.wait_closed()
+                return
             data = await reader.read(1024)  # read discovery message
             logger.info(f"Received {data} from {writer.get_extra_info('peername')[0]}")
             if data == LIBRARY_DISCOVER:
@@ -130,7 +135,7 @@ def start_library_responder():
     return thread
 
 
-async def get_libraries(timeout=0.5):
+async def get_libraries(timeout=0.1):
     """Discover libraries on a list of IPs."""
     collector = []
 

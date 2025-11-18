@@ -1,7 +1,7 @@
 import os
-from fts.app.config import APP_DIR
+from fts.app.config import APP_DIR, LIBRARY_PORT
 
-LIBRARY_PORT = 11064
+LIBRARY_PORT = LIBRARY_PORT
 
 LIBRARY_CACHE_DIR = os.path.join(APP_DIR, "library")
 os.makedirs(LIBRARY_CACHE_DIR, exist_ok=True)

@@ -19,6 +19,7 @@ from fts.app.config import LOG_FILE
 from fts.app.frontend.chat import Chat
 from fts.app.frontend.contacts import Contacts
 from fts.app.frontend.library import LibraryView
+from fts.app.frontend.notepad import NotepadWindow
 from fts.app.frontend.requests import Requests
 from fts.app.frontend.sending import Sending
 from fts.app.frontend.transfers import Transfers
@@ -42,6 +43,7 @@ class FTSApp(App):
         "style\\sending.tcss",
         "style\\requests.tcss",
         "style\\library.tcss",
+        "style\\notepad.tcss",
     ]
 
     #CSS = css
@@ -50,7 +52,7 @@ class FTSApp(App):
         #yield Header()
         #yield Footer()
 
-        with TabbedContent("Main", "Library"):
+        with TabbedContent("Main", "Library", "Notepad"):
             with Vertical():
                 with Horizontal(id="toprow"):
                     yield Contacts(id="toprowa")
@@ -63,6 +65,7 @@ class FTSApp(App):
                     transfers = Transfers(id="bottomrowb")
                     yield transfers
             yield LibraryView()
+            yield NotepadWindow()
 
         setup(transfer_ui=transfers, requests_ui=requests)
 

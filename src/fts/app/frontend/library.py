@@ -1,9 +1,9 @@
 import sys
 
-from textual.widgets import Tree, Input
+from textual.widgets import Tree, Input, Switch
 from textual.widgets.tree import TreeNode
 from textual.events import Key
-from fts.app.backend.library import FTSLibrary
+from fts.app.backend.library import FTSLibrary, LIBRARY_PATH
 from fts.app.backend.library.network import FTSNetLibrary, get_libraries, ask_for_file
 
 import socket
@@ -15,10 +15,22 @@ from textual.containers import VerticalScroll, Container, Vertical, Horizontal
 from textual.widgets import Label, Button, Rule, Log, Collapsible
 
 from fts.app.backend.contacts import ONLINE_USERS, replace_with_ip, replace_with_contact
-from fts.app.config import logger
+from fts.app.config import logger, library_enabled, set_config_value
+import fts.app.config as app_config
 
 RED = "\033[31m"
 RESET = "\033[0m"
+LIBRARY_HELP = f'''
+    The library is a place where you can request files from others without them having to find and send the file to you themselves.
+
+    When you press enter on a selected file, or just click a file, you should see a request popup in the "Main" menu to send you the file!
+
+    If you don't see the transfer request, wait ~30 seconds. The library may get overwhelmed with many file requests. 
+    
+    If there is still no transfer request, then refresh this page and try the transfer again if the file is available.
+
+Your library directory: {LIBRARY_PATH}
+'''
 
 
 class LibraryView(Container):
@@ -40,10 +52,19 @@ class LibraryView(Container):
 
 
 class LibraryPanel(Vertical):
-    def __init__(self, library_view: LibraryView, **kwargs, ):
+    def __init__(self, library_view: LibraryView, **kwargs):
         super().__init__(**kwargs)
         self.library_view = library_view
     def compose(self) -> ComposeResult:
+
+
+        with Vertical() as h:
+            yield Label(f"Library open:", id="library_switch_text")
+            yield Switch(value=app_config.library_enabled, id="library_switch")
+            h.styles.height = "auto"
+
+        yield Label(LIBRARY_HELP, id="library_help_text")
+
         yield Button("Refresh", variant="primary", id="library_refresh")
         date = datetime.datetime.now()
 
@@ -56,8 +77,13 @@ class LibraryPanel(Vertical):
             seconds = f"0{date.second}"
         else:
             seconds = f"{date.second}"
-
         yield Label(f"Last refresh: {date.hour}:{minute}:{seconds}")
+
+
+    def on_switch_changed(self, event: Switch.Changed):
+        if event.switch.id == "library_switch":
+            set_config_value("LIBRARY_ENABLED", event.value)
+            app_config.library_enabled = event.value
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         button_id = event.button.id
@@ -90,9 +116,8 @@ class LibraryTreeDisplay(Vertical):
         self.local_tree_widget = LibraryTree(self.local_lib)
         self.library_widgets["self"] = self.local_tree_widget
 
-        with VerticalScroll(id="tree_scroll") as scroll:
-            with Collapsible(title="Your Library", classes="TreeTab"):
-                yield self.local_tree_widget
+        yield VerticalScroll(id="tree_scroll")
+
 
         yield Input(placeholder="Search Libraries", id="library_search")
 
@@ -102,11 +127,7 @@ class LibraryTreeDisplay(Vertical):
             widget.search(value)
 
     async def on_mount(self) -> None:
-        self_ip = get_ip()
         for user, tree in await get_libraries():
-            if user == self_ip:
-                continue
-
             # Create remote library placeholder
             net_lib = FTSNetLibrary(user, tree)
             self.remote_libraries[user] = net_lib

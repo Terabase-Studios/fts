@@ -34,3 +34,23 @@ LibraryTreeDisplay {
 #library_refresh {
     width: 1fr;
 }
+
+#library_switch_text{
+    text-align: center;
+    text-style: bold;
+    width: 1fr;
+    margin-bottom: 1;
+}
+
+#library_switch {
+    width: 1fr;
+    height: auto;
+}
+
+#library_help_text{
+    text-overflow: fold;
+    width: 1fr;
+    height: 1fr;
+    margin: 0;
+    padding: 0;
+}

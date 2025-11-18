@@ -1,0 +1,9 @@
+#notepad {
+    border: tall $secondary-lighten-2;
+    width: 100%;
+}
+
+#notepad_export {
+    margin: 1 2 1 2;
+    width: 1fr;
+}
