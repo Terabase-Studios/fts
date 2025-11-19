@@ -11,9 +11,8 @@ from pycrdt import Doc, Text
 
 from fts.app.backend.contacts import ONLINE_USERS, replace_with_ip
 from fts.app.backend.host import host_manager
-from fts.app.config import logger
+from fts.app.config import logger, NOTEPAD_PORT
 
-HOST_PORT = 9999
 BUFFER_SIZE = 65536
 CLIENT_TIMEOUT = 60  # seconds
 
@@ -29,7 +28,7 @@ def _b64decode(s: str) -> bytes:
 class NotepadHost:
     """Single-host UDP distributor of pycrdt updates."""
 
-    def __init__(self, port: int = HOST_PORT):
+    def __init__(self, port: int = NOTEPAD_PORT):
         self.port = port
         self.clients: dict[tuple[str, int], float] = {}  # addr -> last_seen
         self.lock = threading.Lock()
@@ -146,7 +145,7 @@ class NotepadHost:
 
 
 class NotepadClient:
-    def __init__(self, on_update_callback: Callable[[str], None], host_port: int = HOST_PORT):
+    def __init__(self, on_update_callback: Callable[[str], None], host_port: int = NOTEPAD_PORT):
         self.on_update_callback = on_update_callback
         self.host_port = host_port
         self.running = True

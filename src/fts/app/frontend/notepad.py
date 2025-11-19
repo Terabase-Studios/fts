@@ -49,9 +49,9 @@ class NotepadWindow(Container):
             return
 
         if self.text == "The notepad is currently in beta and unstable.\nIf you experience any syncing issues,\nplease press any key to resync...":
-            event.text_area.text = "\n"
-            self.text = "\n"
-            self.client.new_text("\n")
+            event.text_area.text = "​"
+            self.text = "​"
+            self.client.new_text("​")
             return
 
         new_text = event.text_area.text
@@ -82,7 +82,7 @@ class NotepadWindow(Container):
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "notepad_export":
             try:
-                save_path = os.path.join(os.path.join(SAVE_DIR, "fts"), "notepad")
+                save_path = os.path.join(SAVE_DIR, "notepad")
                 os.makedirs(save_path, exist_ok=True)
 
                 base = "notepad"
@@ -105,7 +105,7 @@ class NotepadWindow(Container):
                 self.notify(f"{e}", title="Error exporting notepad!", severity="error")
 
     def reconnect(self):
-        self.notify(f"Host changed, please press any key to resync..", title="Notepad", severity="warning")
+        self.notify(f"Host changed, please press any key to resync...", title="Notepad", severity="warning")
         self.host.set_text(self.text_area.text)
         return
         #self.client.stop()

@@ -12,6 +12,7 @@ DEFAULTS = {
     "DISCOVERY_PORT": 6064,
     "CHAT_PORT": 7064,
     "LIBRARY_PORT": 8064,
+    "NOTEPAD_PORT": 9064,
     "SAVE_DIR": save_dir_default,
     "VERBOSE_LOGGING": "true",
     "PLUGINS_ENABLED": "true",
@@ -83,6 +84,7 @@ def set_config_value(key: str, value):
 DISCOVERY_PORT = get_config_value("DISCOVERY_PORT")
 CHAT_PORT = get_config_value("CHAT_PORT")
 LIBRARY_PORT = get_config_value("LIBRARY_PORT")
+NOTEPAD_PORT = get_config_value("NOTEPAD_PORT")
 SAVE_DIR = get_config_value("SAVE_DIR")
 VERBOSE_LOGGING = get_config_value("VERBOSE_LOGGING")
 PLUGINS_ENABLED = get_config_value("PLUGINS_ENABLED")
