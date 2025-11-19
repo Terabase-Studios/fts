@@ -8,7 +8,7 @@ from typing import Dict, Any
 
 from fts.app.backend.contacts import discover
 import fts.app.backend.transfer as fts_transfer
-from fts.app.backend.library.config import LIBRARY_PORT
+from fts.app.backend.library.config import LIBRARY_PORT, LIBRARY_LOG_FILE
 from fts.app.backend.library import FTSLibrary
 from fts.app.config import logger
 import fts.app.config as app_config
@@ -92,6 +92,11 @@ class DiscoveryResponder:
                 writer.close()
                 await writer.wait_closed()
                 return
+            try:
+                with open(LIBRARY_LOG_FILE, "r") as f:
+                    history = json.load(f)
+            except:
+                history = []
             data = await reader.read(1024)  # read discovery message
             if not data:
                 return
@@ -102,6 +107,9 @@ class DiscoveryResponder:
                 # First send length, then the data
                 writer.write(len(response).to_bytes(4, "big"))
                 writer.write(response)
+                history.append({"type": "discover", "data": data.decode(), "source": writer.get_extra_info("peername")[0]})
+                with open(LIBRARY_LOG_FILE, "w") as f:
+                    json.dump(history, f)
                 await writer.drain()
             else:
                 file_id = data[len(LIBRARY_REQUEST):].decode("utf-8").replace(" ", "")
@@ -111,6 +119,9 @@ class DiscoveryResponder:
                 ip = writer.get_extra_info('peername')[0]
 
                 logger.info(f"[Library] Received library request: {file_id}->{abs_path}")
+                history.append({"type": "request", "data": data.decode(), "source": writer.get_extra_info("peername")[0], "id": file_id, "path": abs_path})
+                with open(LIBRARY_LOG_FILE, "w") as f:
+                    json.dump(history, f)
 
                 fts_transfer.transfer_handler.send_safe(ip, abs_path, True)
 
