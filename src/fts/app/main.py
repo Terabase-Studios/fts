@@ -11,6 +11,7 @@ import fts.app.backend.transfer as transfer
 import fts.py as fts
 from fts import __version__
 from fts.app.backend.contacts import start_discovery_responder
+from fts.app.backend.host import host_manager, host_watcher
 from fts.app.backend.library.network import start_library_responder
 from fts.app.backend.plugins.importer import load_plugins
 from fts.app.backend.transfer import TransferHandler
@@ -32,21 +33,23 @@ def setup(transfer_ui: Transfers, requests_ui: Requests) -> None:
     start_discovery_responder()
     start_library_responder()
     transfer.transfer_handler = TransferHandler(transfer_ui, requests_ui)
+    host_manager.start()
+    host_watcher.start()
 
 class FTSApp(App):
 
-    CSS_PATH = [
-        "style\\main.tcss",
-        "style\\contacts.tcss",
-        "style\\transfers.tcss",
-        "style\\chat.tcss",
-        "style\\sending.tcss",
-        "style\\requests.tcss",
-        "style\\library.tcss",
-        "style\\notepad.tcss",
-    ]
+    #CSS_PATH = [
+    #    "style\\main.tcss",
+    #    "style\\contacts.tcss",
+    #    "style\\transfers.tcss",
+    #    "style\\chat.tcss",
+    #    "style\\sending.tcss",
+    #    "style\\requests.tcss",
+    #    "style\\library.tcss",
+    #    "style\\notepad.tcss",
+    #]
 
-    #CSS = css
+    CSS = css
 
     def compose(self=None) -> ComposeResult:
         #yield Header()
@@ -65,7 +68,10 @@ class FTSApp(App):
                     transfers = Transfers(id="bottomrowb")
                     yield transfers
             yield LibraryView()
-            yield NotepadWindow()
+            notepad = NotepadWindow(id="notepad")
+            host_manager.host_changed_funcs.append(notepad.reconnect)
+            yield notepad
+
 
         setup(transfer_ui=transfers, requests_ui=requests)
 

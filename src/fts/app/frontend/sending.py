@@ -212,7 +212,7 @@ class Sending(Container):
 
             contact_selector.deselect_all()
 
-            logger.info("Starting transfer requests")
+            logger.info("[Frontend][Sending]Starting transfer requests")
 
             self.start_send_all(contacts, file_path, transfer)
 

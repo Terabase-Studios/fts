@@ -29,7 +29,7 @@ dependencies = [
     "filelock>=3.19.1",
     "textual>=6.2.1",
     "click>=8.3.0",
-    "pycrdt>=0.12.43,<0.13"
+    "pycrdt>=0.12.43, <0.13"
 ]
 
 [project.scripts]

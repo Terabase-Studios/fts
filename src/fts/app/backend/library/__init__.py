@@ -98,13 +98,27 @@ class FTSLibrary:
         rel_path = os.path.relpath(fpath, self.library_root)
         parts = rel_path.split(os.sep)
         *folders, fname = parts
+
+        # Traverse and keep references for pruning
         node = self.tree
+        parents = []
         for part in folders:
+            parents.append((node, part))
             node = node.get(part, {})
+            if not node:
+                return  # folder already gone
+
+        # Remove the file
         if "files" in node:
             node["files"] = [f for f in node["files"] if f["name"] != fname]
             if not node["files"]:
                 node.pop("files", None)
+
+        # Prune empty folders from bottom to top
+        for parent_node, folder_name in reversed(parents):
+            child = parent_node.get(folder_name, {})
+            if not child or (len(child) == 0):
+                parent_node.pop(folder_name, None)
 
     def to_json_tree(self) -> str:
         return json.dumps(self.tree, indent=2)

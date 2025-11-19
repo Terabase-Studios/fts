@@ -3,6 +3,7 @@ import ipaddress
 import json
 import os
 import socket
+import sys
 import threading
 import time
 from typing import Any
@@ -11,6 +12,15 @@ from typing import Union, List
 import psutil
 
 from fts.app.config import CONTACTS_FILE, SEEN_IPS_FILE, DISCOVERY_PORT
+
+# Known “fake” subnets used by hypervisors
+VIRTUAL_IP_RANGES  = [
+    ipaddress.ip_network("192.168.56.0/24"),  # VirtualBox Host-only
+    ipaddress.ip_network("192.168.99.0/24"),  # Docker default (old)
+    ipaddress.ip_network("10.0.2.0/24"),      # VirtualBox NAT
+    ipaddress.ip_network("172.22.128.0/24"),
+    ipaddress.ip_network("10.0.3.0/24"),
+]
 
 DISCOVERY_MESSAGE = b"FTSCHECK123"
 DISCOVERY_RESPOND = b"FTSRECIEVE456"
@@ -158,6 +168,43 @@ def replace_with_ip(to_replace: Union[str, List[str]]) -> Union[str, List[str]]:
         return to_replace
 
 
+def is_phantom(iface_name: str) -> bool:
+    """
+    Returns True if the interface is likely a virtual/phantom adapter (VirtualBox, Docker, etc.)
+    """
+    addrs = psutil.net_if_addrs().get(iface_name, [])
+    stats = psutil.net_if_stats().get(iface_name)
+
+    # Missing stats or down interface = phantom
+    if not stats or not stats.isup:
+        return True
+
+    # Zero speed = likely phantom
+    if stats.speed == 0:
+        return True
+
+    for addr in addrs:
+        try:
+            ip = ipaddress.IPv4Address(addr.address)
+            # Ignore loopback and link-local
+            if ip.is_loopback or ip.is_link_local:
+                continue
+
+            # Check if the IP is in a known virtual subnet
+            for vnet in VIRTUAL_IP_RANGES:
+                if ip in vnet:
+                    return True  # IP in virtual range → phantom
+
+            # Otherwise, private IP not in virtual range → likely real LAN
+            if ip.is_private:
+                return False
+        except ValueError:
+            continue
+
+    # No usable IP found → phantom
+    return True
+
+
 def get_broadcast_addresses():
     """
     Returns broadcast addresses for all private IPv4 interfaces, filtered for usable LAN only.
@@ -165,6 +212,8 @@ def get_broadcast_addresses():
     broadcasts = set()
 
     for iface, addrs in psutil.net_if_addrs().items():
+        if is_phantom(iface):
+            continue
         for addr in addrs:
             if addr.family != socket.AF_INET:
                 continue
@@ -224,7 +273,8 @@ def discover(timeout=0.1) -> list[Any] | None:
     sock.bind(("0.0.0.0", 0))  # OS assigns a free port
     sock.settimeout(timeout)
 
-    broadcasts = get_broadcast_addresses()
+    broadcasts: list[str] = get_broadcast_addresses()
+
     try:
         for baddr in broadcasts:
             if has_public_broadcast(baddr):
