@@ -118,7 +118,7 @@ class DiscoveryResponder:
 
                 ip = writer.get_extra_info('peername')[0]
 
-                logger.info(f"[Library][Responder] Received library request: {file_id}->{abs_path}")
+                logger.info(f"[Library][Responder] Received library request from {ip}: {file_id}->{abs_path}")
                 history.append({"type": "request", "data": data.decode(), "source": writer.get_extra_info("peername")[0], "id": file_id, "path": abs_path})
                 with open(LIBRARY_LOG_FILE, "w") as f:
                     json.dump(history, f)
@@ -147,7 +147,7 @@ def start_library_responder():
     return thread
 
 
-async def get_libraries(timeout=0.1):
+async def get_libraries(timeout=1):
     """Discover libraries on a list of IPs."""
     collector = []
 
@@ -167,7 +167,11 @@ async def get_libraries(timeout=0.1):
 
             writer.close()
             await writer.wait_closed()
-        except Exception:
+        except asyncio.TimeoutError:
+            logger.debug(f"[Library][Retriever] Unreachable Host: {ip}, Error: Timeout")
+            continue  # ignore unreachable hosts
+        except Exception as e:
+            logger.debug(f"[Library][Retriever] Unreachable Host: {ip}, Error: {e}")
             continue  # ignore unreachable hosts
 
     return collector

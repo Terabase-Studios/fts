@@ -1,9 +1,10 @@
 import os
 import json
 import hashlib
+import sys
 from typing import Dict, Any
 
-from fts.app.backend.library.config import LIBRARY_PATH, LIBRARY_CACHE_FILE
+from fts.app.backend.library.config import LIBRARY_PATH, LIBRARY_CACHE_FILE, IGNORE_HIDDEN_FOLDERS
 
 
 class FTSLibrary:
@@ -27,9 +28,15 @@ class FTSLibrary:
         self.id_index.clear()
         self.path_index.clear()
         self.tree.clear()
-        for root, _, files in os.walk(self.library_root):
+
+        for root, dirs, files in os.walk(self.library_root):
+            if IGNORE_HIDDEN_FOLDERS:
+                dirs[:] = [d for d in dirs if not d.startswith(".")]
+                files = [f for f in files if not f.startswith(".")]
+
             rel_path = os.path.relpath(root, self.library_root)
             node = self._get_tree_node(rel_path)
+
             for fname in files:
                 fpath = os.path.join(root, fname)
                 self._add_file(node, fpath, rel_path)
@@ -69,7 +76,10 @@ class FTSLibrary:
     def update(self):
         """Incrementally update the library and cache."""
         current_files = {}
-        for root, _, files in os.walk(self.library_root):
+        for root, dirs, files in os.walk(self.library_root):
+            if IGNORE_HIDDEN_FOLDERS:
+                dirs[:] = [d for d in dirs if not d.startswith(".")]
+                files = [f for f in files if not f.startswith(".")]
             for fname in files:
                 fpath = os.path.join(root, fname)
                 current_files[fpath] = os.path.getsize(fpath)

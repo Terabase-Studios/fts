@@ -54,10 +54,9 @@ class LibraryView(Container):
 class LibraryPanel(Vertical):
     def __init__(self, library_view: LibraryView, **kwargs):
         super().__init__(**kwargs)
-        self.library_view = library_view
+        self.library_view = library_view\
+
     def compose(self) -> ComposeResult:
-
-
         with Vertical() as h:
             yield Label(f"Library open:", id="library_switch_text")
             yield Switch(value=app_config.library_enabled, id="library_switch")
@@ -82,7 +81,7 @@ class LibraryPanel(Vertical):
 
     def on_switch_changed(self, event: Switch.Changed):
         if event.switch.id == "library_switch":
-            set_config_value("LIBRARY_ENABLED", event.value)
+            set_config_value("LIBRARY_ENABLED", str(event.value).lower())
             app_config.library_enabled = event.value
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -290,7 +289,7 @@ class LibraryTree(Tree):
         success = await ask_for_file(self.ip, file_id)
         if success:
             self.notify(f"Sent library request to {replace_with_contact(self.ip)}: {file_id}")
-            logger.info(f"Sent library request to {replace_with_contact(self.ip)}: {file_id}")
+            logger.info(f"[Library][Frontend] Sent library request to {replace_with_contact(self.ip)}: {file_id}")
         else:
             self.notify(f"Failed to send library request to {replace_with_contact(self.ip)}: {file_id}", severity="error")
-            logger.error(f"Failed to send library request to {replace_with_contact(self.ip)}: {file_id}")
+            logger.error(f"[Library][Frontend] Failed to send library request to {replace_with_contact(self.ip)}: {file_id}")

@@ -73,9 +73,9 @@ class RequestResponder():
                 addr = writer.get_extra_info('peername')[0]
                 port = await get_free_port()
                 writer.write(bytes(str(port), 'utf-8') + b'\n')
-                logger.debug(f"[RequestResponder] Adding {addr}({port}) to queue")
+                logger.debug(f"[RequestResponder][QueueEvent] Adding {addr}({port}) to queue")
                 await self.queue.put((addr, port))
-                logger.debug(f"[RequestResponder] Added to queue: {list(self.queue._queue)}")
+                logger.debug(f"[RequestResponder][QueueEvent] Added to queue: {list(self.queue._queue)}")
                 return
         except Exception as e:
             logger.error(f"[RequestResponder] Responser failed: {e}")
@@ -101,14 +101,14 @@ class TransferHandler:
 
     def send_safe(self, ip, abs_path, library=False):
         self.send_queue.put_nowait((ip, abs_path, library))
-        logger.debug(f"[TransferHandler][QueueEvent] Send safe added: {abs_path}->{ip} to queue")
+        logger.debug(f"[TransferHandler][QueueEvent][Send] send_safe added: {abs_path}->{ip} to send_queue")
 
 
     async def check_send_queue(self):
         while True:
             info = await self.send_queue.get()  # await asyncio.Queue
             if info:
-                logger.debug(f"[TransferHandler][QueueEvent] Found item in send_queue: {info}")
+                logger.debug(f"[TransferHandler][QueueEvent][Send] Found item in send_queue: {info}")
                 await self.send(info[0], info[1], library=info[2])
             await asyncio.sleep(1)
             loop = asyncio.get_event_loop()
@@ -134,7 +134,7 @@ class TransferHandler:
         connection_handled = asyncio.Event()
 
         async def handle_recieve(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
-            logger.info("[TransferHandler][Receive] Receive server started")
+            logger.debug("[TransferHandler][Receive] Receive server started")
             try:
                 data = await reader.readline()
                 if not data:
@@ -236,7 +236,7 @@ class TransferHandler:
 
     async def send(self, target: str, filepath: str, library=False):
         if library:
-            logger.info(f"[TransferHandler][Send] Received a library request from {target} for {filepath}")
+            logger.debug(f"[TransferHandler][Send] Received a library request from {target} for {filepath}")
             self.transfer_ui.notify(f"Received a library request from {target} for {filepath}", title="Your library")
 
         logger.info("[TransferHandler][Send] Sending started")

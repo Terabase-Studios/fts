@@ -1,7 +1,8 @@
 import os
-from fts.app.config import APP_DIR, LIBRARY_PORT
+from fts.app.config import APP_DIR, LIBRARY_PORT, LIBRARY_IGNORE_HIDDEN_FOLDERS
 
 LIBRARY_PORT = LIBRARY_PORT
+IGNORE_HIDDEN_FOLDERS = LIBRARY_IGNORE_HIDDEN_FOLDERS
 
 LIBRARY_CACHE_DIR = os.path.join(APP_DIR, "library")
 os.makedirs(LIBRARY_CACHE_DIR, exist_ok=True)

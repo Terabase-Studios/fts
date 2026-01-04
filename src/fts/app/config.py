@@ -14,7 +14,7 @@ EXPERIMENTAL_FEATURES_ENABLED = EXPERIMENTAL_FEATURES_ENABLED
 # Default Configuration Values
 # -----------------------------
 save_dir_default = os.path.expanduser("~/Downloads/fts")
-CONFIG_VERSION = 2
+CONFIG_VERSION = 1
 
 DEFAULTS = {
     "CONFIG_VERSION": CONFIG_VERSION,
@@ -28,6 +28,7 @@ DEFAULTS = {
     "VERBOSE_LOGGING": "true",
     "PLUGINS_ENABLED": "true",
     "LIBRARY_ENABLED": "false",
+    "LIBRARY_IGNORE_HIDDEN_FOLDERS": "true",
 }
 # -----------------------------
 # Setup Directories
@@ -45,16 +46,17 @@ def backup_config(path):
     i = 1
     while True:
         candidate = f"{base}.{i}" if i else base
-        if not os.path.exists(candidate):
-            os.rename(path, candidate)
+        if not os.path.exists(candidate + ".txt"):
+            os.rename(path, candidate + ".txt")
             break
         i += 1
 
-def resave_config():
+def resave_config(backup=True):
     config = configparser.ConfigParser()
     config["Settings"] = {k: str(v) for k, v in DEFAULTS.items()}
 
-    backup_config(CONFIG_PATH)
+    if backup:
+        backup_config(CONFIG_PATH)
     with open(CONFIG_PATH, "w", encoding="utf-8") as f:
         config.write(f)
 
@@ -95,7 +97,7 @@ def load_or_create_config():
             print(f"ERROR: failed to load {CONFIG_PATH}: {e}")
             broken_config = True
     else:
-        resave_config()
+        return resave_config(False)
 
     if broken_config:
         print("INFO: Recreating config.ini with default settings, a backup will be saved in the same directory.")
@@ -138,6 +140,7 @@ SAVE_DIR = get_config_value("SAVE_DIR")
 VERBOSE_LOGGING = get_config_value("VERBOSE_LOGGING")
 PLUGINS_ENABLED = get_config_value("PLUGINS_ENABLED")
 library_enabled = get_config_value("LIBRARY_ENABLED")
+LIBRARY_IGNORE_HIDDEN_FOLDERS = get_config_value("LIBRARY_IGNORE_HIDDEN_FOLDERS")
 
 
 # -----------------------------

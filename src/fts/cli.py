@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import sys
+import traceback
 
 from fts import __version__
 from fts.core.aliases import resolve_alias, resolve_args
@@ -113,7 +114,7 @@ def main():
         except ImportError as e:
             print(f"Missing Fts-App!: {e}")
         except Exception as e:
-            print(f"Unhandled FTS-App exception!: {e}")
+            print(f"Unhandled FTS-App exception!:\n{traceback.format_exc()}")
 
     try:
         parser = create_parser()

@@ -21,7 +21,7 @@ from pathlib import Path
 # ======================================================
 # Default Configuration
 # ======================================================
-CONFIG_VERSION = 3
+CONFIG_VERSION = 1
 current_config_version = int(CONFIG_VERSION)
 
 # -------------------------
@@ -286,8 +286,8 @@ def backup_config(path: str):
     while True:
         suffix = f".{i}" if i else ""
         candidate = base + suffix
-        if not os.path.exists(candidate):
-            os.rename(path, candidate)
+        if not os.path.exists(candidate + ".txt"):
+            os.rename(path, candidate + ".txt")
             break
         i += 1
 

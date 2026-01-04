@@ -25,9 +25,6 @@ def load_plugins():
     else:
         plugin_files = unverified_plugin_files
 
-    if not plugin_files:
-        return
-
     # Load or create config.ini
     config = configparser.ConfigParser()
     if os.path.exists(CONFIG_PATH):
@@ -40,18 +37,18 @@ def load_plugins():
         plugin_name = plugin_file[:-3]  # remove .py
         if plugin_name not in config["plugins"]:
             answer = input(f"Do you want to enable the plugin '{plugin_name}'? [Y/n]: ").strip().lower()
-            config["plugins"][plugin_name] = "false" if answer == "n" else "true"
+            config["plugins"][plugin_name] = "false" if answer.lower().strip() == "n" or answer.lower().strip() == "no" else "true"
 
     with open(CONFIG_PATH, "w") as f:
         config.write(f)
 
     # Step 4: Import enabled plugins
     loaded_plugins = []
-
     allowed = {pf[:-3].lower() for pf in plugin_files}
 
-    for plugin_info in config["plugins"].items():
-        plugin_name = plugin_info[0]
+    for plugin_name, enabled in config["plugins"].items():
+        if enabled.lower().strip() != "true":
+            continue
         if plugin_name not in allowed:
             print(f"[PLUGIN ERROR] {plugin_name} is corrupted or out of date!\nRun `fts plugins upgrade -f` to reinstall all plugins.")
             time.sleep(ERROR_FREEZE_TIME)
