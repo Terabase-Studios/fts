@@ -7,6 +7,7 @@ from textual.app import App, ComposeResult
 from textual.containers import Vertical, Horizontal
 from textual.widgets import TabbedContent, Placeholder
 
+from fts.cli import ICON
 import fts.app.backend.transfer as transfer
 import fts.py as fts
 from fts import __version__
@@ -121,29 +122,3 @@ def start(print_icon = False):
         print("Another instance of the FTS App is already running! Only one instance is allowed at a time.")
 
     print('')
-
-XXXX = __version__()
-ICON = f"""                                         
-         ██████████████████████              
- ██████  ██                    ██     ██████ 
-███████████                      ████████████
-███████████                       ███████████
-  ██████ ██      Terabase's       ██ ██████  
-     ██████       FTS-Tool        ██████     
-     ██████        v{XXXX}         ██████     
-       ████                       ████       
-        ████     ▌Graphical      █████       
-         ████    Interface▐     ████         
-         █████                 █████         
-         ███████             ███████         
-         ██ ████             ████ ██         
-         ██  █████         █████  ██         
-         ██   █████       █████   ██         
-         ██    █████     █████    ██         
-         ██     █████   █████     ██         
-         ██      █████ █████      ██         
-          ██████████████████████████         
-                   ███████                   
-                   ███████                   
-                    █████         
-"""
