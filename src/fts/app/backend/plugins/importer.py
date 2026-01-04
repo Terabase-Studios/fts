@@ -16,6 +16,8 @@ def load_plugins():
 
     os.makedirs(PLUGIN_DIR, exist_ok=True)
     unverified_plugin_files = [f for f in os.listdir(PLUGIN_DIR) if f.endswith(".py") and "no_include" not in f]
+    if not unverified_plugin_files:
+        return
 
     if SECURE and unverified_plugin_files:
         print("[PLUGIN VERIFIER] Verifying plugins...")
