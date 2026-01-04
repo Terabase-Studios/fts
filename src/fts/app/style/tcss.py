@@ -299,4 +299,81 @@ ActiveEntry {
     min-height: 0;
     align: right middle;
 }
+
+
+
+
+
+
+
+
+
+
+LibraryTree {
+    border: tall $accent-darken-3;
+    background: $boost;
+    padding-left: 1;
+    height: auto;
+}
+
+.TreeTab {
+    border: hkey $accent-darken-2;
+    padding: 1;
+    margin: 1;
+    background: $boost;
+}
+
+#library_search {
+    border: hkey $panel;
+    background: $boost;
+    margin: 0 1 0 1;
+}
+
+LibraryPanel {
+    width: 20%;
+    padding: 1;
+    border: tall $secondary-lighten-2;
+    background: $boost-lighten-2;
+}
+
+LibraryTreeDisplay {
+    width: 80%;
+    background: $boost;
+    border: tall $secondary-lighten-2;
+}
+
+#library_refresh {
+    width: 1fr;
+}
+
+#library_switch_text{
+    text-align: center;
+    text-style: bold;
+    width: 1fr;
+    margin-bottom: 1;
+}
+
+#library_switch {
+    width: 1fr;
+    height: auto;
+}
+
+#library_help_text{
+    text-overflow: fold;
+    width: 1fr;
+    height: 1fr;
+    margin: 0;
+    padding: 0;
+}
+
+
+#notepad {
+    border: tall $secondary-lighten-2;
+    width: 100%;
+}
+
+#notepad_export {
+    margin: 1 2 1 2;
+    width: 1fr;
+}
 '''

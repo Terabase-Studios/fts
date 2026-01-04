@@ -19,7 +19,7 @@ def load_plugins():
     if not unverified_plugin_files:
         return
 
-    if SECURE:
+    if SECURE and unverified_plugin_files:
         print("[PLUGIN VERIFIER] Verifying plugins...")
         plugin_files = verify_plugins(unverified_plugin_files)
     else:

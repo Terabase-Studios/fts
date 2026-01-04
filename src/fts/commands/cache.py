@@ -33,7 +33,9 @@ def show():
         "KEY.PEM": "FTS private key",
         "KNOWN_SERVERS.JSON": "Trusted server ip fingerprints",
         "FTS_RECEIVER.PID": "PID of the detached server",
-        "BACKUP.ZIP": "Backup of the cache for \'fts cache restore\'"
+        "BACKUP.ZIP": "Backup of the cache for \'fts cache restore\'",
+        "HASHES.JSON": "Used to verify plugins",
+        "HASHES.SIG": "Used to verify plugins"
     }
 
     class Color:

@@ -21,9 +21,16 @@ from pathlib import Path
 # ======================================================
 # Default Configuration
 # ======================================================
+CONFIG_VERSION = 3
+current_config_version = int(CONFIG_VERSION)
 
 # -------------------------
 # General
+# -------------------------
+EXPERIMENTAL_FEATURES_ENABLED = False
+
+# -------------------------
+# Protocol
 # -------------------------
 MAGIC = b"FTS1"
 VERSION = 2.0
@@ -149,6 +156,11 @@ def _write_default_config(path: str):
     """Generate a default config.ini if none exists."""
     cp = configparser.ConfigParser()
 
+    cp["general"] = {
+        "config_version": str(CONFIG_VERSION),
+        "experimental_features_enabled": str(EXPERIMENTAL_FEATURES_ENABLED),
+    }
+
     cp["networking"] = {
         "default_file_port": str(DEFAULT_FILE_PORT),
     }
@@ -195,7 +207,7 @@ def _coerce_value(key: str, value: str):
         return value.strip().lower() in ("1", "true", "yes", "on", "y")
 
     # Integers
-    if k.endswith("_port") or k.endswith("_size") or k.endswith("_retries") or k.endswith("_min") or k.endswith("_seconds"):
+    if k.endswith("_port") or k.endswith("_size") or k.endswith("_retries") or k.endswith("_min") or k.endswith("_seconds") or k == "config_version":
         try:
             return int(value)
         except ValueError:
@@ -250,12 +262,45 @@ def load_or_create_config(path: str = CONFIG_FILE):
 # ======================================================
 # Auto-run on import
 # ======================================================
-last_config = CONFIG_FILE
-load_or_create_config(CONFIG_FILE)
-warned = False
-while last_config != CONFIG_FILE:
-    if not warned:
-        print('WARNING: Changing APP_DIR is not recommended, as it may cause unpredictable behavior!')
-    load_or_create_config(CONFIG_FILE)
+broken_config = False
+try:
     last_config = CONFIG_FILE
+    load_or_create_config(CONFIG_FILE)
+    warned = False
+    while last_config != CONFIG_FILE:
+        if not warned:
+            print('WARNING: Changing APP_DIR is not recommended, as it may cause unpredictable behavior!')
+        load_or_create_config(CONFIG_FILE)
+        last_config = CONFIG_FILE
+except Exception as e:
+    print(f"ERROR: failed to load {CONFIG_FILE}: {e}")
+    broken_config = True
 
+def backup_config(path: str):
+    if not os.path.exists(path):
+        return
+
+    base = path + ".backup"
+    i = 0
+
+    while True:
+        suffix = f".{i}" if i else ""
+        candidate = base + suffix
+        if not os.path.exists(candidate):
+            os.rename(path, candidate)
+            break
+        i += 1
+
+def resave_config():
+    """Save config to config.ini and move existing config.ini to back up."""
+    global CONFIG_VERSION
+    backup_config(CONFIG_FILE)
+    CONFIG_VERSION = current_config_version
+    _write_default_config(CONFIG_FILE)
+
+if broken_config:
+    print("INFO: Recreating config.ini with default settings, a backup will be saved in the same directory.")
+    resave_config()
+elif CONFIG_VERSION != current_config_version:
+    print("INFO: Migrating config.ini to a new config version, a backup will be saved in the same directory.")
+    resave_config()

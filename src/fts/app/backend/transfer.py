@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import json
 import socket
+import sys
 import threading
 import time
 from functools import partial
@@ -54,7 +55,7 @@ class RequestResponder():
         asyncio.run(self._run_responder(self.port))
 
     async def _run_responder(self, port: int):
-        logger.info(f"Reponder started")
+        logger.info(f"[RequestResponder] Reponder started")
         while True:
             try:
                 ssl_context: SSLContext = secure.get_server_context()
@@ -66,18 +67,18 @@ class RequestResponder():
 
     async def _respond(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         try:
-            logger.info(f"Reponder responding")
+            logger.info(f"[RequestResponder] Reponder responding to {writer.get_extra_info('peername')}")
             msg = await reader.read(len(REQUEST_MSG))
             if msg == REQUEST_MSG:
                 addr = writer.get_extra_info('peername')[0]
                 port = await get_free_port()
                 writer.write(bytes(str(port), 'utf-8') + b'\n')
-                logger.debug(f"Adding {addr}({port}) to queue")
+                logger.debug(f"[RequestResponder] Adding {addr}({port}) to queue")
                 await self.queue.put((addr, port))
-                logger.debug(f"Added to queue: {list(self.queue._queue)}")
+                logger.debug(f"[RequestResponder] Added to queue: {list(self.queue._queue)}")
                 return
         except Exception as e:
-            logger.error(f"Responser failed: {e}")
+            logger.error(f"[RequestResponder] Responser failed: {e}")
 
 
 class TransferHandler:
@@ -88,25 +89,44 @@ class TransferHandler:
         self.sending_entries = {}
         self.receiving_entries = {}
         self._lock = asyncio.Lock()
+        self.send_queue = asyncio.Queue()
+        loop = asyncio.get_event_loop()
 
         if receive:
             # Start responder in its own thread
             self.responder = RequestResponder()
-            loop = asyncio.get_event_loop()
             loop.create_task(self.check_queue())
+
+        loop.create_task(self.check_send_queue())
+
+    def send_safe(self, ip, abs_path, library=False):
+        self.send_queue.put_nowait((ip, abs_path, library))
+        logger.debug(f"[TransferHandler][QueueEvent] Send safe added: {abs_path}->{ip} to queue")
+
+
+    async def check_send_queue(self):
+        while True:
+            info = await self.send_queue.get()  # await asyncio.Queue
+            if info:
+                logger.debug(f"[TransferHandler][QueueEvent] Found item in send_queue: {info}")
+                await self.send(info[0], info[1], library=info[2])
+            await asyncio.sleep(1)
+            loop = asyncio.get_event_loop()
+            task = loop.create_task(self.check_send_queue())
+
 
     async def check_queue(self):
         while True:
             sender = await self.responder.queue.get()  # await asyncio.Queue
             if sender:
-                logger.debug(f"Found item in queue: {sender}")
+                logger.debug(f"[TransferHandler][QueueEvent] Found item in queue: {sender}")
                 await self.respond_to_requests(sender)
             await asyncio.sleep(1)
             loop = asyncio.get_event_loop()
             task = loop.create_task(self.check_queue())
 
     async def respond_to_requests(self, sender: tuple[str, int]):
-        logger.info("Receive started")
+        logger.info("[TransferHandler][Receive] Receive started")
         host, port = sender
         ssl_context = secure.get_server_context()
 
@@ -114,7 +134,7 @@ class TransferHandler:
         connection_handled = asyncio.Event()
 
         async def handle_recieve(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
-            logger.info("Receive server started")
+            logger.info("[TransferHandler][Receive] Receive server started")
             try:
                 data = await reader.readline()
                 if not data:
@@ -187,13 +207,13 @@ class TransferHandler:
 
             except Exception as e:
                 self.transfer_ui.notify(f"{e}", title="Error receiving transfer", severity="error")
-                logger.error(f"Receive failed: {e}")
+                logger.error(f"[TransferHandler][Receive] Receive failed: {e}")
 
             finally:
                 writer.close()
                 await writer.wait_closed()
                 connection_handled.set()  # Signal that we're done
-                logger.info("Received function closed")
+                logger.info("[TransferHandler][Receive] Received function closed")
 
         try:
             server = await asyncio.start_server(
@@ -212,10 +232,14 @@ class TransferHandler:
             asyncio.create_task(handle_once())
         except Exception as e:
             self.transfer_ui.notify(f"{e}", title="Error receiving transfer", severity="error")
-            logger.error(f"Failed to start server: {e}")
+            logger.error(f"[TransferHandler][Receive] Failed to start server: {e}")
 
-    async def send(self, target: str, filepath: str):
-        logger.info("Sending started")
+    async def send(self, target: str, filepath: str, library=False):
+        if library:
+            logger.info(f"[TransferHandler][Send] Received a library request from {target} for {filepath}")
+            self.transfer_ui.notify(f"Received a library request from {target} for {filepath}", title="Your library")
+
+        logger.info("[TransferHandler][Send] Sending started")
         writer = None
         reader = None
         try:
@@ -329,14 +353,14 @@ class TransferHandler:
 
         except Exception as e:
             self.transfer_ui.notify(f"{e}", title="Error sending transfer", severity="error")
-            logger.error(f"Recieve failed: {e}")
+            logger.error(f"[TransferHandler][Send] Recieve failed: {e}")
 
         finally:
             if writer:
                 writer.close()
                 await writer.wait_closed()
 
-            logger.info("Sending function closed")
+            logger.info("[TransferHandler][Send] Sending function closed")
 
     async def run_in_thread(self, func, *args, **kwargs):
         """
@@ -360,6 +384,7 @@ class TransferHandler:
         return await asyncio.to_thread(partial(safe_run, func, *args, **kwargs))
 
     def cancel_all(self):
+        logger.debug("[TransferHandler][Cancel] Cancelling all transfers")
         for receiving in self.receiving_entries.values():
             transfer = receiving[1]
             transfer.cancelled.set()
@@ -371,6 +396,7 @@ class TransferHandler:
             transfer.cancelled.set()
             if transfer.manager:
                 transfer.manager.cancelled = True
+        logger.info(f"[TransferHandler][Cancel] Finished cleanup")
 
 
 class Transfer():

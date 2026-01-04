@@ -26,7 +26,7 @@ def cmd_plugins(args, logger):
             else:
                 show_plugin_details(args.plugin, logger)
         case "install":
-            logger.warning("Updating plugin hashes\nAny outdated plugins may not be compatible")
+            logger.info("Updating plugin hashes\nAny outdated plugins may not be compatible")
             try:
                 success = download_hashes()
             except:
