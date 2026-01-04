@@ -100,7 +100,7 @@ class DiscoveryResponder:
             data = await reader.read(1024)  # read discovery message
             if not data:
                 return
-            logger.debug(f"[Library] Received {data} from {writer.get_extra_info('peername')[0]}")
+            logger.debug(f"[Library][Responder] Received {data} from {writer.get_extra_info('peername')[0]}")
             if data == LIBRARY_DISCOVER:
                 library = FTSLibrary()
                 response = library.to_json_tree().encode()
@@ -118,7 +118,7 @@ class DiscoveryResponder:
 
                 ip = writer.get_extra_info('peername')[0]
 
-                logger.info(f"[Library] Received library request: {file_id}->{abs_path}")
+                logger.info(f"[Library][Responder] Received library request: {file_id}->{abs_path}")
                 history.append({"type": "request", "data": data.decode(), "source": writer.get_extra_info("peername")[0], "id": file_id, "path": abs_path})
                 with open(LIBRARY_LOG_FILE, "w") as f:
                     json.dump(history, f)
@@ -126,7 +126,7 @@ class DiscoveryResponder:
                 fts_transfer.transfer_handler.send_safe(ip, abs_path, True)
 
         except Exception as e:
-            logger.error(f"[Library] Responder error: {e}")
+            logger.error(f"[Library][Responder] Error: {e}")
         finally:
             writer.close()
             await writer.wait_closed()
