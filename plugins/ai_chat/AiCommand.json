@@ -1,9 +1,0 @@
-{
-  "name": "AiCommand",
-  "title": "FTS AI Chat Plugin",
-  "version": "1.0.0-beta.1",
-  "authors": ["Terabase (terabasestudios@gmail.com)"],
-  "description": "Adds a self-hosted GPT4All chatbot to FTS via the `!ai` command.",
-  "entry": "AiCommand.py",
-  "dependencies": []
-}
