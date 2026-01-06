@@ -6,16 +6,6 @@
   ],
   "plugins": [
     {
-      "name": "AiCommand",
-      "title": "FTS AI Chat Plugin (Novelty)",
-      "authors": ["Terabase (terabasestudios@gmail.com)"],
-      "description": "Adds a self-hosted GPT4All chatbot to FTS via the `!ai` command.",
-      "version": "1.0.0-beta.1",
-      "repo_path": "ai_chat/",
-      "entry": "AiCommand.py",
-      "config": "AiCommand.json"
-    },
-    {
       "name": "ChatMeter",
       "title": "FTS Chat Meter Plugin",
       "authors": ["Terabase (terabasestudios@gmail.com)"],
