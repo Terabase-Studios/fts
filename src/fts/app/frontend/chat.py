@@ -32,7 +32,7 @@ class Chat(Container):
         yield RichLog(highlight=True, markup=True, id="chatbox")
 
         with Horizontal(id="chatbar"):
-            yield Input(id="chatinput", placeholder="Type a message and press Enter...", suggester=SuggestFromList(COMMAND_KEYS))
+            yield Input(id="chatinput", placeholder="Type a message and press Enter...", suggester=SuggestFromList(COMMAND_KEYS.__reversed__()))
             yield Button("->", variant="primary", id="chatsend")
 
     def on_mount(self) -> None:

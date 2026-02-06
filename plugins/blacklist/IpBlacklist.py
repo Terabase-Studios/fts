@@ -34,10 +34,13 @@ Warning: This plugin currently does not block file transfer requests!
 
 import json
 import os
+import sys
 from typing import Any
 
 import fts.app.backend.commands as commands
 import fts.app.backend.contacts as fts_contacts
+import fts.app.backend.library.network as fts_library_network
+
 import fts.app.config as config
 from fts.app.backend.chat import MUTED_USERS
 from fts.app.backend.commands import _get_second_arg
@@ -51,6 +54,7 @@ blacklist = []
 
 # Store original function
 base_discover = copy_func(fts_contacts.discover)
+
 
 def load_blacklist() -> set[Any] | str | list[str]:
     """Load IPs from blacklist file. Create file if missing."""
@@ -81,10 +85,12 @@ def blacklister(*args, timeout: float = 0.5, **kwargs) -> list[Any] | None:
     except Exception as e:
         return None
 
+
 def setup_plugin():
     """Patch FTS discover() with blacklister."""
     global blacklist
     fts_contacts.discover = blacklister
+    fts_library_network.discover = blacklister
     blacklist = replace_with_ip(load_blacklist())
 
     # mute blacklisted

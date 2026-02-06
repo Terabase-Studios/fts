@@ -40,7 +40,7 @@
       "title": "FTS Blacklist Plugin",
       "authors": ["Terabase (terabasestudios@gmail.com)"],
       "description": "Blocks unwanted IPs from appearing in the TUI using an editable blacklist file and commands.",
-      "version": "1.0.1",
+      "version": "1.1.1",
       "repo_path": "blacklist/",
       "entry": "IpBlacklist.py",
       "config": "IpBlacklist.json"
