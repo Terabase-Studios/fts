@@ -90,27 +90,55 @@ MAGENTA = "\033[35m"
 GRAY = "\033[90m"
 
 def list_plugins():
-    """Fetch and pretty-print available FTS plugins with colors indicating install status."""
+    """Fetch and pretty-print available FTS plugins with colors indicating install/update status."""
     plugins = list_available_plugins()
     if not plugins:
         print(f"{RED}No plugins available.{RESET}")
         return
 
+    # Fetch remote manifest once
+    try:
+        manifest = fetch_manifest()
+        remote_plugins = {
+            p["name"].lower(): p for p in manifest.get("plugins", [])
+        }
+    except Exception:
+        remote_plugins = {}
+
     print(f"\n{CYAN}=== Available FTS Plugins ==={RESET}\n")
+
     for plugin in plugins:
+        name = plugin["name"]
         desc = textwrap.fill(plugin["description"], width=80)
         authors = ", ".join(plugin["authors"])
         config_file = os.path.join(PLUGIN_DIR, plugin.get("config", ""))
 
-        # Check installation status
+        local_version = None
         if os.path.exists(config_file):
-            status_color = GREEN
-            status_text = "Installed"
-        else:
+            try:
+                with open(config_file, "r", encoding="utf-8") as f:
+                    local_version = json.load(f).get("version")
+            except Exception:
+                local_version = None
+
+        remote_version = remote_plugins.get(name.lower(), {}).get("version")
+
+        # Determine status
+        if not local_version:
             status_color = RED
             status_text = "Not installed"
+        elif not remote_version or local_version == remote_version:
+            status_color = GREEN
+            status_text = "Up-to-date"
+        else:
+            status_color = YELLOW
+            status_text = f"Outdated → v{remote_version}"
 
-        print(f"{CYAN}{plugin['name']}{RESET} ({YELLOW}v{plugin['version']}{RESET}) - {status_color}{status_text}{RESET}")
+        print(
+            f"{CYAN}{name}{RESET} "
+            f"({YELLOW}v{plugin['version']}{RESET}) - "
+            f"{status_color}{status_text}{RESET}"
+        )
         print(f"  Author(s): {MAGENTA}{authors}{RESET}")
         print(f"  Description: {desc}")
         print("-" * 80)
