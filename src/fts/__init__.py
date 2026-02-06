@@ -1,2 +1,2 @@
 def __version__():
-    return "2.3.0"
+    return "2.3.1"
