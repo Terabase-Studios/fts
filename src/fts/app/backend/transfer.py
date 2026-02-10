@@ -68,6 +68,9 @@ class RequestResponder():
     async def _respond(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         try:
             logger.info(f"[RequestResponder] Reponder responding to {writer.get_extra_info('peername')}")
+            mac = secure.get_mac_address()
+            writer.write(mac.encode() + b'\n')
+            await writer.drain()
             msg = await reader.read(len(REQUEST_MSG))
             if msg == REQUEST_MSG:
                 addr = writer.get_extra_info('peername')[0]
@@ -136,6 +139,10 @@ class TransferHandler:
         async def handle_recieve(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
             logger.debug("[TransferHandler][Receive] Receive server started")
             try:
+                mac = secure.get_mac_address()
+                writer.write(mac.encode() + b'\n')
+                await writer.drain()
+
                 data = await reader.readline()
                 if not data:
                     return

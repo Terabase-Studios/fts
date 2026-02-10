@@ -11,13 +11,14 @@ from typing import Union, List
 
 import psutil
 
-from fts.app.config import CONTACTS_FILE, SEEN_IPS_FILE, DISCOVERY_PORT
+from fts.app.config import CONTACTS_FILE, SEEN_IPS_FILE, DISCOVERY_PORT, MAC_FILE
+from fts.core.secure import get_mac_address
 
 # Known “fake” subnets used by hypervisors
-VIRTUAL_IP_RANGES  = [
+VIRTUAL_IP_RANGES = [
     ipaddress.ip_network("192.168.56.0/24"),  # VirtualBox Host-only
     ipaddress.ip_network("192.168.99.0/24"),  # Docker default (old)
-    ipaddress.ip_network("10.0.2.0/24"),      # VirtualBox NAT
+    ipaddress.ip_network("10.0.2.0/24"),  # VirtualBox NAT
     ipaddress.ip_network("172.22.128.0/24"),
     ipaddress.ip_network("10.0.3.0/24"),
 ]
@@ -26,6 +27,7 @@ DISCOVERY_MESSAGE = b"FTSCHECK123"
 DISCOVERY_RESPOND = b"FTSRECIEVE456"
 WHO_IS_MESSAGE = b"FTSWHOIS123"
 WHO_IS_RESPOND = b"FTSTHISISE456"
+
 
 class OnlineUsers:
     def __init__(self):
@@ -40,8 +42,10 @@ class OnlineUsers:
         with self.lock:
             return self.online.copy()
 
+
 # Global instance
 ONLINE_USERS = OnlineUsers()
+
 
 def get_contacts():
     try:
@@ -50,6 +54,7 @@ def get_contacts():
         return contacts
     except:
         return []
+
 
 def add_contact(name: str, value: str):
     try:
@@ -76,6 +81,7 @@ def remove_contact(name: str):
     with open(CONTACTS_FILE, "w") as f:
         json.dump(contacts, f)
 
+
 def get_seen_users():
     if os.path.exists(SEEN_IPS_FILE):
         try:
@@ -85,6 +91,7 @@ def get_seen_users():
             return []
 
     return []
+
 
 def get_users():
     global ONLINE_USERS
@@ -256,11 +263,11 @@ class DiscoveryCollector(asyncio.DatagramProtocol):
         self.responses = []
 
     def datagram_received(self, data, addr):
-        if data == DISCOVERY_RESPOND:
+        if data.startswith(DISCOVERY_RESPOND):
             self.responses.append(addr[0])
 
 
-def discover(timeout=0.1) -> list[Any] | None:
+def discover(timeout=0.1, get_macs=True) -> list[Any] | None:
     class DiscoveryCollector:
         def __init__(self):
             self.responses = []
@@ -290,8 +297,20 @@ def discover(timeout=0.1) -> list[Any] | None:
             sock.settimeout(remaining)
             try:
                 data, addr = sock.recvfrom(1024)
-                if data == DISCOVERY_RESPOND:
-                    collector.responses.append(addr[0])
+                if data.startswith(DISCOVERY_RESPOND):
+                    ip = addr[0]
+                    if get_macs:
+                        mac = str(data.removeprefix(DISCOVERY_RESPOND))
+                        macs = {}
+                        try:
+                            with open(MAC_FILE, "r") as f:
+                                macs = json.load(f)
+                        except:
+                            macs = {}
+                        macs[mac] = ip
+                        with open(MAC_FILE, "w") as f:
+                            json.dump(macs, f)
+                    collector.responses.append(ip)
             except socket.timeout:
                 break
 
@@ -306,7 +325,7 @@ class DiscoveryResponder(asyncio.DatagramProtocol):
 
     def datagram_received(self, data, addr):
         if data == DISCOVERY_MESSAGE:
-            self.transport.sendto(DISCOVERY_RESPOND, addr)
+            self.transport.sendto(DISCOVERY_RESPOND + bytes(get_mac_address(), 'utf-8'), addr)
         elif data.startswith(WHO_IS_MESSAGE):
             pass
 

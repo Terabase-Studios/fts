@@ -112,6 +112,19 @@ async def start_server(host: str, port: int, output_dir: str, logger,
         nonlocal max_sends
         client_id = next(_client_ids)
         addr = writer.get_extra_info('peername')
+
+        # Send MAC address to client for TOFU
+        try:
+            mac = secure.get_mac_address()
+            writer.write(mac.encode() + b'\n')
+            await writer.drain()
+        except Exception as e:
+            logger.error(f"{client_id}: Failed to send MAC address: {e}")
+            # Close connection if MAC cannot be sent, as client will hang
+            writer.close()
+            await writer.wait_closed()
+            return
+
         if max_concurrent_transfers and current_transfers >= max_concurrent_transfers:
             writer.write(b"HOLD")
             await writer.drain()

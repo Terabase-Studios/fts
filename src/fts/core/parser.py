@@ -80,7 +80,7 @@ def close_parser_add(parser, parents):
 
 def trust_parser_add(parser, parents):
     trust_parser = parser.add_parser("trust", help="allow a new certificate to be trusted if changed", parents=parents)
-    trust_parser.add_argument( "ip", type=str, help="IP address whose certificate should be trusted")
+    trust_parser.add_argument( "mac", type=str, help="MAC address whose certificate should be trusted")
 
 def alias_parser_add(parser, parents):
     alias_parser = parser.add_parser("alias", help="manage aliases", parents=parents)

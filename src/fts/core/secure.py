@@ -3,8 +3,10 @@ import datetime
 import hashlib
 import ipaddress
 import json
+import re
 import socket
 import ssl
+import uuid
 from datetime import timezone
 from pathlib import Path
 
@@ -19,6 +21,13 @@ from fts.config import CERT_FILE, KEY_FILE, FINGERPRINT_FILE
 # --------------------------
 # Helpers
 # --------------------------
+
+def get_mac_address() -> str:
+    """Returns the MAC address in standard format."""
+    mac_num = uuid.getnode()
+    mac = ':'.join(("%012x" % mac_num)[i:i + 2] for i in range(0, 12, 2))
+    return mac
+
 
 def get_fingerprint(cert_der: bytes) -> str:
     """Return SHA256 fingerprint of DER-encoded certificate."""
@@ -129,34 +138,31 @@ async def connect_with_tofu_async(host: str, port: int, logger):
     # Open async TLS connection
     reader, writer = await asyncio.open_connection(host, port, ssl=context, server_hostname=host)
 
+    # --- NEW: Read MAC address from server ---
+    try:
+        mac_bytes = await asyncio.wait_for(reader.readline(), timeout=5.0)
+        if not mac_bytes:
+            raise ConnectionError("Server did not send MAC address.")
+        mac_address = mac_bytes.decode().strip()
+        # Very basic MAC address validation
+        if not re.match(r"([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}", mac_address):
+            raise ValueError(f"Received invalid MAC address format: {mac_address}")
+    except (asyncio.TimeoutError, ConnectionError, ValueError) as e:
+        writer.close()
+        await writer.wait_closed()
+        raise ConnectionError(f"Failed to get MAC address from server: {e}") from e
+
     # Extract peer certificate
     ssl_object = writer.get_extra_info("ssl_object")
     der_cert = ssl_object.getpeercert(binary_form=True)
     fingerprint = get_fingerprint(der_cert)
 
-    # 🔹 Normalize host to IP for stable trust key
-    try:
-        ip_str = socket.gethostbyname(host)
-    except Exception:
-        ip_str = host  # fallback (should not happen on LAN)
-
     known = load_known_fingerprints()
+    matched_key = mac_address  # Use MAC address as the key
 
-    # 🔹 Backward compatibility: Check both new (IP) and old (host:port) keys
-    host_port_key = f"{host}:{port}"
-    matched_key = None
-
-    # Prefer IP-based key if it exists
-    if ip_str in known:
-        matched_key = ip_str
-    elif host_port_key in known:
-        matched_key = host_port_key  # legacy format
-    else:
-        matched_key = ip_str  # new key
-
-    # 🔹 Trust verification / first use
+    # Trust verification / first use
     if matched_key not in known:
-        logger.debug(f"[TOFU] First connection to {ip_str}, trusting cert {fingerprint[:16]}...")
+        logger.debug(f"[TOFU] First connection to {mac_address}, trusting cert {fingerprint[:16]}...")
         known[matched_key] = fingerprint
         save_known_fingerprints(known)
     else:
@@ -164,36 +170,37 @@ async def connect_with_tofu_async(host: str, port: int, logger):
             writer.close()
             await writer.wait_closed()
             raise FingerprintMismatchError(
-                f"Server certificate for {ip_str} changed!\n"
+                f"Server certificate for {mac_address} changed!\n"
                 f"Expected {known[matched_key][:16]}..., got {fingerprint[:16]}...\n"
-                f"If this is expected, run `fts trust {ip_str}` to accept the new certificate."
+                f"If this is expected, run `fts trust {mac_address}` to accept the new certificate."
             )
         else:
-            logger.debug(f"[TOFU] Verified pinned certificate {fingerprint[:16]}...")
-
-    # 🔹 Optionally clean up old host:port entries if IP entry exists
-    if host_port_key in known and ip_str in known and host_port_key != ip_str:
-        del known[host_port_key]
-        save_known_fingerprints(known)
+            logger.debug(f"[TOFU] Verified pinned certificate for {mac_address} ({fingerprint[:16]}...).")
 
     return reader, writer
 
 
 def cmd_clear_fingerprint(args, logger=None):
     """
-    Remove the saved fingerprint for the given host or IP (supports legacy host:port keys).
+    Remove the saved fingerprint for the given MAC address.
     """
-    target = args.ip
+    target = args.mac
+
+    if target == "all":
+        save_known_fingerprints({})
+        msg = "Cleared all stored fingerprint(s)"
+        if logger:
+            logger.info(msg)
+        else:
+            print(msg)
+        return
+
     fps = load_known_fingerprints()
 
-    # 🔹 Try both IP and host:port removal
-    keys_to_delete = [key for key in fps if target in key]
-
-    if keys_to_delete:
-        for key in keys_to_delete:
-            del fps[key]
+    if target in fps:
+        del fps[target]
         save_known_fingerprints(fps)
-        msg = f"Cleared stored fingerprint(s) for {target}"
+        msg = f"Cleared stored fingerprint for {target}"
     else:
         msg = f"No stored fingerprint found for {target}"
 

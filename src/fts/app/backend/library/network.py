@@ -151,7 +151,7 @@ async def get_libraries(timeout=1):
     """Discover libraries on a list of IPs."""
     collector = []
 
-    broadcasts = discover()
+    broadcasts = discover(get_macs=False, timeout=timeout)
     for ip in broadcasts:
         try:
             reader, writer = await asyncio.wait_for(asyncio.open_connection(ip, LIBRARY_PORT), timeout)
