@@ -153,7 +153,6 @@ DEBUG_FILE    = os.path.join(APP_DIR, "debug.txt")
 MUTED_FILE    = os.path.join(APP_DIR, "muted.json")
 CHAT_FILE     = os.path.join(APP_DIR, "chat.json")
 LOCK_FILE     = os.path.join(APP_DIR, "lock.lock")
-MAC_FILE     = os.path.join(APP_DIR, "macs.json")
 
 PLUGIN_DIR    = os.path.join(APP_DIR, "plugins")
 
