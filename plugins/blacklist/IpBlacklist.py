@@ -109,6 +109,8 @@ def setup_plugin():
 
 def _blacklist(cmd: str):
     global blacklist
+    if not blacklist:
+        blacklist = []
     ip = _get_second_arg(cmd)
     ip = replace_with_ip(ip)
     users = replace_with_ip(get_seen_users())

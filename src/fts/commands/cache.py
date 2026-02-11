@@ -35,7 +35,10 @@ def show():
         "FTS_RECEIVER.PID": "PID of the detached server",
         "BACKUP.ZIP": "Backup of the cache for \'fts cache restore\'",
         "HASHES.JSON": "Used to verify plugins",
-        "HASHES.SIG": "Used to verify plugins"
+        "HASHES.SIG": "Used to verify plugins",
+        "MACS.json": "Used to remap contact ips after ip change",
+        "LIBRARY.JSON": "Cache for library tree to speed library construction time",
+        "LIBRARY_LOG.JSON": "Log of all library requests"
     }
 
     class Color:
@@ -74,6 +77,14 @@ def show():
                 odd = not odd
                 size = sizeof_fmt(os.path.getsize(path))
                 purpose = FILE_PURPOSES.get(entry.upper(), "Unknown purpose")
+                if "Unknown" in purpose:
+                    if "__pycache__" in path.lower():
+                        purpose = "Cache file created by python"
+                    elif "plugin" in path.lower():
+                        purpose = "Used by a plugin"
+                    elif "ini.backup" in path.lower():
+                        purpose = "A backup of a config file after an upgrade"
+
                 print(f"{Color.DIM}{prefix}{connector}{Color.RESET}{entry} ({Color.RED}{size}{Color.RESET}) - {purpose}")
 
     print(f"{Color.BOLD}{APP_DIR}/{Color.RESET}")

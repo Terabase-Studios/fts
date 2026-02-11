@@ -10,6 +10,7 @@ import uuid
 from datetime import timezone
 from pathlib import Path
 
+import psutil
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -27,6 +28,39 @@ def get_mac_address() -> str:
     mac_num = uuid.getnode()
     mac = ':'.join(("%012x" % mac_num)[i:i + 2] for i in range(0, 12, 2))
     return mac
+
+
+def get_ip_to_mac() -> dict[str, str]:
+    """
+    Returns a dict mapping local IPv4 addresses -> MAC addresses
+    for all host network interfaces (excluding loopback).
+    """
+    ip_to_mac = {}
+
+    for iface, addrs in psutil.net_if_addrs().items():
+        mac = None
+
+        # Find MAC
+        for addr in addrs:
+            if addr.family == psutil.AF_LINK and addr.address:
+                mac = addr.address.lower()
+                break
+
+        if not mac or mac == "00:00:00:00:00:00":
+            continue
+
+        # Bind IPv4s only
+        for addr in addrs:
+            if addr.family == socket.AF_INET:
+                ip = addr.address
+
+                # Skip loopback + link-local junk
+                if ip.startswith("127.") or ip.startswith("169.254."):
+                    continue
+
+                ip_to_mac[ip] = mac
+
+    return ip_to_mac
 
 
 def get_fingerprint(cert_der: bytes) -> str:

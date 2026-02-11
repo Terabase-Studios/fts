@@ -14,7 +14,7 @@ EXPERIMENTAL_FEATURES_ENABLED = EXPERIMENTAL_FEATURES_ENABLED
 # Default Configuration Values
 # -----------------------------
 save_dir_default = os.path.expanduser("~/Downloads/fts")
-CONFIG_VERSION = 1
+CONFIG_VERSION = 2
 
 DEFAULTS = {
     "CONFIG_VERSION": CONFIG_VERSION,
@@ -29,6 +29,8 @@ DEFAULTS = {
     "PLUGINS_ENABLED": "true",
     "LIBRARY_ENABLED": "false",
     "LIBRARY_IGNORE_HIDDEN_FOLDERS": "true",
+
+    "IP_REMAPPING_WITH_MAC": "true"
 }
 # -----------------------------
 # Setup Directories
@@ -141,7 +143,7 @@ VERBOSE_LOGGING = get_config_value("VERBOSE_LOGGING")
 PLUGINS_ENABLED = get_config_value("PLUGINS_ENABLED")
 library_enabled = get_config_value("LIBRARY_ENABLED")
 LIBRARY_IGNORE_HIDDEN_FOLDERS = get_config_value("LIBRARY_IGNORE_HIDDEN_FOLDERS")
-
+IP_REMAPPING_WITH_MAC = get_config_value("IP_REMAPPING_WITH_MAC")
 
 # -----------------------------
 # File Paths
@@ -153,6 +155,7 @@ DEBUG_FILE    = os.path.join(APP_DIR, "debug.txt")
 MUTED_FILE    = os.path.join(APP_DIR, "muted.json")
 CHAT_FILE     = os.path.join(APP_DIR, "chat.json")
 LOCK_FILE     = os.path.join(APP_DIR, "lock.lock")
+MAC_FILE     = os.path.join(APP_DIR, "macs.json")
 
 PLUGIN_DIR    = os.path.join(APP_DIR, "plugins")
 
