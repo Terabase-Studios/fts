@@ -5,12 +5,10 @@ import sys
 from filelock import FileLock, Timeout
 from textual.app import App, ComposeResult
 from textual.containers import Vertical, Horizontal
-from textual.widgets import TabbedContent, Placeholder
+from textual.widgets import TabbedContent
 
-from fts.cli import ICON
 import fts.app.backend.transfer as transfer
 import fts.py as fts
-from fts import __version__
 from fts.app.backend.contacts import start_discovery_responder
 from fts.app.backend.host import host_manager, host_watcher
 from fts.app.backend.library.network import start_library_responder
@@ -25,8 +23,10 @@ from fts.app.frontend.requests import Requests
 from fts.app.frontend.sending import Sending
 from fts.app.frontend.transfers import Transfers
 from fts.app.style.tcss import css
+from fts.cli import ICON
 
 fts_app = None
+
 
 def setup(transfer_ui: Transfers, requests_ui: Requests) -> None:
     fts.logger = LOG_FILE
@@ -36,9 +36,9 @@ def setup(transfer_ui: Transfers, requests_ui: Requests) -> None:
     host_manager.start()
     host_watcher.start()
 
-class FTSApp(App):
 
-    #CSS_PATH = [
+class FTSApp(App):
+    # CSS_PATH = [
     #    "style\\main.tcss",
     #    "style\\contacts.tcss",
     #    "style\\transfers.tcss",
@@ -47,13 +47,13 @@ class FTSApp(App):
     #    "style\\requests.tcss",
     #    "style\\library.tcss",
     #    "style\\notepad.tcss",
-    #]
+    # ]
 
     CSS = css
 
     def compose(self=None) -> ComposeResult:
-        #yield Header()
-        #yield Footer()
+        # yield Header()
+        # yield Footer()
 
         stable = ["Main", "Library"]
         experimental = ["Notepad"]
@@ -81,7 +81,6 @@ class FTSApp(App):
                 host_manager.host_changed_funcs.append(notepad.reconnect)
                 yield notepad
 
-
         setup(transfer_ui=transfers, requests_ui=requests)
 
     async def action_quit(self) -> None:
@@ -93,7 +92,7 @@ class FTSApp(App):
         pass
 
 
-def start(print_icon = False):
+def start(print_icon=False):
     global fts_app
     if print_icon:
         print(ICON)

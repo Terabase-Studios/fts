@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 HEADER_RE = re.compile(r"===== ([^|]+) \| ([^\s]+) =====")
 LOG_LINE_RE = re.compile(r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) \| (\w+)\s*\| (.+)")
 
+
 # Shared time parsing helper
 def parse_time_with_rollover(entries):
     """
@@ -176,8 +177,6 @@ def merge_logs(top_text, bottom_text):
         merged_text.append("")
     merged_text.append("========== END OF LOG ==========\n")
     return "\n".join(merged_text)
-
-
 
 
 def split_logs(log_text: str):

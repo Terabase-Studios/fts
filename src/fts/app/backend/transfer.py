@@ -2,7 +2,6 @@ import asyncio
 import hashlib
 import json
 import socket
-import sys
 import threading
 import time
 from functools import partial
@@ -22,26 +21,36 @@ ACCEPT_MSG = b"accept"
 REJECT_MSG = b"reject"
 transfer_handler = None
 
+
 class NullLogger():
     def debug(self, *a, **kw): pass
+
     def info(self, *a, **kw): pass
+
     def warning(self, *a, **kw): pass
+
     def error(self, *a, **kw): pass
+
     def critical(self, *a, **kw): pass
+
     def exception(self, *a, **kw): pass
+
     def log(self, *a, **kw): pass
+
     def setLevel(self, *a, **kw): pass
+
     def addHandler(self, *a, **kw): pass
+
 
 Logger = NullLogger()
 
 
 async def get_free_port() -> int:
-   with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-    	s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    	s.bind(('', 0))
-    	port = s.getsockname()[1]
-    	return port
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.bind(('', 0))
+        port = s.getsockname()[1]
+        return port
 
 
 class RequestResponder():
@@ -106,7 +115,6 @@ class TransferHandler:
         self.send_queue.put_nowait((ip, abs_path, library))
         logger.debug(f"[TransferHandler][QueueEvent][Send] send_safe added: {abs_path}->{ip} to send_queue")
 
-
     async def check_send_queue(self):
         while True:
             info = await self.send_queue.get()  # await asyncio.Queue
@@ -116,7 +124,6 @@ class TransferHandler:
             await asyncio.sleep(1)
             loop = asyncio.get_event_loop()
             task = loop.create_task(self.check_send_queue())
-
 
     async def check_queue(self):
         while True:
@@ -203,7 +210,8 @@ class TransferHandler:
                 loop = asyncio.get_running_loop()
                 loop.call_soon_threadsafe(self.transfer_ui.add_active, entry, transfer, manager)
 
-                await self.run_in_thread(fts.open, SAVE_DIR, "0.0.0.0", new_port, protected=False, max_concurrent_transfers=1, max_transfers=1, progress=True, manager=manager)
+                await self.run_in_thread(fts.open, SAVE_DIR, "0.0.0.0", new_port, protected=False,
+                                         max_concurrent_transfers=1, max_transfers=1, progress=True, manager=manager)
                 manager.progress = manager.max_progress
                 if manager.cancelled:
                     writer.write(REJECT_MSG + b"\n")
@@ -323,9 +331,9 @@ class TransferHandler:
                         transfer.transfer_ui.remove()
                         raise Exception("Peer went offline")
 
-
             if response == ACCEPT_MSG:
-                self.transfer_ui.notify(f"{replace_with_contact(target)} accepted {entry.name}", title="Transfer Accepted", severity="information")
+                self.transfer_ui.notify(f"{replace_with_contact(target)} accepted {entry.name}",
+                                        title="Transfer Accepted", severity="information")
             elif response == REJECT_MSG:
                 writer.close()
                 await writer.wait_closed()
@@ -388,6 +396,7 @@ class TransferHandler:
                     return func(*args, **kwargs)
                 else:
                     raise
+
         return await asyncio.to_thread(partial(safe_run, func, *args, **kwargs))
 
     def cancel_all(self):
@@ -450,4 +459,3 @@ class Entry():
             self.port = int(data["port"])
         except:
             pass
-

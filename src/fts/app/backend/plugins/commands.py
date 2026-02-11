@@ -1,19 +1,21 @@
-import textwrap
+import configparser
 import json
 import os
 import shutil
-import configparser
+import textwrap
 
+from fts import __version__
 from fts.app.backend.plugins.installer import fetch_manifest, list_available_plugins, install_plugin, download_hashes
 from fts.app.config import PLUGIN_DIR, CONFIG_PATH
-from fts import __version__
+
 
 def cmd_plugins(args, logger):
     try:
         github_version = fetch_manifest()["metadata"][0]["version"]
         current_version = __version__()
         if current_version != github_version:
-            logger.warning(f"FTS out of date! New plugins may not be compatible.\n Installed version: {current_version} \n Remote version: {github_version}")
+            logger.warning(
+                f"FTS out of date! New plugins may not be compatible.\n Installed version: {current_version} \n Remote version: {github_version}")
     except Exception:
         logger.warning("Unable to verify FTS version")
     match args.subcommand:
@@ -39,14 +41,14 @@ def cmd_plugins(args, logger):
             if all:
                 manifest = fetch_manifest()
                 args.plugin = {p['name'].lower(): p for p in manifest.get("plugins", []) if
-                                  isinstance(p, dict) and "name" in p}
+                               isinstance(p, dict) and "name" in p}
 
             for plugin in args.plugin:
                 try:
                     install_plugin(plugin, logger)
                 except Exception as e:
                     logger.error(f"Failed to install plugin {args.plugin}: {e}")
-                print("-"*80)
+                print("-" * 80)
         case "upgrade":
             if args.force:
                 reinstall_plugins(get_installed_plugins(), logger)
@@ -75,7 +77,7 @@ def cmd_plugins(args, logger):
                 args.plugin = [i["name"] for i in get_installed_plugins(logger=logger)]
             for plugin in args.plugin:
                 uninstall_plugin(plugin, all_files=args.all, logger=logger)
-                print("-"*80)
+                print("-" * 80)
         case _:
             logger.error(f"Unknown subcommand : {args.subcommand}")
 
@@ -88,6 +90,7 @@ GREEN = "\033[32m"
 RED = "\033[31m"
 MAGENTA = "\033[35m"
 GRAY = "\033[90m"
+
 
 def list_plugins():
     """Fetch and pretty-print available FTS plugins with colors indicating install/update status."""
@@ -202,7 +205,8 @@ def get_outdated_plugins(logger=None):
     # Load remote manifest
     try:
         manifest = fetch_manifest()
-        remote_plugins = {p['name'].lower(): p for p in manifest.get("plugins", []) if isinstance(p, dict) and "name" in p}
+        remote_plugins = {p['name'].lower(): p for p in manifest.get("plugins", []) if
+                          isinstance(p, dict) and "name" in p}
     except Exception as e:
         if logger: logger.error(f"Failed to fetch manifest: {e}")
         return outdated
@@ -333,7 +337,6 @@ def uninstall_plugin(plugin_name, all_files=False, logger=None):
                     if logger: logger.info(f"Deleted addon file {addon_path}")
                 except Exception as e:
                     if logger: logger.error(f"Failed to delete addon file {addon_path}: {e}")
-
 
     # Remove plugin from CONFIG_PATH [plugins] section
     try:

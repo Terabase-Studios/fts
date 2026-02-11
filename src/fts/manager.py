@@ -41,19 +41,28 @@ class Manager:
             setattr(self, attr, copy.deepcopy(value))
 
     @property
-    def progress(self): return self._get_safe("_progress")
+    def progress(self):
+        return self._get_safe("_progress")
+
     @progress.setter
-    def progress(self, v): self._set_safe("_progress", v)
+    def progress(self, v):
+        self._set_safe("_progress", v)
 
     @property
-    def max_progress(self): return self._get_safe("_max_progress")
+    def max_progress(self):
+        return self._get_safe("_max_progress")
+
     @max_progress.setter
-    def max_progress(self, v): self._set_safe("_max_progress", v)
+    def max_progress(self, v):
+        self._set_safe("_max_progress", v)
 
     @property
-    def state(self): return self._get_safe("_state")
+    def state(self):
+        return self._get_safe("_state")
+
     @state.setter
-    def state(self, v): self._set_safe("_state", v)
+    def state(self, v):
+        self._set_safe("_state", v)
 
     # -------------------------
     # Flags

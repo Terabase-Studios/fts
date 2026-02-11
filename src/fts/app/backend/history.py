@@ -26,7 +26,8 @@ def parse_transfers(log_text: str) -> List[Dict[str, Any]]:
     send_denied_re = re.compile(r"Send request denied by receiver|Send request denied")
 
     # Split into lines, ignoring START/END markers
-    lines = [l for l in log_text.splitlines() if "========== START OF LOG ==========" not in l and "========== END OF LOG ==========" not in l]
+    lines = [l for l in log_text.splitlines() if
+             "========== START OF LOG ==========" not in l and "========== END OF LOG ==========" not in l]
 
     blocks = []
     current_block = None
@@ -171,8 +172,10 @@ def parse_transfers(log_text: str) -> List[Dict[str, Any]]:
 
 def sort_entries(entries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Sort transfers from newest to oldest by end_time/start_time"""
+
     def get_dt(t: Dict[str, Any]):
         return t.get("end_time") or t.get("start_time") or datetime.min
+
     return sorted(entries, key=get_dt)
 
 
@@ -211,7 +214,8 @@ def get_history(log_paths: list[str], allow_no_type=False, add_type=True) -> lis
 
     if add_type:
         for index in range(len(logs)):
-            logs[index]["id"] = f"{logs[index]['start_time']}> {logs[index]['type']}, {logs[index]['file']}, {logs[index]['status']}, {logs[index]['session']}"
+            logs[index][
+                "id"] = f"{logs[index]['start_time']}> {logs[index]['type']}, {logs[index]['file']}, {logs[index]['status']}, {logs[index]['session']}"
 
     # Filter invalid status entries
     valid_statuses = {"success", "error"}

@@ -4,11 +4,12 @@ import os
 import time
 import traceback
 
-from fts.app.backend.plugins.verifier import verify_plugins
 from fts.app.backend.plugins.config import SECURE, ERROR_FREEZE_TIME
+from fts.app.backend.plugins.verifier import verify_plugins
 from fts.app.config import PLUGIN_DIR, CONFIG_PATH, PLUGINS_ENABLED
 
 DEFAULT_PRIORITY = 5  # Default boot priority if plugin doesn't define BOOT_PRIORITY
+
 
 def load_plugins():
     if not PLUGINS_ENABLED:
@@ -37,7 +38,8 @@ def load_plugins():
         plugin_name = plugin_file[:-3]  # remove .py
         if plugin_name not in config["plugins"]:
             answer = input(f"Do you want to enable the plugin '{plugin_name}'? [Y/n]: ").strip().lower()
-            config["plugins"][plugin_name] = "false" if answer.lower().strip() == "n" or answer.lower().strip() == "no" else "true"
+            config["plugins"][
+                plugin_name] = "false" if answer.lower().strip() == "n" or answer.lower().strip() == "no" else "true"
 
     with open(CONFIG_PATH, "w") as f:
         config.write(f)
@@ -50,12 +52,14 @@ def load_plugins():
         if enabled.lower().strip() != "true":
             continue
         if plugin_name not in allowed:
-            print(f"[PLUGIN ERROR] {plugin_name} is corrupted or out of date!\nRun `fts plugins upgrade -f` to reinstall all plugins.")
+            print(
+                f"[PLUGIN ERROR] {plugin_name} is corrupted or out of date!\nRun `fts plugins upgrade -f` to reinstall all plugins.")
             time.sleep(ERROR_FREEZE_TIME)
             continue
 
         normalized_name = plugin_name.lower() + ".py"
-        plugin_path = next((os.path.join(PLUGIN_DIR, f) for f in os.listdir(PLUGIN_DIR) if f.lower() == normalized_name), None)
+        plugin_path = next(
+            (os.path.join(PLUGIN_DIR, f) for f in os.listdir(PLUGIN_DIR) if f.lower() == normalized_name), None)
 
         if not plugin_path or not os.path.exists(plugin_path):
             print(f"[PLUGIN WARN] {plugin_name} not found in plugin directory.")

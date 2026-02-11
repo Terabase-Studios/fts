@@ -74,7 +74,7 @@ def start_detached(args, logger, pid_file, server_name) -> bool:
 
     if os.name == "nt":
         kwargs["creationflags"] = (
-            subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+                subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
         )
         kwargs["startupinfo"] = startupinfo
     else:
@@ -92,6 +92,7 @@ def start_detached(args, logger, pid_file, server_name) -> bool:
 
     # Parent should exit
     return True
+
 
 def end_detached(args, logger, pid_file, server_name):
     """
@@ -131,6 +132,7 @@ def end_detached(args, logger, pid_file, server_name):
         os.remove(pid_file)
     except Exception as e:
         logger.error(f"Failed to stop server PID {pid}: {e}")
+
 
 def namespace_to_argv(parser: argparse.ArgumentParser, namespace: argparse.Namespace):
     argv = []

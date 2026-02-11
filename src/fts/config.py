@@ -140,6 +140,7 @@ REQUEST_WINDOW = 600.0
 # -------------------------
 CONFIG_FILE = os.path.join(APP_DIR, "config.ini")
 
+
 # ======================================================
 # Helper Functions
 # ======================================================
@@ -147,10 +148,12 @@ CONFIG_FILE = os.path.join(APP_DIR, "config.ini")
 def _serialize_set(s: set) -> str:
     return ", ".join(sorted(s))
 
+
 def _deserialize_set(s: str) -> set:
     if not s:
         return set()
     return {p.strip() for p in s.split(",") if p.strip()}
+
 
 def _write_default_config(path: str):
     """Generate a default config.ini if none exists."""
@@ -192,9 +195,10 @@ def _write_default_config(path: str):
     try:
         with open(path, "w", encoding="utf-8") as f:
             cp.write(f)
-        #print(f"[FTS Config] Created default config.ini at {path}")
+        # print(f"[FTS Config] Created default config.ini at {path}")
     except Exception as e:
         warnings.warn(f"Failed to write default config.ini: {e}")
+
 
 def _coerce_value(key: str, value: str):
     """Convert INI strings to appropriate Python types."""
@@ -207,7 +211,8 @@ def _coerce_value(key: str, value: str):
         return value.strip().lower() in ("1", "true", "yes", "on", "y")
 
     # Integers
-    if k.endswith("_port") or k.endswith("_size") or k.endswith("_retries") or k.endswith("_min") or k.endswith("_seconds") or k == "config_version":
+    if k.endswith("_port") or k.endswith("_size") or k.endswith("_retries") or k.endswith("_min") or k.endswith(
+            "_seconds") or k == "config_version":
         try:
             return int(value)
         except ValueError:
@@ -234,6 +239,7 @@ def _coerce_value(key: str, value: str):
 
     return value
 
+
 def _load_config_from_ini(path: str):
     """Load and apply overrides from config.ini."""
     cp = configparser.ConfigParser()
@@ -259,6 +265,7 @@ def load_or_create_config(path: str = CONFIG_FILE):
     ALIASES_FILE = os.path.join(APP_DIR, "aliases.json")
     RECEIVING_PID = os.path.join(APP_DIR, "fts_receiver.pid")
 
+
 # ======================================================
 # Auto-run on import
 # ======================================================
@@ -276,6 +283,7 @@ except Exception as e:
     print(f"ERROR: failed to load {CONFIG_FILE}: {e}")
     broken_config = True
 
+
 def backup_config(path: str):
     if not os.path.exists(path):
         return
@@ -291,12 +299,14 @@ def backup_config(path: str):
             break
         i += 1
 
+
 def resave_config():
     """Save config to config.ini and move existing config.ini to back up."""
     global CONFIG_VERSION
     backup_config(CONFIG_FILE)
     CONFIG_VERSION = current_config_version
     _write_default_config(CONFIG_FILE)
+
 
 if broken_config:
     print("INFO: Recreating config.ini with default settings, a backup will be saved in the same directory.")

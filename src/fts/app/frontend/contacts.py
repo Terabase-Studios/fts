@@ -88,6 +88,7 @@ async def reload_contacts(tree: Tree, online_node, offline_node):
     else:
         offline_node.collapse()
 
+
 class AddContact(ModalScreen[tuple[str, str] | None]):
     """Modal for adding a contact.
        Returns (name, ip) or None if cancelled."""
@@ -98,12 +99,14 @@ class AddContact(ModalScreen[tuple[str, str] | None]):
                 yield Input(
                     placeholder="Contact Name",
                     id="addcontactname",
-                    validators = [Blank(), IsNotAlreadyContact()]
+                    validators=[Blank(), IsNotAlreadyContact()]
                 )
                 yield Input(
                     placeholder="Contact Ip",
                     id="addcontactip",
-                    suggester=SuggestFromList([i for i in get_seen_users() if replace_with_contact(i) not in get_contacts()], case_sensitive=True),
+                    suggester=SuggestFromList(
+                        [i for i in get_seen_users() if replace_with_contact(i) not in get_contacts()],
+                        case_sensitive=True),
                     validators=[Blank(), IsNoncontactUser()]
                 )
                 with Horizontal(id="addcontactbuttonbar"):
@@ -158,7 +161,6 @@ class RemoveContact(ModalScreen[str | None]):
             self.dismiss(None)
 
 
-
 class CheckContact(Validator):
     def validate(self, value: str) -> ValidationResult:
         if self.is_contact(value):
@@ -169,6 +171,7 @@ class CheckContact(Validator):
     @staticmethod
     def is_contact(value: str) -> bool:
         return value in get_contacts()
+
 
 class Blank(Validator):
     def validate(self, value: str) -> ValidationResult:
@@ -182,6 +185,7 @@ class Blank(Validator):
     def is_not_empty(value: str) -> bool:
         return not value == ""
 
+
 class IsNoncontactUser(Validator):
     def validate(self, value: str) -> ValidationResult:
         if self.is_user(value):
@@ -193,6 +197,7 @@ class IsNoncontactUser(Validator):
     def is_user(value: str) -> bool:
         users = [i for i in get_seen_users() if replace_with_contact(i) not in get_contacts()]
         return value in users
+
 
 class IsNotAlreadyContact(Validator):
     def validate(self, value: str) -> ValidationResult:

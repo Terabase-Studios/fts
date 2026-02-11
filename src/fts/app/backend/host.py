@@ -1,12 +1,13 @@
-import asyncio
-import random
 import psutil
 import socket
 import threading
 import time
 
-from fts.app.backend.contacts import start_discovery_responder, ONLINE_USERS, get_users, replace_with_ip, get_user_list
+import psutil
+
+from fts.app.backend.contacts import ONLINE_USERS, replace_with_ip
 from fts.app.config import logger
+
 
 def get_all_ip_addresses():
     """
@@ -26,6 +27,7 @@ def get_all_ip_addresses():
         elif ipv6_addresses:
             ip_addresses[interface] = {'ipv6': ipv6_addresses}
     return ip_addresses
+
 
 def get_ip():
     all_ips = get_all_ip_addresses()
@@ -112,9 +114,8 @@ class HostManager:
             time.sleep(0.5)
 
 
-
 class HostPresenceWatcher:
-    def __init__(self,  online_getter=ONLINE_USERS.get_online, interval=0.5):
+    def __init__(self, online_getter=ONLINE_USERS.get_online, interval=0.5):
         """
         get_online: function returning iterable of online IPs
         interval: polling interval in seconds

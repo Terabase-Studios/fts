@@ -10,7 +10,8 @@ from typing import Union, List
 
 import psutil
 
-from fts.app.config import CONTACTS_FILE, SEEN_IPS_FILE, DISCOVERY_PORT, MAC_FILE, MUTED_FILE, APP_DIR, PLUGIN_DIR, logger, IP_REMAPPING_WITH_MAC
+from fts.app.config import CONTACTS_FILE, SEEN_IPS_FILE, DISCOVERY_PORT, MAC_FILE, MUTED_FILE, PLUGIN_DIR, \
+    logger, IP_REMAPPING_WITH_MAC
 from fts.core.secure import get_ip_to_mac
 
 FILES_TO_UPDATE_IP = [CONTACTS_FILE, MUTED_FILE, SEEN_IPS_FILE, os.path.join(PLUGIN_DIR, "ip_blacklist.txt")]

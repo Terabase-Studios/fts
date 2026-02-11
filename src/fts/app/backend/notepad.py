@@ -1,15 +1,14 @@
 import asyncio
-import threading
-import socket
-import json
-import time
 import base64
-from typing import Callable
+import json
+import socket
+import threading
+import time
 from difflib import SequenceMatcher
+from typing import Callable
 
 from pycrdt import Doc, Text
 
-from fts.app.backend.contacts import ONLINE_USERS, replace_with_ip
 from fts.app.backend.host import host_manager
 from fts.app.config import logger, NOTEPAD_PORT
 
@@ -167,14 +166,13 @@ class NotepadClient:
 
         # request full sync and apply immediately
         host_addr = (host_manager.get_host_ip(), self.host_port)
-        #try:
+        # try:
         #    req = {"type": "sync_request"}
         #    self.sock.sendto(json.dumps(req).encode("utf-8"), host_addr)
-        #except Exception as e:
+        # except Exception as e:
         #    logger.error(f"[NotepadClient] failed to request sync: {e}")
 
         logger.info(f"[NotepadClient] started, host={host_addr}")
-
 
     def new_text(self, new_text: str):
         if self.suppress_send:

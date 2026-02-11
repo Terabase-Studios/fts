@@ -25,6 +25,7 @@ class FileSelector(Horizontal):
         self.path = None
 
     """An input that accepts pasted or dragged file paths."""
+
     def compose(self) -> ComposeResult:
         yield Input(placeholder="Drag a file here or click Browse...", id="file_input", validators=[IsValidPath()])
         yield Button("Browse", id="browse_button", variant="primary")
@@ -148,7 +149,7 @@ async def load_contacts(selection_list: SelectionList, contact_map: Dict[str, st
                 selection_list.add_option(sel)
                 contact_map[contact] = option_id
             except Exception:
-                    pass
+                pass
 
     # If list became empty, show a placeholder item
     if not new_contacts and (existing_set or first_run):
@@ -159,7 +160,6 @@ class Sending(Container):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.running_tasks = []
-
 
     def compose(self) -> ComposeResult:
         with Vertical():
@@ -190,9 +190,8 @@ class Sending(Container):
         button_id = event.button.id
 
         # make sure we can access the SelectionList inside ContactSelector
-        contact_selector =  self.contact_selector
-        file_selector =  self.file_selector
-
+        contact_selector = self.contact_selector
+        file_selector = self.file_selector
 
         if not contact_selector:
             return

@@ -40,6 +40,7 @@ os.makedirs(APP_DIR, exist_ok=True)
 
 CONFIG_PATH = os.path.join(APP_DIR, "config.ini")
 
+
 def backup_config(path):
     if not os.path.exists(path):
         return
@@ -53,6 +54,7 @@ def backup_config(path):
             break
         i += 1
 
+
 def resave_config(backup=True):
     config = configparser.ConfigParser()
     config["Settings"] = {k: str(v) for k, v in DEFAULTS.items()}
@@ -63,6 +65,7 @@ def resave_config(backup=True):
         config.write(f)
 
     return config
+
 
 def migrate_config(config, old_version):
     settings = config["Settings"]
@@ -80,6 +83,7 @@ def migrate_config(config, old_version):
         config.write(f)
 
     return config
+
 
 def load_or_create_config():
     config = configparser.ConfigParser()
@@ -115,6 +119,7 @@ def load_or_create_config():
 
 config = load_or_create_config()
 
+
 def get_config_value(key: str):
     val = config["Settings"].get(key, DEFAULTS[key])
     default = DEFAULTS[key]
@@ -124,6 +129,7 @@ def get_config_value(key: str):
     if str(default).lower() in ("true", "false"):
         return str(val).lower() == "true"
     return val
+
 
 def set_config_value(key: str, value):
     config["Settings"][key] = str(value)
@@ -150,18 +156,16 @@ IP_REMAPPING_WITH_MAC = get_config_value("IP_REMAPPING_WITH_MAC")
 # -----------------------------
 SEEN_IPS_FILE = os.path.join(APP_DIR, "seen_ips.json")
 CONTACTS_FILE = os.path.join(APP_DIR, "contacts.json")
-LOG_FILE      = os.path.join(APP_DIR, "log.txt")
-DEBUG_FILE    = os.path.join(APP_DIR, "debug.txt")
-MUTED_FILE    = os.path.join(APP_DIR, "muted.json")
-CHAT_FILE     = os.path.join(APP_DIR, "chat.json")
-LOCK_FILE     = os.path.join(APP_DIR, "lock.lock")
-MAC_FILE     = os.path.join(APP_DIR, "macs.json")
+LOG_FILE = os.path.join(APP_DIR, "log.txt")
+DEBUG_FILE = os.path.join(APP_DIR, "debug.txt")
+MUTED_FILE = os.path.join(APP_DIR, "muted.json")
+CHAT_FILE = os.path.join(APP_DIR, "chat.json")
+LOCK_FILE = os.path.join(APP_DIR, "lock.lock")
+MAC_FILE = os.path.join(APP_DIR, "macs.json")
 
-PLUGIN_DIR    = os.path.join(APP_DIR, "plugins")
-
+PLUGIN_DIR = os.path.join(APP_DIR, "plugins")
 
 LOGS = [LOG_FILE]
-
 
 # -----------------------------
 # Logger Setup

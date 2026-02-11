@@ -9,16 +9,17 @@ from fts.config import DOSP_ENABLED, MAX_REQS_PER_MIN, MAX_BYTES_PER_MIN, BAN_SE
 class _PerIPState:
     def __init__(self):
         self.req_times: Deque[float] = deque()
-        self.byte_events: Deque[tuple[float,int]] = deque()  # (timestamp, bytes)
+        self.byte_events: Deque[tuple[float, int]] = deque()  # (timestamp, bytes)
         self.banned_until = 0.0
+
 
 class DDoSProtector:
     def __init__(
-        self,
-        max_reqs_per_min: int = MAX_REQS_PER_MIN,
-        max_bytes_per_min: int = MAX_BYTES_PER_MIN,
-        ban_seconds: int = BAN_SECONDS,
-        window_seconds: float = REQUEST_WINDOW
+            self,
+            max_reqs_per_min: int = MAX_REQS_PER_MIN,
+            max_bytes_per_min: int = MAX_BYTES_PER_MIN,
+            ban_seconds: int = BAN_SECONDS,
+            window_seconds: float = REQUEST_WINDOW
     ):
         self.max_reqs = max_reqs_per_min
         self.max_bytes = max_bytes_per_min
@@ -99,6 +100,7 @@ class DDoSProtector:
             if s:
                 s.banned_until = 0.0
 
+
 def _normalize_ip(addr) -> str | None:
     """
     Accept either an IP string ("1.2.3.4") or a tuple (ip, port) produced by sockets.
@@ -118,8 +120,10 @@ def _normalize_ip(addr) -> str | None:
     # return ip  # if you want to allow hostnames
     return None
 
+
 # singleton protector used by your should_receive wrapper
 _protector = DDoSProtector()
+
 
 def should_receive(addr, filesize, flags=None) -> tuple[bool, str]:
     """

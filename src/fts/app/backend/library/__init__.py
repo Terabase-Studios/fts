@@ -1,7 +1,6 @@
-import os
-import json
 import hashlib
-import sys
+import json
+import os
 from typing import Dict, Any
 
 from fts.app.backend.library.config import LIBRARY_PATH, LIBRARY_CACHE_FILE, IGNORE_HIDDEN_FOLDERS
@@ -12,8 +11,8 @@ class FTSLibrary:
         self.library_root = os.path.abspath(library_root)
         self.cache_file = cache_file
         self.id_index: Dict[str, Dict[str, Any]] = {}  # id -> file info
-        self.path_index: Dict[str, str] = {}          # path -> id
-        self.tree: Dict[str, Any] = {}               # nested folder tree
+        self.path_index: Dict[str, str] = {}  # path -> id
+        self.tree: Dict[str, Any] = {}  # nested folder tree
 
         # Load cache if exists, else full build
         if os.path.exists(self.cache_file):

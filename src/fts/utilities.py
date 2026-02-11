@@ -1,5 +1,6 @@
 import re
 
+
 def format_bytes(size: int) -> str:
     units = ["B", "KB", "MB", "GB", "TB", "PB"]
     power = 1024
@@ -11,6 +12,7 @@ def format_bytes(size: int) -> str:
         n += 1
 
     return f"{s:.2f} {units[n]}"
+
 
 def parse_byte_string(size_str: str | int) -> int:
     """
@@ -37,9 +39,9 @@ def parse_byte_string(size_str: str | int) -> int:
     unit_multipliers = {
         "B": 1,
         "KB": 1024,
-        "MB": 1024**2,
-        "GB": 1024**3,
-        "TB": 1024**4,
+        "MB": 1024 ** 2,
+        "GB": 1024 ** 3,
+        "TB": 1024 ** 4,
         None: 1,  # if no unit, assume bytes
     }
     return int(number * unit_multipliers[unit])

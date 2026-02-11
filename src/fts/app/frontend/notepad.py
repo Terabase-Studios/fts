@@ -1,26 +1,13 @@
-import sys
 import os
 
-from textual.widgets import Tree, Input, Switch, Placeholder, TextArea
-from textual.widgets.tree import TreeNode
-from textual.events import Key
-
-from fts.app.backend.host import host_manager
-from fts.app.backend.library import FTSLibrary, LIBRARY_PATH
-from fts.app.backend.library.network import FTSNetLibrary, get_libraries, ask_for_file
-
-import socket
-import datetime
-
-from textual import events
 from textual.app import ComposeResult
-from textual.containers import VerticalScroll, Container, Vertical, Horizontal
-from textual.widgets import Label, Button, Rule, Log, Collapsible
+from textual.containers import Container
+from textual.widgets import Button
+from textual.widgets import TextArea
 
-from fts.app.backend.contacts import ONLINE_USERS, replace_with_ip, replace_with_contact
 from fts.app.backend.notepad import NotepadHost, NotepadClient
-from fts.app.config import logger, library_enabled, set_config_value, SAVE_DIR
-import fts.app.config as app_config
+from fts.app.config import SAVE_DIR
+
 
 class NotepadWindow(Container):
     def compose(self) -> ComposeResult:
@@ -108,9 +95,9 @@ class NotepadWindow(Container):
         self.notify(f"Host changed, please press any key to resync...", title="Notepad", severity="warning")
         self.host.set_text(self.text_area.text)
         return
-        #self.client.stop()
-        #self.host.stop()
-        #self.client = NotepadClient(
+        # self.client.stop()
+        # self.host.stop()
+        # self.client = NotepadClient(
         #    on_update_callback=self.on_text_update_from_host
-        #)
-        #self.host = NotepadHost()
+        # )
+        # self.host = NotepadHost()

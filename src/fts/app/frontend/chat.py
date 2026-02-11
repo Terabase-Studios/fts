@@ -32,7 +32,8 @@ class Chat(Container):
         yield RichLog(highlight=True, markup=True, id="chatbox")
 
         with Horizontal(id="chatbar"):
-            yield Input(id="chatinput", placeholder="Type a message and press Enter...", suggester=SuggestFromList(COMMAND_KEYS.__reversed__()))
+            yield Input(id="chatinput", placeholder="Type a message and press Enter...",
+                        suggester=SuggestFromList(COMMAND_KEYS.__reversed__()))
             yield Button("->", variant="primary", id="chatsend")
 
     def on_mount(self) -> None:
@@ -58,7 +59,7 @@ class Chat(Container):
         sat = 0.75
         val = 1.0
         r, g, b = colorsys.hsv_to_rgb(hue, sat, val)
-        return f"#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}"
+        return f"#{int(r * 255):02x}{int(g * 255):02x}{int(b * 255):02x}"
 
     def on_udp_message(self, data: bytes, addr):
         log = self.query_one(RichLog)

@@ -11,7 +11,7 @@ def is_cmd(cmd: str) -> bool:
     return False
 
 
-def execute(cmd: str) ->  (bool, str):
+def execute(cmd: str) -> (bool, str):
     if not is_cmd(cmd):
         return False, ""
     else:
@@ -23,6 +23,7 @@ def execute(cmd: str) ->  (bool, str):
             traceback = traceback.format_exc()
             logger.error(f"Failed To run command! {e}\n{traceback}")
             return True, f"--------------------\n{e}\n"
+
 
 def _run_cmd(cmd: str):
     for command in COMMAND_KEYS:
@@ -42,6 +43,7 @@ def _help(cmd: str):
     help_text = [f"{cmd}:\n{info[0]}" for cmd, info in COMMANDS.items()]
     return "\n\n".join(help_text)
 
+
 def _who(cmd: str):
     ip = _get_second_arg(cmd)
     replaced_ip = replace_with_ip(ip)
@@ -49,6 +51,7 @@ def _who(cmd: str):
         return f"{ip} -> {replaced_ip}"
     else:
         return f"{replace_with_contact(ip)}, is not a contact"
+
 
 def _mute(cmd: str):
     ip = _get_second_arg(cmd)
@@ -62,6 +65,7 @@ def _mute(cmd: str):
     MUTED_USERS.set_muted(muted_users)
     return f"Muted {replace_with_contact(ip)}"
 
+
 def _unmute(cmd: str):
     ip = _get_second_arg(cmd)
     ip = replace_with_ip(ip)
@@ -74,6 +78,7 @@ def _unmute(cmd: str):
     MUTED_USERS.set_muted(muted_users)
     return f"Unmuted {replace_with_contact(ip)}"
 
+
 def _muted(cmd: str):
     muted = MUTED_USERS.get_muted()
     if muted:
@@ -81,15 +86,17 @@ def _muted(cmd: str):
     else:
         return "No users muted."
 
+
 def _clear(cmd: str):
     return "CLEAR FTS LOG WINDOW"
 
+
 COMMANDS = {
-    "!help":   ("\tUsage: !help\n\tlist commands and what they do", _help),
-    "!clear":  ("\tUsage: !clear\n\tclear the chat window", _clear),
-    "!who":    ("\tUsage: !who ip\n\tlist the ip of a contact", _who),
-    "!muted":  ("\tUsage: !muted\n\tlist muted users", _muted),
-    "!mute":   ("\tUsage: !mute ip\n\tblock messages from a user", _mute),
+    "!help": ("\tUsage: !help\n\tlist commands and what they do", _help),
+    "!clear": ("\tUsage: !clear\n\tclear the chat window", _clear),
+    "!who": ("\tUsage: !who ip\n\tlist the ip of a contact", _who),
+    "!muted": ("\tUsage: !muted\n\tlist muted users", _muted),
+    "!mute": ("\tUsage: !mute ip\n\tblock messages from a user", _mute),
     "!unmute": ("\tUsage: !unmute ip\n\tallow messages from a muted user", _unmute),
 }
 

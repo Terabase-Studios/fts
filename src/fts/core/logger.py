@@ -19,10 +19,10 @@ BLUE = "\033[94m"
 WHITE = "\033[97m"
 
 LEVEL_COLORS = {
-    "DEBUG": "\033[94m",    # light blue
-    "INFO": "\033[90m",     # gray
+    "DEBUG": "\033[94m",  # light blue
+    "INFO": "\033[90m",  # gray
     "WARNING": "\033[33m",  # orange (yellow/orange)
-    "ERROR": "\033[91m",    # red
+    "ERROR": "\033[91m",  # red
     "CRITICAL": "\033[97;41m"  # white on red
 }
 
@@ -37,6 +37,7 @@ class TqdmLoggingHandler(logging.Handler):
             sys.stderr.flush()
         except Exception:
             self.handleError(record)
+
 
 class ColorFormatter(logging.Formatter):
     def __init__(self, line_sep=0):

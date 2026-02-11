@@ -1,21 +1,19 @@
-import json
-import sys
-import time
 import asyncio
+import json
 import threading
-import socket
 from typing import Dict, Any
 
-from fts.app.backend.contacts import discover
 import fts.app.backend.transfer as fts_transfer
-from fts.app.backend.library.config import LIBRARY_PORT, LIBRARY_LOG_FILE
-from fts.app.backend.library import FTSLibrary
-from fts.app.config import logger
 import fts.app.config as app_config
+from fts.app.backend.contacts import discover
+from fts.app.backend.library import FTSLibrary
+from fts.app.backend.library.config import LIBRARY_PORT, LIBRARY_LOG_FILE
+from fts.app.config import logger
 
 LIBRARY_DISCOVER = b"FTSLIBRARYDISCOVER"
 LIBRARY_RESPONSE = b"FTSLIBRARYRESPONSE"
 LIBRARY_REQUEST = b"FTSLIBRARYREQUEST"
+
 
 class FTSNetLibrary:
     """
@@ -107,7 +105,8 @@ class DiscoveryResponder:
                 # First send length, then the data
                 writer.write(len(response).to_bytes(4, "big"))
                 writer.write(response)
-                history.append({"type": "discover", "data": data.decode(), "source": writer.get_extra_info("peername")[0]})
+                history.append(
+                    {"type": "discover", "data": data.decode(), "source": writer.get_extra_info("peername")[0]})
                 with open(LIBRARY_LOG_FILE, "w") as f:
                     json.dump(history, f)
                 await writer.drain()
@@ -119,7 +118,9 @@ class DiscoveryResponder:
                 ip = writer.get_extra_info('peername')[0]
 
                 logger.info(f"[Library][Responder] Received library request from {ip}: {file_id}->{abs_path}")
-                history.append({"type": "request", "data": data.decode(), "source": writer.get_extra_info("peername")[0], "id": file_id, "path": abs_path})
+                history.append(
+                    {"type": "request", "data": data.decode(), "source": writer.get_extra_info("peername")[0],
+                     "id": file_id, "path": abs_path})
                 with open(LIBRARY_LOG_FILE, "w") as f:
                     json.dump(history, f)
 
@@ -139,6 +140,7 @@ class DiscoveryResponder:
 
 def start_library_responder():
     """Run the TCP responder in a background thread."""
+
     def _thread_target():
         asyncio.run(DiscoveryResponder().run_server())
 
@@ -176,10 +178,10 @@ async def get_libraries(timeout=1):
 
     return collector
 
+
 async def ask_for_file(ip, file_id, timeout=0.5):
     try:
         reader, writer = await asyncio.open_connection(ip, LIBRARY_PORT)
-
 
         writer.write(LIBRARY_REQUEST + file_id.encode("utf-8"))
         await writer.drain()
@@ -189,6 +191,3 @@ async def ask_for_file(ip, file_id, timeout=0.5):
         return True
     except:
         return False
-
-
-

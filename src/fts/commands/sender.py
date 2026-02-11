@@ -46,9 +46,11 @@ def cmd_send(args, logger, manager=None):
             return
 
     try:
-        asyncio.run(send_file(path, args.ip, args.port, logger, progress_bar=args.progress, name=args.name, compress=not args.nocompress, rate_limit=limit, manager=manager))
+        asyncio.run(send_file(path, args.ip, args.port, logger, progress_bar=args.progress, name=args.name,
+                              compress=not args.nocompress, rate_limit=limit, manager=manager))
     except KeyboardInterrupt:
         raise KeyboardInterrupt
+
 
 # -------------------------
 # Helper functions
@@ -58,6 +60,7 @@ def resolve_path(path: str) -> str:
         raise ValueError("No path given")
     path = os.path.expanduser(path)
     return os.path.abspath(path)
+
 
 # -------------------------
 # Send file over TLS
@@ -106,6 +109,7 @@ def should_compress(file_path: str) -> bool:
         return False
 
     return True
+
 
 def compress_file(file_path, filename, filesize, logger, compress=True):
     temp_dir = None
@@ -158,15 +162,15 @@ def compress_file(file_path, filename, filesize, logger, compress=True):
 
 
 async def send_file(
-    file_path: str,
-    host: str,
-    port: int,
-    logger,
-    progress_bar: bool = False,
-    name: str = None,
-    compress: bool = False,
-    rate_limit: int = 0,
-    manager: Manager = None
+        file_path: str,
+        host: str,
+        port: int,
+        logger,
+        progress_bar: bool = False,
+        name: str = None,
+        compress: bool = False,
+        rate_limit: int = 0,
+        manager: Manager = None
 ):
     """
     Asynchronously send a file over a secure socket with optional compression and rate limiting.
@@ -435,5 +439,5 @@ async def send_linear(file_path, filesize, writer, progress_bar, logger, rate_li
         progress.close()
         loop.set_exception_handler(old_handler)
         duration = max(0.001, end_time - start_time)
-        logger.debug(f"Transferred {format_bytes(sent)} in {duration:.2f}s ({format_bytes(sent/duration)}/s)")
+        logger.debug(f"Transferred {format_bytes(sent)} in {duration:.2f}s ({format_bytes(sent / duration)}/s)")
         return sent

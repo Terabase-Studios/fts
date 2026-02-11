@@ -132,6 +132,7 @@ def load_aliases(logger=None):
             logger.error(f"Failed to load aliases: {e}")
         return {"ip": {}, "dir": {}}
 
+
 def _save_aliases(data, logger=None):
     try:
         with open(ALIASES_FILE, "w", encoding="utf-8") as f:
@@ -149,6 +150,7 @@ def resolve_args(args, logger: logging.Logger):
     if getattr(args, "ip", None):
         args.ip = resolve_alias(args.ip, "ip", logger=logger)
     return args
+
 
 # --- Resolve alias to actual path or IP ---
 def resolve_alias(path_or_alias: str, type_: str, logger: logging.Logger):
@@ -181,7 +183,6 @@ def resolve_alias(path_or_alias: str, type_: str, logger: logging.Logger):
         resolved_base = Path(aliases["dir"].get(base_alias, base_alias))
         resolved_path = resolved_base / sub_path
 
-
         return str(resolved_path.resolve())
 
     elif type_ == "ip":
@@ -202,6 +203,7 @@ def resolve_alias(path_or_alias: str, type_: str, logger: logging.Logger):
     else:
         logger.error(f"Invalid type '{type_}' for alias resolution.")
         return None
+
 
 def reverse_resolve_alias(value: str, type_: str, logger=None):
     """

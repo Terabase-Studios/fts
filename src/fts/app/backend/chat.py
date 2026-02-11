@@ -1,7 +1,7 @@
 import json
-import time
 import socket
 import threading
+import time
 
 from textual.app import App
 
@@ -9,6 +9,7 @@ from fts.app.backend.contacts import get_broadcast_addresses, has_public_broadca
 from fts.app.config import CHAT_PORT, MUTED_FILE
 
 CHAT_KEY: bytes = b"FTSCHATMSG"
+
 
 class MutedUsers:
     def __init__(self, file_path: str):
@@ -31,8 +32,10 @@ class MutedUsers:
         with self.lock:
             return self.muted.copy()
 
+
 # Global instance
 MUTED_USERS = MutedUsers(MUTED_FILE)
+
 
 def send(msg, timeout=0.5) -> str:
     try:
@@ -75,6 +78,7 @@ def chat_listener(app: App, port: int, callback):
             time.sleep(0.1)
             continue
 
+
 def start_chat_listener(app: App, port: int, callback):
     """
     Start a background thread that listens for UDP broadcast packets.
@@ -83,5 +87,3 @@ def start_chat_listener(app: App, port: int, callback):
     thread = threading.Thread(target=chat_listener, daemon=True, args=(app, port, callback))
     thread.start()
     return thread
-
-

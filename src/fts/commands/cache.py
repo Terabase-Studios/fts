@@ -85,7 +85,8 @@ def show():
                     elif "ini.backup" in path.lower():
                         purpose = "A backup of a config file after an upgrade"
 
-                print(f"{Color.DIM}{prefix}{connector}{Color.RESET}{entry} ({Color.RED}{size}{Color.RESET}) - {purpose}")
+                print(
+                    f"{Color.DIM}{prefix}{connector}{Color.RESET}{entry} ({Color.RED}{size}{Color.RESET}) - {purpose}")
 
     print(f"{Color.BOLD}{APP_DIR}/{Color.RESET}")
     _tree(APP_DIR)
@@ -248,4 +249,3 @@ def clean(args, logger, level=-1, yes=False):
         for f in [RECEIVING_PID, CERT_FILE, KEY_FILE]:
             safe_remove(f)
         safe_remove(APP_DIR)
-

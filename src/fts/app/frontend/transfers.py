@@ -74,6 +74,7 @@ class InactiveEntry(Container):
         if event.button.id == "cancel_entry":
             self.transfer.cancelled.set()
 
+
 class LogEntry(Container):
     def __init__(self, entry):
         super().__init__()
@@ -91,7 +92,7 @@ class LogEntry(Container):
         with Collapsible(title=heading, id="logtab"):
             log = Log(id="logview")
             for line in lines:
-                log.write(line+"\n")
+                log.write(line + "\n")
             yield log
 
 
@@ -100,12 +101,11 @@ class Transfers(Container):
         self.transfer_count = 0
         with VerticalScroll(id="transferscroll"):
             with Collapsible(title="Active", collapsed=False):
-                #yield Label("Current transfers will show up here")
+                # yield Label("Current transfers will show up here")
                 self.active = Vertical(id="active_container")
                 self.inactive = Vertical(id="inactive_container")
                 yield self.active
                 yield self.inactive
-
 
             # History section
             with Collapsible(title="History", collapsed=False, id="history"):
@@ -130,6 +130,7 @@ class Transfers(Container):
 
     def add_active(self, entry, transfer, manager):
         self.active.mount(ActiveEntry(entry=entry, transfer=transfer, manager=manager), before=0)
+
 
 async def reload_history(container: Container, logs_file=LOGS, first_run=False):
     """
@@ -157,8 +158,8 @@ async def reload_history(container: Container, logs_file=LOGS, first_run=False):
         if entry["id"] not in old_entry_ids:
             await container.mount(LogEntry(entry), before=0)
 
-    #if not history and (old_entry_ids or first_run):
+    # if not history and (old_entry_ids or first_run):
     #    await container.mount(Label("Past transfers will show up here"))
 
     # Adjust height dynamically
-    container.styles.height = max(((len(container.children)-1) * 15) + 1, 30)
+    container.styles.height = max(((len(container.children) - 1) * 15) + 1, 30)

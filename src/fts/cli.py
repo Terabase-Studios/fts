@@ -12,8 +12,10 @@ from fts.core.secure import is_public_network
 # --- Lazy command loader with caching ---
 _command_cache = {}
 
+
 def load_cmd(module_path, func_name):
     """Lazy loader for commands, imports on first use and caches the function."""
+
     def wrapper(args, logger):
         key = (module_path, func_name)
         if key not in _command_cache:
@@ -31,6 +33,7 @@ def load_cmd(module_path, func_name):
                 )
                 sys.exit(1)
         return _command_cache[key](args, logger)
+
     return wrapper
 
 
@@ -143,20 +146,22 @@ def main():
     finally:
         print('')
 
+
 if __name__ == "__main__":
     main()
+
 
 def colorize_icon(icon: str, version: str) -> str:
     RESET = "\033[0m"
 
-    NAME   = "\033[38;2;205;205;205m"
+    NAME = "\033[38;2;205;205;205m"
     VERSION = RESET
     LABEL = "\033[38;2;150;150;150m"
 
     # Define your three RGB constants for the gradient
-    COLOR1 = (255, 0, 0)    # top-left (red)
-    COLOR2 = (127, 0, 227)    # middle (green)
-    COLOR3 = (0, 0, 255)    # bottom-right (blue)
+    COLOR1 = (255, 0, 0)  # top-left (red)
+    COLOR2 = (127, 0, 227)  # middle (green)
+    COLOR3 = (0, 0, 255)  # bottom-right (blue)
 
     lines = icon.splitlines()
     height = len(lines)

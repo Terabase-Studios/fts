@@ -33,6 +33,7 @@ from fts.utilities import format_bytes, parse_byte_string
 # Incrementing IDs for each client connection
 _client_ids = itertools.count(1)
 
+
 def cmd_open(args, logger, manager=None):
     """Start TLS receiver server safely with dynamic port handling and shutdown support."""
     if not args.output:
@@ -65,14 +66,15 @@ def cmd_open(args, logger, manager=None):
     # Try dynamic port handling BEFORE running asyncio
     for attempt in range(45):
         try:
-            server_coro = start_server(host, port, output_dir, logger, args.progress, limit, max_sends, args.unprotected, args.max_transfers, manager=manager)
+            server_coro = start_server(host, port, output_dir, logger, args.progress, limit, max_sends,
+                                       args.unprotected, args.max_transfers, manager=manager)
             asyncio.run(server_coro)
             return
         except OSError as e:
             if port != 0:
                 logger.warning(f"Error connecting to port: {e}")
                 logger.warning(f"Port {port} unavailable, retrying with free port...")
-                port +=1
+                port += 1
             else:
                 logger.error(f"Failed to start server: {e}")
                 return
@@ -88,7 +90,8 @@ def cmd_open(args, logger, manager=None):
 
 
 async def start_server(host: str, port: int, output_dir: str, logger,
-                       progress_bar=False, rate_limit: int = 0, max_sends=None, unprotected=False, max_concurrent_transfers=0, manager: Manager = None):
+                       progress_bar=False, rate_limit: int = 0, max_sends=None, unprotected=False,
+                       max_concurrent_transfers=0, manager: Manager = None):
     from ssl import SSLContext
     ssl_context: SSLContext = secure.get_server_context()
     os.makedirs(output_dir, exist_ok=True)
@@ -142,7 +145,6 @@ async def start_server(host: str, port: int, output_dir: str, logger,
             while current_transfers >= max_concurrent_transfers:
                 await asyncio.sleep(1)
 
-
         try:
             if manager:
                 if manager.cancelled:
@@ -186,7 +188,6 @@ async def start_server(host: str, port: int, output_dir: str, logger,
                 if send_counter >= max_sends:
                     logger.info("Maximum transfer requests reached, closing server")
                     shutdown_event.set()  # trigger server shutdown
-
 
             try:
                 writer.close()
@@ -262,7 +263,8 @@ async def safe_rename(temp_path: Path, out_path: Path):
     return target
 
 
-async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, output_dir: str, client_id, logger, progress_bar=False, rate_limit: int = 0, unprotected=False, manager: Manager = None):
+async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, output_dir: str, client_id, logger,
+                        progress_bar=False, rate_limit: int = 0, unprotected=False, manager: Manager = None):
     addr = writer.get_extra_info("peername")
     logger.info(f"{client_id}: Secure connection from {addr}")
 
@@ -325,16 +327,16 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
                 manager.state = "transferring"
                 manager.max_progress = filesize
 
-
         os.makedirs(output_dir, exist_ok=True)
 
         # generate 16 random characters
         rand = ''.join(random.choices(string.ascii_letters + string.digits, k=16))
-        temp_path = Path(out_path).with_name(f"{Path(out_path).stem}{rand}){Path(out_path).suffix}").with_suffix(MID_DOWNLOAD_EXT)
+        temp_path = Path(out_path).with_name(f"{Path(out_path).stem}{rand}){Path(out_path).suffix}").with_suffix(
+            MID_DOWNLOAD_EXT)
 
         # --- Receive file ---
-        received = await receive_linear(reader, filesize, temp_path, client_id, logger, progress_bar=progress_bar, rate_limit=rate_limit, manager=manager)
-
+        received = await receive_linear(reader, filesize, temp_path, client_id, logger, progress_bar=progress_bar,
+                                        rate_limit=rate_limit, manager=manager)
 
         if received < filesize:
             logger.error(f"{client_id}: Incomplete file received: {format_bytes(received)}/{format_bytes(filesize)}")
@@ -396,7 +398,8 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
             pass
 
 
-async def receive_linear(reader, filesize, out_path, client_id, logger, progress_bar=False, rate_limit: int = 0, manager: Manager = None):
+async def receive_linear(reader, filesize, out_path, client_id, logger, progress_bar=False, rate_limit: int = 0,
+                         manager: Manager = None):
     """
     High-performance async file receiver using batch reads and memoryview,
     with thread-based file writes to avoid blocking the event loop and optional rate limiting.
@@ -414,7 +417,7 @@ async def receive_linear(reader, filesize, out_path, client_id, logger, progress
         unit_divisor=1024,
         disable=not progress_bar,
         leave=False,
-        desc = f"{client_id}",
+        desc=f"{client_id}",
     )
 
     # Helper function to write a chunk in a thread
@@ -479,7 +482,8 @@ async def receive_linear(reader, filesize, out_path, client_id, logger, progress
             if manager:
                 manager.progress = received
         progress.close()
-        logger.debug(f"{client_id}: Transferred {format_bytes(received)} in {duration:.2f} seconds: ({format_bytes(received / duration)}/s)")
+        logger.debug(
+            f"{client_id}: Transferred {format_bytes(received)} in {duration:.2f} seconds: ({format_bytes(received / duration)}/s)")
     return received
 
 

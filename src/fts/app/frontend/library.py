@@ -1,22 +1,18 @@
-import sys
-
-from textual.widgets import Tree, Input, Switch
-from textual.widgets.tree import TreeNode
-from textual.events import Key
-from fts.app.backend.library import FTSLibrary, LIBRARY_PATH
-from fts.app.backend.library.network import FTSNetLibrary, get_libraries, ask_for_file
-
-import socket
 import datetime
+import socket
 
-from textual import events
 from textual.app import ComposeResult
 from textual.containers import VerticalScroll, Container, Vertical, Horizontal
-from textual.widgets import Label, Button, Rule, Log, Collapsible
+from textual.events import Key
+from textual.widgets import Label, Button, Collapsible
+from textual.widgets import Tree, Input, Switch
+from textual.widgets.tree import TreeNode
 
-from fts.app.backend.contacts import ONLINE_USERS, replace_with_ip, replace_with_contact
-from fts.app.config import logger, library_enabled, set_config_value
 import fts.app.config as app_config
+from fts.app.backend.contacts import replace_with_contact
+from fts.app.backend.library import FTSLibrary, LIBRARY_PATH
+from fts.app.backend.library.network import FTSNetLibrary, get_libraries, ask_for_file
+from fts.app.config import logger, set_config_value
 
 RED = "\033[31m"
 RESET = "\033[0m"
@@ -54,7 +50,7 @@ class LibraryView(Container):
 class LibraryPanel(Vertical):
     def __init__(self, library_view: LibraryView, **kwargs):
         super().__init__(**kwargs)
-        self.library_view = library_view\
+        self.library_view = library_view
 
     def compose(self) -> ComposeResult:
         with Vertical() as h:
@@ -77,7 +73,6 @@ class LibraryPanel(Vertical):
         else:
             seconds = f"{date.second}"
         yield Label(f"Last refresh: {date.hour}:{minute}:{seconds}")
-
 
     def on_switch_changed(self, event: Switch.Changed):
         if event.switch.id == "library_switch":
@@ -117,7 +112,6 @@ class LibraryTreeDisplay(Vertical):
 
         yield VerticalScroll(id="tree_scroll")
 
-
         yield Input(placeholder="Search Libraries", id="library_search")
 
     def on_input_changed(self, event: Input.Changed) -> None:
@@ -144,7 +138,7 @@ class LibraryTreeDisplay(Vertical):
 class LibraryTree(Tree):
     """A Tree widget showing folders and files with sizes, supports local or network libraries."""
 
-    def __init__(self, library: FTSLibrary | FTSNetLibrary = FTSLibrary() , name: str | None = None):
+    def __init__(self, library: FTSLibrary | FTSNetLibrary = FTSLibrary(), name: str | None = None):
         """
         `library` can be an instance of FTSLibrary or FTSNetLibrary.
         """
@@ -188,7 +182,7 @@ class LibraryTree(Tree):
     @staticmethod
     def _format_size(size: int) -> str:
         """Convert bytes to human-readable format."""
-        for unit in ['B','KB','MB','GB','TB']:
+        for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
             if size < 1024:
                 return f"{size:.1f}{unit}"
             size /= 1024
@@ -260,7 +254,7 @@ class LibraryTree(Tree):
                 text[end:]
         )
 
-    async  def on_tree_node_selected(self, event: Tree.NodeSelected):
+    async def on_tree_node_selected(self, event: Tree.NodeSelected):
         node = event.node
         self._last_selected = node
 
@@ -291,5 +285,7 @@ class LibraryTree(Tree):
             self.notify(f"Sent library request to {replace_with_contact(self.ip)}: {file_id}")
             logger.info(f"[Library][Frontend] Sent library request to {replace_with_contact(self.ip)}: {file_id}")
         else:
-            self.notify(f"Failed to send library request to {replace_with_contact(self.ip)}: {file_id}", severity="error")
-            logger.error(f"[Library][Frontend] Failed to send library request to {replace_with_contact(self.ip)}: {file_id}")
+            self.notify(f"Failed to send library request to {replace_with_contact(self.ip)}: {file_id}",
+                        severity="error")
+            logger.error(
+                f"[Library][Frontend] Failed to send library request to {replace_with_contact(self.ip)}: {file_id}")

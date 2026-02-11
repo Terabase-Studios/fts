@@ -1,15 +1,17 @@
-import time
-import os
 import hashlib
 import json
-from fts.app.backend.plugins.config import PUBLIC_KEY, HASHES_JSON, HASHES_SIG, ERROR_FREEZE_TIME
-from fts.app.config import PLUGIN_DIR
+import os
+import time
+
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 
+from fts.app.backend.plugins.config import PUBLIC_KEY, HASHES_JSON, HASHES_SIG, ERROR_FREEZE_TIME
+from fts.app.config import PLUGIN_DIR
+
 
 def verify_plugins(plugin_files, public_key_string=PUBLIC_KEY,
-                         hashes_json_path=HASHES_JSON, sig_path=HASHES_SIG):
+                   hashes_json_path=HASHES_JSON, sig_path=HASHES_SIG):
     # Load public key
     public_key = serialization.load_pem_public_key(public_key_string.encode())
 
@@ -23,7 +25,6 @@ def verify_plugins(plugin_files, public_key_string=PUBLIC_KEY,
         print("[PLUGIN VERIFIER ERROR] Failed to locate valid plugin hashes!\nRun `fts plugins upgrade` to try again")
         time.sleep(ERROR_FREEZE_TIME)
         return []
-
 
     # Verify signature
     try:
