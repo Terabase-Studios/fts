@@ -22,11 +22,12 @@ from fts.app.frontend.notepad import NotepadWindow
 from fts.app.frontend.requests import Requests
 from fts.app.frontend.sending import Sending
 from fts.app.frontend.transfers import Transfers
+from fts.app.frontend.debug import DebugView
 from fts.app.style.tcss import css
 from fts.cli import ICON
 
 fts_app = None
-
+USE_INDIVIDUAL_TCSS = True
 
 def setup(transfer_ui: Transfers, requests_ui: Requests) -> None:
     fts.logger = LOG_FILE
@@ -38,24 +39,26 @@ def setup(transfer_ui: Transfers, requests_ui: Requests) -> None:
 
 
 class FTSApp(App):
-    # CSS_PATH = [
-    #    "style\\main.tcss",
-    #    "style\\contacts.tcss",
-    #    "style\\transfers.tcss",
-    #    "style\\chat.tcss",
-    #    "style\\sending.tcss",
-    #    "style\\requests.tcss",
-    #    "style\\library.tcss",
-    #    "style\\notepad.tcss",
-    # ]
-
-    CSS = css
+    if USE_INDIVIDUAL_TCSS:
+         CSS_PATH = [
+            "style\\main.tcss",
+            "style\\contacts.tcss",
+            "style\\transfers.tcss",
+            "style\\chat.tcss",
+            "style\\sending.tcss",
+            "style\\requests.tcss",
+            "style\\library.tcss",
+            "style\\notepad.tcss",
+            "style\\debug.tcss",
+         ]
+    else:
+        CSS = css
 
     def compose(self=None) -> ComposeResult:
         # yield Header()
         # yield Footer()
 
-        stable = ["Main", "Library"]
+        stable = ["Main", "Library", "Debug"]
         experimental = ["Notepad"]
         if EXPERIMENTAL_FEATURES_ENABLED:
             tabs = stable + experimental
@@ -75,6 +78,7 @@ class FTSApp(App):
                     transfers = Transfers(id="bottomrowb")
                     yield transfers
             yield LibraryView()
+            yield DebugView()
 
             if EXPERIMENTAL_FEATURES_ENABLED:
                 notepad = NotepadWindow(id="notepad")
