@@ -59,7 +59,7 @@ class DebugView(Container):
                 except Exception as e:
                     self.notify(f"Failed to create logfile: {e} Please try again", title="Failed to export Debug.txt", severity="error")
                 else:
-                    self.notify(f"Exported as {filename}", title="Exported Debug.txt")
+                    self.notify(f"Exported to {filepath}", title="Exported Debug.txt")
 
     def on_list_view_highlighted(self, event: ListView.Highlighted) -> None:
         if event.list_view.id != "InstanceSelector":

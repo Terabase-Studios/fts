@@ -170,10 +170,10 @@ async def get_libraries(timeout=1):
             writer.close()
             await writer.wait_closed()
         except asyncio.TimeoutError:
-            logger.error(f"[Library][Retriever] Unreachable Host: {ip}, Error: Timeout")
+            logger.warning(f"[Library][Retriever] Unreachable Host: {ip}, Error: Timeout")
             continue  # ignore unreachable hosts
         except Exception as e:
-            logger.error(f"[Library][Retriever] Unreachable Host: {ip}, Error: {e}")
+            logger.warning(f"[Library][Retriever] Unreachable Host: {ip}, Error: {e}")
             continue  # ignore unreachable hosts
 
     return collector

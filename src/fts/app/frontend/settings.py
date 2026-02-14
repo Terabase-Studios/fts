@@ -83,7 +83,9 @@ class ConfigReader(HorizontalScroll):
                     with Item():
                         id = f"LOC{section}-{item[0]}"
                         yield ConfigText(item[0])
-                        if item[0].endswith("_enabled"):
+                        if section.lower() == "plugins":
+                            yield BoolInput(value=base_parser[section].getboolean(item[0]), id = id)
+                        elif item[0].endswith("_enabled"):
                             yield BoolInput(value=base_parser[section].getboolean(item[0]), id = id)
                         elif item[1].isdigit():
                             yield NumericInput(value=item[1], type="integer", id = id)
