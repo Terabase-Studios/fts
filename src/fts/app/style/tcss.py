@@ -376,4 +376,52 @@ LibraryTreeDisplay {
     margin: 1 2 1 2;
     width: 1fr;
 }
+
+Reader {
+    height: 1fr;
+    width: 80%;
+    padding: 1;
+    border: tall $secondary-lighten-2;
+    background: $boost-lighten-2;
+    margin-bottom: 1;
+}
+
+LogFilterSelector {
+    width: 1fr;
+    height: 5;
+    padding: 1;
+    min-height: 5;
+}
+
+#LogSelectorBar {
+    border: hkey $accent-darken-2;
+    margin: 1;
+    background: $boost;
+    height: auto;
+}
+
+DebugLog {
+    width: 1fr;
+    height: 1fr;
+    padding-left: 2;
+    border: tall $secondary-lighten-2;
+    background: $boost-lighten-2;
+}
+
+#InstanceSelector {
+    height: 1fr;
+    width: 1fr;
+    padding: 1;
+    border: tall $secondary-lighten-2;
+    background: $boost-lighten-2;
+}
+
+#LogExportButton {
+    width: 1fr;
+    max-height: 5;
+    padding: 1;
+    margin-top: 1;
+    border: tall $secondary-lighten-2;
+    min-height: 5;
+}
 '''

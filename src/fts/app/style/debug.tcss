@@ -4,6 +4,7 @@ Reader {
     padding: 1;
     border: tall $secondary-lighten-2;
     background: $boost-lighten-2;
+    margin-bottom: 1;
 }
 
 LogFilterSelector {
@@ -22,7 +23,7 @@ LogFilterSelector {
 
 DebugLog {
     width: 1fr;
-    height: 1fr;
+    height: 1fr;a
     padding-left: 2;
     border: tall $secondary-lighten-2;
     background: $boost-lighten-2;
@@ -30,8 +31,17 @@ DebugLog {
 
 #InstanceSelector {
     height: 1fr;
-    width: 20%;
+    width: 1fr;
     padding: 1;
     border: tall $secondary-lighten-2;
     background: $boost-lighten-2;
+}
+
+#LogExportButton {
+    width: 1fr;
+    max-height: 5;
+    padding: 1;
+    margin-top: 1;
+    border: tall $secondary-lighten-2;
+    min-height: 5;
 }

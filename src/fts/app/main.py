@@ -27,7 +27,7 @@ from fts.app.style.tcss import css
 from fts.cli import ICON
 
 fts_app = None
-USE_INDIVIDUAL_TCSS = True
+USE_INDIVIDUAL_TCSS = False
 
 def setup(transfer_ui: Transfers, requests_ui: Requests) -> None:
     fts.logger = LOG_FILE

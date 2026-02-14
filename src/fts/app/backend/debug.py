@@ -213,6 +213,7 @@ def filter_logs(
     results = []
 
     for line in lines:
+        line = str(line)
         parsed = parse_log_line(line)
         if not parsed:
             continue
