@@ -36,9 +36,9 @@ def show():
         "BACKUP.ZIP": "Backup of the cache for \'fts cache restore\'",
         "HASHES.JSON": "Used to verify plugins",
         "HASHES.SIG": "Used to verify plugins",
-        "MACS.json": "Used to remap contact ips after ip change",
+        "MACS.JSON": "Used to remap contact ips after ip change",
         "LIBRARY.JSON": "Cache for library tree to speed library construction time",
-        "LIBRARY_LOG.JSON": "Log of all library requests"
+        "LIBRARY_LOG.JSON": "Log of all library requests",
     }
 
     class Color:

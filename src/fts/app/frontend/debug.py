@@ -12,7 +12,7 @@ from textual.widgets import Button, ListView, Select, RichLog, ListItem, Label
 from textual.widgets import TextArea
 
 from fts.app.backend.debug import parse_log, colorize_log_line, filter_logs
-from fts.app.config import DEBUG_FILE, SAVE_DIR
+from fts.app.config import DEBUG_FILE, SAVE_DIR, EXPERIMENTAL_FEATURES_ENABLED
 
 
 class DebugView(Container):
@@ -101,7 +101,8 @@ class Reader(Vertical):
         self.starting_filter = [current_severity, current_module, current_submodule]
         self.severity_selection_widget = None
         self.module_selection_widget = None
-        #self.submodule_selection_widget = None
+        if EXPERIMENTAL_FEATURES_ENABLED:
+            self.submodule_selection_widget = None
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="LogSelectorBar"):
@@ -113,7 +114,8 @@ class Reader(Vertical):
                 submodule_options = [("---", "---")]
             self.severity_selection_widget = LogFilterSelector(severity_options, allow_blank=False, id="severity_select")
             self.module_selection_widget = LogFilterSelector(module_options, allow_blank=False, id="module_select")
-            #self.submodule_selection_widget =  LogFilterSelector(submodule_options, allow_blank=False, id="submodule_select")
+            if EXPERIMENTAL_FEATURES_ENABLED:
+                self.submodule_selection_widget =  LogFilterSelector(submodule_options, allow_blank=False, id="submodule_select")
 
             severity_values = [v for _, v in severity_options]
             module_values = [v for _, v in module_options]
@@ -121,12 +123,14 @@ class Reader(Vertical):
 
             self.starting_filter[0] = self.current_severity if self.current_severity in severity_values else "---"
             self.starting_filter[1] = self.current_module if self.current_module in module_values else "---"
-            #self.starting_filter[2] = self.current_submodule if self.current_submodule in submodule_values else "---"
+            if EXPERIMENTAL_FEATURES_ENABLED:
+                self.starting_filter[2] = self.current_submodule if self.current_submodule in submodule_values else "---"
 
 
             yield self.severity_selection_widget
             yield self.module_selection_widget
-            #yield self.submodule_selection_widget
+            if EXPERIMENTAL_FEATURES_ENABLED:
+                yield self.submodule_selection_widget
 
         lines = []
         for i in range(len(self.data[2])):
@@ -138,7 +142,8 @@ class Reader(Vertical):
         super()._on_mount(event)
         self.severity_selection_widget.value = self.starting_filter[0]
         self.module_selection_widget.value = self.starting_filter[1]
-        #self.submodule_selection_widget.value = self.starting_filter[2]
+        if EXPERIMENTAL_FEATURES_ENABLED:
+            self.submodule_selection_widget.value = self.starting_filter[2]
 
     def on_select_changed(self, event: Select.Changed) -> None:
         select_id = event.select.id
@@ -155,9 +160,9 @@ class Reader(Vertical):
             else:
                 submodule_options = [("---", "---")]
                 self.current_submodule = "---"
-
-            #self.submodule_selection_widget.set_options(submodule_options)
-            #self.submodule_selection_widget.value = self.current_submodule
+            if EXPERIMENTAL_FEATURES_ENABLED:
+                self.submodule_selection_widget.set_options(submodule_options)
+                self.submodule_selection_widget.value = self.current_submodule
         elif select_id == "submodule_select":
             self.current_submodule = new_value
         self.query_one(DebugLog).filter(self.current_severity, self.current_module, self.current_submodule)
