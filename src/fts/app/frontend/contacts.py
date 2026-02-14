@@ -5,7 +5,7 @@ from textual.containers import Container, Vertical, Horizontal, VerticalScroll
 from textual.screen import ModalScreen
 from textual.suggester import SuggestFromList
 from textual.validation import Validator, ValidationResult
-from textual.widgets import Tree, Button, Input
+from textual.widgets import Tree, Button, Input, Select
 
 from fts.app.backend.contacts import get_users, get_contacts, add_contact, remove_contact, \
     get_seen_users, replace_with_contact
@@ -101,27 +101,23 @@ class AddContact(ModalScreen[tuple[str, str] | None]):
                     id="addcontactname",
                     validators=[Blank(), IsNotAlreadyContact()]
                 )
-                yield Input(
-                    placeholder="Contact Ip",
-                    id="addcontactip",
-                    suggester=SuggestFromList(
-                        [i for i in get_seen_users() if replace_with_contact(i) not in get_contacts()],
-                        case_sensitive=True),
-                    validators=[Blank(), IsNoncontactUser()]
-                )
+                potential_ips = [i for i in get_seen_users() if replace_with_contact(i) not in get_contacts()]
+                if not potential_ips:
+                    potential_ips = ["None"]
+                yield Select([(line, line) for line in potential_ips], id="addcontactip", allow_blank=False)
+
                 with Horizontal(id="addcontactbuttonbar"):
                     yield Button("add", variant="success", id="addcontactfinal")
                     yield Button("cancel", variant="error", id="cancelcontactadd")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         name_input = self.query_one("#addcontactname", Input)
-        ip_input = self.query_one("#addcontactip", Input)
+        ip_input = self.query_one("#addcontactip", Select)
 
         if event.button.id == "addcontactfinal":
             # return the tuple (name, ip)
             results = name_input.validate(name_input.value).is_valid
-            results = results and ip_input.validate(ip_input.value).is_valid
-            if results:
+            if results and ip_input.value != "None":
                 self.dismiss((name_input.value, ip_input.value))
 
         elif event.button.id == "cancelcontactadd":
@@ -135,29 +131,24 @@ class RemoveContact(ModalScreen[str | None]):
     def compose(self) -> ComposeResult:
         with Container(id="removecontactcontainer"):
             with Vertical():
-                yield Input(
-                    placeholder="Contact Name",
-                    id="removecontactname",
-                    suggester=SuggestFromList(get_contacts(), case_sensitive=True),
-                    validators=[CheckContact()],
-                )
+                potential_contacts = get_contacts()
+                if not potential_contacts:
+                    potential_contacts = ["None"]
+                yield Select([(line, line) for line in potential_contacts], id="removecontactname", allow_blank=False)
 
                 with Horizontal(id="addcontactbuttonbar"):
                     yield Button("remove", variant="error", id="addcontactfinal")
                     yield Button("cancel", variant="success", id="cancelcontactadd")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        input_widget = self.query_one("#removecontactname", Input)
+        input_widget = self.query_one("#removecontactname", Select)
 
         if event.button.id == "addcontactfinal":
-            results = input_widget.validate(input_widget.value)
-
-            # Check if *all* validators passed
-            if results.is_valid:
+            if input_widget.value != "None":
                 self.dismiss(input_widget.value)
 
         elif event.button.id == "cancelcontactadd":
-            # Return None if cancelled
+            # Return None if canceled
             self.dismiss(None)
 
 

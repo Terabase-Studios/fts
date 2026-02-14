@@ -33,6 +33,7 @@ AddContact {
 #addcontactfinal {
     margin-left: 1;
     width: 50%;
+    height: auto;
 }
 
 #cancelcontactadd {
@@ -48,5 +49,9 @@ RemoveContact {
     height: 8;
     width: 100;
     border: vkey $error;
+}
+
+#removecontactname, #addcontactip{
+    height: 3;
 }
 
