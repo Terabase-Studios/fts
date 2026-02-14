@@ -23,7 +23,7 @@ LogFilterSelector {
 
 DebugLog {
     width: 1fr;
-    height: 1fr;a
+    height: 1fr;
     padding-left: 2;
     border: tall $secondary-lighten-2;
     background: $boost-lighten-2;

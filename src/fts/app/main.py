@@ -23,11 +23,12 @@ from fts.app.frontend.requests import Requests
 from fts.app.frontend.sending import Sending
 from fts.app.frontend.transfers import Transfers
 from fts.app.frontend.debug import DebugView
+from fts.app.frontend.settings import SettingsView
 from fts.app.style.tcss import css
 from fts.cli import ICON
 
 fts_app = None
-USE_INDIVIDUAL_TCSS = False
+USE_INDIVIDUAL_TCSS = True
 
 def setup(transfer_ui: Transfers, requests_ui: Requests) -> None:
     fts.logger = LOG_FILE
@@ -50,6 +51,7 @@ class FTSApp(App):
             "style\\library.tcss",
             "style\\notepad.tcss",
             "style\\debug.tcss",
+            "style\\settings.tcss",
          ]
     else:
         CSS = css
@@ -58,7 +60,7 @@ class FTSApp(App):
         # yield Header()
         # yield Footer()
 
-        stable = ["Main", "Library", "Debug"]
+        stable = ["Main", "Library", "Debug", "Settings"]
         experimental = ["Notepad"]
         if EXPERIMENTAL_FEATURES_ENABLED:
             tabs = stable + experimental
@@ -79,6 +81,7 @@ class FTSApp(App):
                     yield transfers
             yield LibraryView()
             yield DebugView()
+            yield SettingsView()
 
             if EXPERIMENTAL_FEATURES_ENABLED:
                 notepad = NotepadWindow(id="notepad")
@@ -86,6 +89,7 @@ class FTSApp(App):
                 yield notepad
 
         setup(transfer_ui=transfers, requests_ui=requests)
+
 
     async def action_quit(self) -> None:
         transfer.transfer_handler.cancel_all()
