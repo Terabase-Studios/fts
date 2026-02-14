@@ -55,7 +55,7 @@ class LibraryPanel(Vertical):
     def compose(self) -> ComposeResult:
         with Vertical() as h:
             yield Label(f"Library open:", id="library_switch_text")
-            yield Switch(value=app_config.library_enabled, id="library_switch")
+            yield Switch(value=app_config.LIBRARY_ENABLED, id="library_switch")
             h.styles.height = "auto"
 
         yield Label(LIBRARY_HELP, id="library_help_text")
@@ -77,7 +77,7 @@ class LibraryPanel(Vertical):
     def on_switch_changed(self, event: Switch.Changed):
         if event.switch.id == "library_switch":
             set_config_value("LIBRARY_ENABLED", str(event.value).lower())
-            app_config.library_enabled = event.value
+            app_config.LIBRARY_ENABLED = event.value
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         button_id = event.button.id

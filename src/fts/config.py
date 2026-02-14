@@ -300,10 +300,11 @@ def backup_config(path: str):
         i += 1
 
 
-def resave_config():
+def resave_config(backup=True):
     """Save config to config.ini and move existing config.ini to back up."""
     global CONFIG_VERSION
-    backup_config(CONFIG_FILE)
+    if backup:
+        backup_config(CONFIG_FILE)
     CONFIG_VERSION = current_config_version
     _write_default_config(CONFIG_FILE)
 

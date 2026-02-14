@@ -86,7 +86,7 @@ class DiscoveryResponder:
 
     async def handle_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         try:
-            if not app_config.library_enabled:
+            if not app_config.LIBRARY_ENABLED:
                 writer.close()
                 await writer.wait_closed()
                 return
@@ -170,10 +170,10 @@ async def get_libraries(timeout=1):
             writer.close()
             await writer.wait_closed()
         except asyncio.TimeoutError:
-            logger.debug(f"[Library][Retriever] Unreachable Host: {ip}, Error: Timeout")
+            logger.error(f"[Library][Retriever] Unreachable Host: {ip}, Error: Timeout")
             continue  # ignore unreachable hosts
         except Exception as e:
-            logger.debug(f"[Library][Retriever] Unreachable Host: {ip}, Error: {e}")
+            logger.error(f"[Library][Retriever] Unreachable Host: {ip}, Error: {e}")
             continue  # ignore unreachable hosts
 
     return collector

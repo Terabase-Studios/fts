@@ -14,24 +14,39 @@ EXPERIMENTAL_FEATURES_ENABLED = EXPERIMENTAL_FEATURES_ENABLED
 # Default Configuration Values
 # -----------------------------
 save_dir_default = os.path.expanduser("~/Downloads/fts")
-CONFIG_VERSION = 2
+CONFIG_VERSION = 3
 
 DEFAULTS = {
-    "CONFIG_VERSION": CONFIG_VERSION,
-
-    "DISCOVERY_PORT": 6064,
-    "CHAT_PORT": 7064,
-    "LIBRARY_PORT": 8064,
-    "NOTEPAD_PORT": 9064,
-
-    "SAVE_DIR": os.path.expanduser("~/Downloads/fts"),
-    "VERBOSE_LOGGING": "true",
-    "PLUGINS_ENABLED": "true",
-    "LIBRARY_ENABLED": "false",
-    "LIBRARY_IGNORE_HIDDEN_FOLDERS": "true",
-
-    "IP_REMAPPING_WITH_MAC": "true"
+    "Core": {
+        "CONFIG_VERSION": CONFIG_VERSION,
+    },
+    "Networking": {
+        "DISCOVERY_PORT": 6064,
+        "CHAT_PORT": 7064,
+        "LIBRARY_PORT": 8064,
+        "NOTEPAD_PORT": 9064,
+        "IP_REMAPPING_WITH_MAC_ENABLED": "true",
+    },
+    "Storage": {
+        "SAVE_DIR": os.path.expanduser("~/Downloads/fts"),
+    },
+    "Logging": {
+        "VERBOSE_LOGGING_ENABLED": "true",
+    },
+    "Plugins": {
+        "PLUGINS_ENABLED": "true",
+    },
+    "Library": {
+        "LIBRARY_ENABLED": "false",
+        "LIBRARY_IGNORE_HIDDEN_FOLDERS_ENABLED": "true",
+    },
 }
+KEY_TO_SECTION = {
+    key: section
+    for section, values in DEFAULTS.items()
+    for key in values.keys()
+}
+
 # -----------------------------
 # Setup Directories
 # -----------------------------
@@ -57,26 +72,45 @@ def backup_config(path):
 
 def resave_config(backup=True):
     config = configparser.ConfigParser()
-    config["Settings"] = {k: str(v) for k, v in DEFAULTS.items()}
+
+    for section, values in DEFAULTS.items():
+        config[section] = {k: str(v) for k, v in values.items()}
 
     if backup:
         backup_config(CONFIG_PATH)
+
     with open(CONFIG_PATH, "w", encoding="utf-8") as f:
         config.write(f)
 
     return config
 
 
+
 def migrate_config(config, old_version):
-    settings = config["Settings"]
+    # Remove deprecated legacy section
+    if "Settings" in config:
+        config.remove_section("Settings")
 
-    # add new defaults without overwriting user values
-    for key, default in DEFAULTS.items():
-        if key not in settings:
-            settings[key] = str(default)
+    for section, defaults in DEFAULTS.items():
+        if section not in config:
+            config[section] = {}
 
-    # bump version
-    settings["CONFIG_VERSION"] = str(CONFIG_VERSION)
+        for key, default in defaults.items():
+            if key not in config[section]:
+                config[section][key] = str(default)
+
+    for section in list(config.sections()):
+        if section not in DEFAULTS:
+            config.remove_section(section)
+            continue
+
+        allowed = DEFAULTS[section].keys()
+        for key in list(config[section].keys()):
+            if key not in allowed:
+                del config[section][key]
+
+
+    config["Core"]["CONFIG_VERSION"] = str(CONFIG_VERSION)
 
     backup_config(CONFIG_PATH)
     with open(CONFIG_PATH, "w", encoding="utf-8") as f:
@@ -93,11 +127,11 @@ def load_or_create_config():
     if os.path.exists(CONFIG_PATH):
         try:
             config.read(CONFIG_PATH)
-            if "Settings" not in config:
+            if "Core" not in config:
                 broken_config = True
             else:
                 current_config_version = int(
-                    config["Settings"].get("CONFIG_VERSION", 0)
+                    config["Core"].get("CONFIG_VERSION", 0)
                 )
         except Exception as e:
             print(f"ERROR: failed to load {CONFIG_PATH}: {e}")
@@ -120,19 +154,29 @@ def load_or_create_config():
 config = load_or_create_config()
 
 
-def get_config_value(key: str):
-    val = config["Settings"].get(key, DEFAULTS[key])
-    default = DEFAULTS[key]
+def get_config_value(section: str, key: str):
+    default = DEFAULTS[section][key]
+    val = config[section].get(key, default)
 
     if isinstance(default, int):
         return int(val)
+
     if str(default).lower() in ("true", "false"):
         return str(val).lower() == "true"
+
     return val
 
 
 def set_config_value(key: str, value):
-    config["Settings"][key] = str(value)
+    section = KEY_TO_SECTION.get(key)
+    if section is None:
+        raise KeyError(f"Unknown config key: {key}")
+
+    if section not in config:
+        config[section] = {}
+
+    config[section][key] = str(value)
+
     with open(CONFIG_PATH, "w", encoding="utf-8") as f:
         config.write(f)
 
@@ -140,16 +184,20 @@ def set_config_value(key: str, value):
 # -----------------------------
 # Apply Config Values
 # -----------------------------
-DISCOVERY_PORT = get_config_value("DISCOVERY_PORT")
-CHAT_PORT = get_config_value("CHAT_PORT")
-LIBRARY_PORT = get_config_value("LIBRARY_PORT")
-NOTEPAD_PORT = get_config_value("NOTEPAD_PORT")
-SAVE_DIR = get_config_value("SAVE_DIR")
-VERBOSE_LOGGING = get_config_value("VERBOSE_LOGGING")
-PLUGINS_ENABLED = get_config_value("PLUGINS_ENABLED")
-library_enabled = get_config_value("LIBRARY_ENABLED")
-LIBRARY_IGNORE_HIDDEN_FOLDERS = get_config_value("LIBRARY_IGNORE_HIDDEN_FOLDERS")
-IP_REMAPPING_WITH_MAC = get_config_value("IP_REMAPPING_WITH_MAC")
+DISCOVERY_PORT = get_config_value("Networking", "DISCOVERY_PORT")
+CHAT_PORT = get_config_value("Networking", "CHAT_PORT")
+LIBRARY_PORT = get_config_value("Networking", "LIBRARY_PORT")
+NOTEPAD_PORT = get_config_value("Networking", "NOTEPAD_PORT")
+IP_REMAPPING_WITH_MAC = get_config_value("Networking", "IP_REMAPPING_WITH_MAC_ENABLED")
+
+SAVE_DIR = get_config_value("Storage", "SAVE_DIR")
+
+VERBOSE_LOGGING = get_config_value("Logging", "VERBOSE_LOGGING_ENABLED")
+
+PLUGINS_ENABLED = get_config_value("Plugins", "PLUGINS_ENABLED")
+
+LIBRARY_ENABLED = get_config_value("Library", "LIBRARY_ENABLED")
+LIBRARY_IGNORE_HIDDEN_FOLDERS = get_config_value("Library", "LIBRARY_IGNORE_HIDDEN_FOLDERS_ENABLED")
 
 # -----------------------------
 # File Paths

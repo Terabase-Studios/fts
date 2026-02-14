@@ -37,7 +37,7 @@ class DebugView(Container):
                 return
 
             with Vertical():
-                items = [ListItem(Label(f"({i})-[{str(self.data[i][0])[11:]}>{str(self.data[i][1])[11:]}]")) for i in self.data]
+                items = [ListItem(Label(f"({i})-[{str(self.data[i][0])}>{str(self.data[i][1])[11:]}]")) for i in self.data]
                 items.reverse()
                 yield ListView(
                     *items,
