@@ -1,15 +1,10 @@
 import os
 import random
-import sys
-import re
 
-from sympy import false
 from textual import events
 from textual.app import ComposeResult
 from textual.containers import Container, Vertical, Horizontal
-from textual.getters import query_one
 from textual.widgets import Button, ListView, Select, RichLog, ListItem, Label
-from textual.widgets import TextArea
 
 from fts.app.backend.debug import parse_log, colorize_log_line, filter_logs
 from fts.app.config import DEBUG_FILE, SAVE_DIR, EXPERIMENTAL_FEATURES_ENABLED
@@ -37,7 +32,8 @@ class DebugView(Container):
                 return
 
             with Vertical():
-                items = [ListItem(Label(f"({i})-[{str(self.data[i][0])}>{str(self.data[i][1])[11:]}]")) for i in self.data]
+                items = [ListItem(Label(f"({i})-[{str(self.data[i][0])}>{str(self.data[i][1])[11:]}]")) for i in
+                         self.data]
                 items.reverse()
                 yield ListView(
                     *items,
@@ -57,7 +53,8 @@ class DebugView(Container):
                     with open(filepath, "w") as write:
                         write.write(read.read())
                 except Exception as e:
-                    self.notify(f"Failed to create logfile: {e} Please try again", title="Failed to export Debug.txt", severity="error")
+                    self.notify(f"Failed to create logfile: {e} Please try again", title="Failed to export Debug.txt",
+                                severity="error")
                 else:
                     self.notify(f"Exported to {filepath}", title="Exported Debug.txt")
 
@@ -106,16 +103,20 @@ class Reader(Vertical):
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="LogSelectorBar"):
-            severity_options = [("---", "---")]+[(line, line) for line in self.metadata["severity"]]
-            module_options = [("---", "---")]+[(line, line) for line in self.metadata["modules"]]
-            if self.current_module and self.current_module != "---" and self.metadata["modules"].get(self.current_module):
-                submodule_options = [("---", "---")]+[(line, line) for line in self.metadata["modules"][self.current_module]]
+            severity_options = [("---", "---")] + [(line, line) for line in self.metadata["severity"]]
+            module_options = [("---", "---")] + [(line, line) for line in self.metadata["modules"]]
+            if self.current_module and self.current_module != "---" and self.metadata["modules"].get(
+                    self.current_module):
+                submodule_options = [("---", "---")] + [(line, line) for line in
+                                                        self.metadata["modules"][self.current_module]]
             else:
                 submodule_options = [("---", "---")]
-            self.severity_selection_widget = LogFilterSelector(severity_options, allow_blank=False, id="severity_select")
+            self.severity_selection_widget = LogFilterSelector(severity_options, allow_blank=False,
+                                                               id="severity_select")
             self.module_selection_widget = LogFilterSelector(module_options, allow_blank=False, id="module_select")
             if EXPERIMENTAL_FEATURES_ENABLED:
-                self.submodule_selection_widget =  LogFilterSelector(submodule_options, allow_blank=False, id="submodule_select")
+                self.submodule_selection_widget = LogFilterSelector(submodule_options, allow_blank=False,
+                                                                    id="submodule_select")
 
             severity_values = [v for _, v in severity_options]
             module_values = [v for _, v in module_options]
@@ -124,8 +125,8 @@ class Reader(Vertical):
             self.starting_filter[0] = self.current_severity if self.current_severity in severity_values else "---"
             self.starting_filter[1] = self.current_module if self.current_module in module_values else "---"
             if EXPERIMENTAL_FEATURES_ENABLED:
-                self.starting_filter[2] = self.current_submodule if self.current_submodule in submodule_values else "---"
-
+                self.starting_filter[
+                    2] = self.current_submodule if self.current_submodule in submodule_values else "---"
 
             yield self.severity_selection_widget
             yield self.module_selection_widget
@@ -154,8 +155,10 @@ class Reader(Vertical):
         elif select_id == "module_select":
             self.current_module = new_value
 
-            if self.current_module and self.current_module != "---" and self.metadata["modules"].get(self.current_module):
-                submodule_options = [("---", "---")] + [(line, line) for line in self.metadata["modules"][self.current_module]]
+            if self.current_module and self.current_module != "---" and self.metadata["modules"].get(
+                    self.current_module):
+                submodule_options = [("---", "---")] + [(line, line) for line in
+                                                        self.metadata["modules"][self.current_module]]
                 self.current_submodule = submodule_options[0][1]  # default to first submodule
             else:
                 submodule_options = [("---", "---")]
@@ -166,6 +169,7 @@ class Reader(Vertical):
         elif select_id == "submodule_select":
             self.current_submodule = new_value
         self.query_one(DebugLog).filter(self.current_severity, self.current_module, self.current_submodule)
+
 
 class DebugLog(RichLog):
     def __init__(self, debug_lines):
@@ -195,8 +199,6 @@ class DebugLog(RichLog):
 
 class LogFilterSelector(Select):
     pass
-
-
 
 
 if __name__ == "__main__":

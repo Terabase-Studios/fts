@@ -1,8 +1,8 @@
 import re
 from datetime import datetime
 from typing import List, Optional
+
 from rich.text import Text
-from rich.console import Console
 
 from fts.app.config import DEBUG_FILE
 
@@ -34,6 +34,7 @@ LEVEL_STYLES = {
     "ERROR": "bold red",
     "CRITICAL": "bold white on red",
 }
+
 
 def parse_log() -> tuple:
     with open(DEBUG_FILE, "r") as log_file:
@@ -183,6 +184,7 @@ def colorize_log_line(line: str) -> Text:
 
     return text
 
+
 def parse_log_line(line: str):
     match = LOG_PATTERN.match(line)
     if not match:
@@ -205,10 +207,10 @@ def parse_log_line(line: str):
 
 
 def filter_logs(
-    lines: List[str],
-    level: Optional[str] = None,
-    module: Optional[str] = None,
-    submodule: Optional[str] = None,
+        lines: List[str],
+        level: Optional[str] = None,
+        module: Optional[str] = None,
+        submodule: Optional[str] = None,
 ) -> List[str]:
     results = []
 

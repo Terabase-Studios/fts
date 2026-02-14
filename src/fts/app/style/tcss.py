@@ -59,6 +59,7 @@ AddContact {
 #addcontactfinal {
     margin-left: 1;
     width: 50%;
+    height: auto;
 }
 
 #cancelcontactadd {
@@ -74,6 +75,10 @@ RemoveContact {
     height: 8;
     width: 100;
     border: vkey $error;
+}
+
+#removecontactname, #addcontactip{
+    height: 3;
 }
 
 Horizontal {
@@ -423,5 +428,92 @@ DebugLog {
     margin-top: 1;
     border: tall $secondary-lighten-2;
     min-height: 5;
+}
+
+#SettingsFileSelector {
+    border: hkey $secondary-lighten-2;
+    height: 1fr;
+    width: 1fr;
+}
+
+Section {
+    border: panel $secondary-lighten-3;
+    background: $boost;
+    margin: 1;
+    padding: 1;
+    padding-bottom: 0;
+    padding-left: 2;
+    height: 100%;
+    width: auto;
+}
+
+NumericInput, BoolInput {
+    height: auto;
+    min-width: 35;
+    width: 100%
+}
+
+ConfigText {
+    background: $secondary-lighten-1;
+    margin-bottom: 1;
+    padding: 0 1 0 1;
+}
+
+Item {
+    border: tall $accent;
+    height: auto;
+    width: auto;
+    padding: 1;
+    margin: 1;
+}
+
+#ConfigButtons {
+    height: 1fr;
+    width: 30;
+    min-width: 20;
+    padding: 1;
+    background: $boost;
+    border: hkey $secondary-lighten-2;
+    margin: 1 0 1 0;
+}
+
+#ConfigSave, #ConfigReset, #ConfigDelete{
+    width: 100%
+}
+
+Spacer {
+    width: 1fr;
+    height: 1fr;
+}
+
+#ConfirmDelete {
+    margin-left: 1;
+    width: 50%;
+}
+
+#CancelDelete {
+    margin-right: 2;
+    width: 50%;
+}
+
+#ConfirmDeleteButtonBar {
+    height: 11;
+    width: 100;
+}
+
+ConfirmDelete {
+    align: center middle;
+}
+
+#ConfirmDeleteContainer {
+    height: 8;
+    width: 100;
+    border: vkey $error;
+    align: center middle;
+}
+
+CenterText {
+    text-align: center;
+    width: 1fr;
 }
 '''

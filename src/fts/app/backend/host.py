@@ -1,4 +1,3 @@
-import psutil
 import socket
 import threading
 import time

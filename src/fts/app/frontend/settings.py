@@ -1,47 +1,36 @@
 import os
-import random
-import sys
-import re
 from configparser import ConfigParser
 
-from rich.align import VerticalCenter
-from sympy import false
-from textual import events
 from textual.app import ComposeResult
-from textual.containers import Container, Vertical, Horizontal, VerticalScroll, Grid, ItemGrid, HorizontalScroll, Middle
-from textual.getters import query_one
+from textual.containers import Container, Vertical, Horizontal, VerticalScroll, HorizontalScroll, Middle
 from textual.screen import ModalScreen
-from textual.selection import Selection
-from textual.widgets import Button, ListView, Select, RichLog, ListItem, Label, TabbedContent, Placeholder, Rule, \
-    Switch, Input
-from textual.widgets import TextArea
+from textual.widgets import Button, Label, TabbedContent, Switch, Input
 
-from fts.config import resave_config as reset_main_config
+from fts.app.config import CONFIG_PATH as APP_CONFIG
 from fts.app.config import resave_config as reset_app_config
 from fts.config import CONFIG_FILE as MAIN_CONFIG
-from fts.app.config import CONFIG_PATH as APP_CONFIG
-from fts.app.backend.debug import parse_log, colorize_log_line, filter_logs
-from fts.app.config import DEBUG_FILE, SAVE_DIR, EXPERIMENTAL_FEATURES_ENABLED, APP_DIR
+from fts.config import resave_config as reset_main_config
 
 EXCLUDED_SECTIONS = ["paths", "compression", "core"]
 EXCLUDED_SETTINGS = ["config_version", "library_enabled"]
 
+
 def is_float(value):
-  """
-  Checks if a string is a valid float using a try-except block.
-  """
-  try:
-    float(value)
-    return True
-  except ValueError:
-    return False
+    """
+    Checks if a string is a valid float using a try-except block.
+    """
+    try:
+        float(value)
+        return True
+    except ValueError:
+        return False
+
 
 class SettingsView(Container):
 
     def __init__(self):
         super().__init__()
         self.parsers = []
-
 
     def compose(self) -> ComposeResult:
         with TabbedContent(*["Base", "App"], id="SettingsFileSelector"):
@@ -84,15 +73,15 @@ class ConfigReader(HorizontalScroll):
                         id = f"LOC{section}-{item[0]}"
                         yield ConfigText(item[0])
                         if section.lower() == "plugins":
-                            yield BoolInput(value=base_parser[section].getboolean(item[0]), id = id)
+                            yield BoolInput(value=base_parser[section].getboolean(item[0]), id=id)
                         elif item[0].endswith("_enabled"):
-                            yield BoolInput(value=base_parser[section].getboolean(item[0]), id = id)
+                            yield BoolInput(value=base_parser[section].getboolean(item[0]), id=id)
                         elif item[1].isdigit():
-                            yield NumericInput(value=item[1], type="integer", id = id)
+                            yield NumericInput(value=item[1], type="integer", id=id)
                         elif is_float(item[1]):
-                            yield NumericInput(value=item[1], type="number", id = id)
+                            yield NumericInput(value=item[1], type="number", id=id)
                         else:
-                            yield NumericInput(value=item[1], type="text", id = id)
+                            yield NumericInput(value=item[1], type="text", id=id)
 
     def on_input_changed(self, event: Input.Changed):
         if not event.validation_result:
@@ -130,10 +119,12 @@ class ConfigReader(HorizontalScroll):
                 button = self.get_widget_by_id("ConfigReset")
                 button.disabled = True
                 self.notify(f"{config_info} overridden", title="Configuration Saved")
-                self.notify(f"Configuration changes require a restart to take effect", title="Configuration Notice", severity="warning")
+                self.notify(f"Configuration changes require a restart to take effect", title="Configuration Notice",
+                            severity="warning")
 
         elif event.button.id == "ConfigReset":
-            self.notify(f"Reverting unsaved changes to {config_info}", title="Configuration Reverted", severity="warning")
+            self.notify(f"Reverting unsaved changes to {config_info}", title="Configuration Reverted",
+                        severity="warning")
             self.parent.mount(ConfigReader(self.config_path))
             self.remove()
 
@@ -150,10 +141,12 @@ class ConfigReader(HorizontalScroll):
             elif self.config_path == APP_CONFIG:
                 reset_app_config()
             else:
-                self.notify(f"{config_info} failed to delete; Unrecognized config path", title="Configuration Error", severity="error")
+                self.notify(f"{config_info} failed to delete; Unrecognized config path", title="Configuration Error",
+                            severity="error")
 
             self.notify(f"{config_info} deleted; Backup created", title="Configuration Deleted")
-            self.notify(f"Configuration changes require a restart to take effect", title="Configuration Notice", severity="warning")
+            self.notify(f"Configuration changes require a restart to take effect", title="Configuration Notice",
+                        severity="warning")
             self.parent.mount(ConfigReader(self.config_path))
             self.remove()
 
@@ -177,24 +170,29 @@ class ConfirmDelete(ModalScreen[bool]):
             self.dismiss(False)
 
 
-
 class Spacer(Container):
     pass
+
 
 class Section(VerticalScroll):
     pass
 
+
 class Item(Vertical):
     pass
+
 
 class NumericInput(Input):
     pass
 
+
 class BoolInput(Switch):
     pass
 
+
 class ConfigText(Label):
     pass
+
 
 class CenterText(Label):
     pass

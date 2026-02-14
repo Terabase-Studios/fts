@@ -85,7 +85,6 @@ def resave_config(backup=True):
     return config
 
 
-
 def migrate_config(config, old_version):
     # Remove deprecated legacy section
     if "Settings" in config:
@@ -108,7 +107,6 @@ def migrate_config(config, old_version):
         for key in list(config[section].keys()):
             if key not in allowed:
                 del config[section][key]
-
 
     config["Core"]["CONFIG_VERSION"] = str(CONFIG_VERSION)
 

@@ -17,18 +17,19 @@ from fts.app.backend.transfer import TransferHandler
 from fts.app.config import LOCK_FILE, LOG_FILE, EXPERIMENTAL_FEATURES_ENABLED
 from fts.app.frontend.chat import Chat
 from fts.app.frontend.contacts import Contacts
+from fts.app.frontend.debug import DebugView
 from fts.app.frontend.library import LibraryView
 from fts.app.frontend.notepad import NotepadWindow
 from fts.app.frontend.requests import Requests
 from fts.app.frontend.sending import Sending
-from fts.app.frontend.transfers import Transfers
-from fts.app.frontend.debug import DebugView
 from fts.app.frontend.settings import SettingsView
+from fts.app.frontend.transfers import Transfers
 from fts.app.style.tcss import css
 from fts.cli import ICON
 
 fts_app = None
-USE_INDIVIDUAL_TCSS = True
+USE_INDIVIDUAL_TCSS = False
+
 
 def setup(transfer_ui: Transfers, requests_ui: Requests) -> None:
     fts.logger = LOG_FILE
@@ -41,7 +42,7 @@ def setup(transfer_ui: Transfers, requests_ui: Requests) -> None:
 
 class FTSApp(App):
     if USE_INDIVIDUAL_TCSS:
-         CSS_PATH = [
+        CSS_PATH = [
             "style\\main.tcss",
             "style\\contacts.tcss",
             "style\\transfers.tcss",
@@ -52,7 +53,7 @@ class FTSApp(App):
             "style\\notepad.tcss",
             "style\\debug.tcss",
             "style\\settings.tcss",
-         ]
+        ]
     else:
         CSS = css
 
@@ -89,7 +90,6 @@ class FTSApp(App):
                 yield notepad
 
         setup(transfer_ui=transfers, requests_ui=requests)
-
 
     async def action_quit(self) -> None:
         transfer.transfer_handler.cancel_all()
