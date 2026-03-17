@@ -77,7 +77,7 @@ class FTSNetLibrary:
             if phrase_lower in info["name"].lower()
         }
 
-    def get_by_id(self, fid: str) -> Dict[str, Any] | None:
+    def get_by_id(self, fid: str):
         return self.id_index.get(fid)
 
 

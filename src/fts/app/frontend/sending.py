@@ -33,7 +33,8 @@ class FileSelector(Horizontal):
     @on(Input.Changed, "#file_input")
     def handle_path_input(self, event: Input.Changed) -> None:
         """Handle pasted or dragged paths."""
-        text = f"{event.value.strip().strip('"')}"
+        event_value = event.value.strip().strip('\"')
+        text = f"{event_value}"
         try:
             self.path = Path(text)
         except ValueError:

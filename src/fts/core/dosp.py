@@ -101,7 +101,7 @@ class DDoSProtector:
                 s.banned_until = 0.0
 
 
-def _normalize_ip(addr) -> str | None:
+def _normalize_ip(addr):
     """
     Accept either an IP string ("1.2.3.4") or a tuple (ip, port) produced by sockets.
     Return IP string or None if invalid.

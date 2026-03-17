@@ -221,7 +221,7 @@ class TransferHandler:
                 transfer.transfer_ui.remove()
 
             except Exception as e:
-                self.transfer_ui.notify(f"{e}", title="Error receiving transfer", severity="error")
+                self.transfer_ui.notify(f"{e}", title="Error receiving transfer", severity="error", timeout=30)
                 logger.error(f"[TransferHandler][Receive] Receive failed: {e}")
 
             finally:
@@ -263,7 +263,7 @@ class TransferHandler:
             tries = 0
             while not connected and tries < 3:
                 try:
-                    reader, writer = await secure.connect_with_tofu_async(target, TRANSFER_PORT, Logger)
+                    reader, writer = await secure.connect_with_tofu_async(target, TRANSFER_PORT, Logger, require_confirmation=False)
                 except Exception as e:
                     time.sleep(1)
                     tries += 1
@@ -291,7 +291,7 @@ class TransferHandler:
             tries = 0
             while not connected and tries < 3:
                 try:
-                    reader, writer = await secure.connect_with_tofu_async(receiver[0], receiver[1], Logger)
+                    reader, writer = await secure.connect_with_tofu_async(receiver[0], receiver[1], Logger, require_confirmation=False)
                 except Exception as e:
                     time.sleep(1)
                     tries += 1
@@ -367,8 +367,8 @@ class TransferHandler:
             transfer.transfer_ui.remove()
 
         except Exception as e:
-            self.transfer_ui.notify(f"{e}", title="Error sending transfer", severity="error")
-            logger.error(f"[TransferHandler][Send] Recieve failed: {e}")
+            self.transfer_ui.notify(f"{e}", title="Error sending transfer", severity="error", timeout=30)
+            logger.error(f"[TransferHandler][Send] Send failed: {e}")
 
         finally:
             if writer:
@@ -429,7 +429,7 @@ class Transfer():
 
 
 class Entry():
-    def __init__(self, filepath: str | None, target_info: tuple[str, int] | None):
+    def __init__(self, filepath, target_info):
         self.filepath = None
         self.name = None
         self.size = None

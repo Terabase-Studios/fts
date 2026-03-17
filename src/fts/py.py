@@ -24,7 +24,7 @@ def _get_logger(base_logger, id: str):
         return base_logger
 
 
-def send(path: str, ip: str, port: int = -1, limit: int | str = 0, progress: bool = False, name: str = None,
+def send(path: str, ip: str, port: int = -1, limit = 0, progress: bool = False, name: str = None,
          compress: bool = True, manager: Manager = None):
     args = Namespace(
         path=path,
@@ -34,13 +34,14 @@ def send(path: str, ip: str, port: int = -1, limit: int | str = 0, progress: boo
         progress=progress,
         name=name,
         nocompress=not compress,
+        autotrust=True
     )
 
     func_logger = _get_logger(logger, "send")
     cmd_send(resolve_args(args, func_logger), func_logger, manager=manager)
 
 
-def open(path: str, ip: str = None, port: int = -1, limit: int | str = 0, progress: bool = False,
+def open(path: str, ip: str = None, port: int = -1, limit = 0, progress: bool = False,
          protected: bool = True, max_concurrent_transfers: int = 0, manager: Manager = None, max_transfers: int = None):
     args = Namespace(
         output=path,

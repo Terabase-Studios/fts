@@ -194,7 +194,7 @@ async def start_server(host: str, port: int, output_dir: str, logger,
                 await writer.wait_closed()
             except Exception as e:
                 pass
-            logger.info(f"{client_id}: Connection from {addr} closed\n")
+            logger.info(f"{client_id}: Secure connection from {addr} closed\n")
 
     server = await asyncio.start_server(handle_connection, host, port, ssl=ssl_context)
     logger.info(f"Server listening on {host}:{port}\n")
@@ -372,10 +372,10 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
                     manager.state = p
                 else:
                     manager.state = "decompressing"
-            temp_path = await asyncio.to_thread(decompress_file, str(temp_path), client_id, logger)
+            temp_path = await asyncio.to_thread(decompress_file, str(temp_path), filename, filesize, client_id, logger)
 
         final_path = await safe_rename(Path(temp_path), Path(out_path))
-        logger.info(f"Saved as: {final_path}")
+        logger.info(f"{client_id}: Saved as: {final_path}")
 
     except Exception as e:
         logger.exception(f"{client_id}: Error receiving file: {e}")
@@ -488,7 +488,7 @@ async def receive_linear(reader, filesize, out_path, client_id, logger, progress
 
 
 # --- Sync helper functions for CPU-bound work ---
-def decompress_file(file_path: str, client_id, logger):
+def decompress_file(file_path: str, filename: str, file_size, client_id, logger):
     temp_dir = tempfile.mkdtemp()
     decompressed_path = os.path.join(temp_dir, os.path.basename(file_path).removesuffix(".zlib"))
     try:
@@ -502,8 +502,9 @@ def decompress_file(file_path: str, client_id, logger):
         final_path = os.path.join(os.path.dirname(file_path), os.path.basename(decompressed_path))
         shutil.move(decompressed_path, final_path)
         shutil.rmtree(temp_dir, ignore_errors=True)
-        logger.info(f"{client_id}: Decompression complete")
+        logger.info(f"{client_id}: Decompressed {filename} {format_bytes(file_size)} -> {format_bytes(os.path.getsize(final_path))}")
         return final_path
+
     except Exception as e:
         shutil.rmtree(temp_dir, ignore_errors=True)
         logger.error(f"{client_id}: Failed to decompress: {e}")

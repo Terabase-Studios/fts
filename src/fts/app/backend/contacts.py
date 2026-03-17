@@ -268,7 +268,7 @@ class DiscoveryCollector(asyncio.DatagramProtocol):
             self.responses.append(addr[0])
 
 
-def discover(timeout=0.1, get_macs=True) -> list[Any] | None:
+def discover(timeout=0.1, get_macs=True):
     class DiscoveryCollector:
         def __init__(self):
             self.responses = []

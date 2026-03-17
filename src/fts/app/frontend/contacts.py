@@ -45,12 +45,12 @@ class Contacts(Container):
         elif event.button.id == "removecontact":
             self.app.push_screen(RemoveContact(), self.handle_remove_input)
 
-    def handle_add_input(self, result: tuple[str, str] | None):
+    def handle_add_input(self, result):
         if result:
             add_contact(result[0], result[1])
             reload_contacts(self.widget_tree, self.online_branch, self.offline_branch)  # update tree immediately
 
-    def handle_remove_input(self, result: str | None):
+    def handle_remove_input(self, result):
         if result:
             remove_contact(result)
             reload_contacts(self.widget_tree, self.online_branch, self.offline_branch)  # update tree immediately
@@ -88,7 +88,7 @@ async def reload_contacts(tree: Tree, online_node, offline_node):
         offline_node.collapse()
 
 
-class AddContact(ModalScreen[tuple[str, str] | None]):
+class AddContact(ModalScreen):
     """Modal for adding a contact.
        Returns (name, ip) or None if cancelled."""
 
@@ -123,7 +123,7 @@ class AddContact(ModalScreen[tuple[str, str] | None]):
             self.dismiss(None)
 
 
-class RemoveContact(ModalScreen[str | None]):
+class RemoveContact(ModalScreen):
     """A modal screen for removing a contact.
        Returns the contact string, or None if cancelled."""
 

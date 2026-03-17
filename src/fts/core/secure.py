@@ -134,9 +134,9 @@ def generate_self_signed_cert(cert_file=CERT_FILE, key_file=KEY_FILE) -> bool:
         .issuer_name(issuer)
         .public_key(key.public_key())
         .serial_number(x509.random_serial_number())
-        .not_valid_before(datetime.datetime.now())
-        .not_valid_after(datetime.datetime.now() + datetime.timedelta(days=365))
-        .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+        .not_valid_before(datetime.datetime.now(timezone.utc))
+        .not_valid_after(datetime.datetime.now(timezone.utc) + datetime.timedelta(days=365))
+        .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
         .sign(key, hashes.SHA256())
     )
     cert_path.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
@@ -159,20 +159,21 @@ class FingerprintMismatchError(Exception):
     """Raised when a TOFU certificate mismatch occurs."""
 
 
-async def connect_with_tofu_async(host: str, port: int, logger):
+async def connect_with_tofu_async(host: str, port: int, logger, require_confirmation: bool = True):
     """
     Async TLS connection with TOFU verification (Trust On First Use).
     Returns: (reader, writer)
     """
     # Create SSL context
     context = ssl.create_default_context()
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
     context.check_hostname = False
-    context.verify_mode = ssl.CERT_NONE  # We'll do TOFU manually
+    context.verify_mode = ssl.CERT_NONE
 
     # Open async TLS connection
     reader, writer = await asyncio.open_connection(host, port, ssl=context, server_hostname=host)
 
-    # --- NEW: Read MAC address from server ---
+    # --- Read MAC address from server ---
     try:
         mac_bytes = await asyncio.wait_for(reader.readline(), timeout=5.0)
         if not mac_bytes:
@@ -196,9 +197,34 @@ async def connect_with_tofu_async(host: str, port: int, logger):
 
     # Trust verification / first use
     if matched_key not in known:
-        logger.debug(f"[TOFU] First connection to {mac_address}, trusting cert {fingerprint[:16]}...")
+        short_fp = fingerprint[:16]
+        full_fp = fingerprint
+        if require_confirmation:
+            user_input = None
+            logger.debug(f"User asked to verify new server {mac_address} ({short_fp}...)")
+            try:
+                print("\n[TOFU] First time connecting to this server.")
+                print(f"Server MAC address: {mac_address}")
+                print(f"Certificate SHA256 fingerprint:\n{full_fp}")
+                print("\nVerify this fingerprint with the server administrator before trusting.")
+                print("Type 'yes' to trust and continue, anything else to abort.")
+
+                user_input = input("> ").strip().lower()
+            except Exception as e:
+                pass
+
+            if user_input != "yes":
+                writer.close()
+                await writer.wait_closed()
+                raise FingerprintMismatchError("User rejected unknown server certificate.")
+        else:
+            logger.warning("Require confirmation of new servers is disabled. Automatically trusting new server.")
+
         known[matched_key] = fingerprint
         save_known_fingerprints(known)
+
+        if logger:
+            logger.info(f"[TOFU] Trusted new server {mac_address} ({short_fp}...)")
     else:
         if known[matched_key] != fingerprint:
             writer.close()

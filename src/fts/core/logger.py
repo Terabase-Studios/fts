@@ -80,7 +80,8 @@ class ColorFormatter(logging.Formatter):
             for _ in range(self.line_sep):
                 formatted_lines.append("")
 
-        return f"{prefix}{'\n'.join(formatted_lines)}"
+        joined_formatted_lines = "\n".join(formatted_lines)
+        return f"{prefix}{joined_formatted_lines}"
 
     @staticmethod
     def strip_ansi(text):
@@ -151,7 +152,8 @@ def setup_logging(verbose=False, quiet=False, logfile=None, line_sep=0, mode="tq
                     for _ in range(self.line_sep):
                         formatted_lines.append("")
 
-                return f"{prefix}{'\n'.join(formatted_lines)}"
+                joined_formatted_lines = "\n".join(formatted_lines)
+                return f"{prefix}{joined_formatted_lines}"
 
         class OrganizeLogHandler(logging.Handler):
             def __init__(self, logfile_path, save_path, threshold=10, lock_path=None):

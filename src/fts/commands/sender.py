@@ -22,6 +22,7 @@ from fts.config import (
     MAX_SEND_RETRIES
 )
 from fts.core import secure as secure
+from fts.core.secure import FingerprintMismatchError
 from fts.manager import Manager
 from fts.utilities import format_bytes, parse_byte_string
 
@@ -45,9 +46,11 @@ def cmd_send(args, logger, manager=None):
             logger.error(f"Error parsing limit: {e}\n")
             return
 
+    autotrust = args.autotrust if hasattr(args, "autotrust") else False
+
     try:
         asyncio.run(send_file(path, args.ip, args.port, logger, progress_bar=args.progress, name=args.name,
-                              compress=not args.nocompress, rate_limit=limit, manager=manager))
+                              compress=not args.nocompress, rate_limit=limit, manager=manager, auto_trust=autotrust))
     except KeyboardInterrupt:
         raise KeyboardInterrupt
 
@@ -170,6 +173,7 @@ async def send_file(
         name: str = None,
         compress: bool = False,
         rate_limit: int = 0,
+        auto_trust: bool = False,
         manager: Manager = None
 ):
     """
@@ -225,7 +229,10 @@ async def send_file(
 
     try:
         # --- secure connection with TOFU ---
-        reader, writer = await connect_with_retry(host, port, logger, retries=MAX_SEND_RETRIES)
+        reader, writer = await connect_with_retry(host, port, logger, retries = MAX_SEND_RETRIES, auto_trust = auto_trust)
+        if not reader or not writer:
+            logger.error(f"Connection to ('{host}', {port}) failed")
+            return
 
         logger.info(f"Secure connection to ('{host}', {port})")
 
@@ -310,11 +317,14 @@ async def send_file(
         return
 
 
-async def connect_with_retry(host, port, logger, retries: int = 5, delay: int = 3):
+async def connect_with_retry(host, port, logger, retries: int = 5, delay: int = 3, auto_trust = False):
     for attempt in range(1, retries + 1):
         try:
-            reader, writer = await secure.connect_with_tofu_async(host, port, logger)
-            return reader, writer  # success!
+            reader, writer = await secure.connect_with_tofu_async(host, port, logger, require_confirmation=not auto_trust)
+            return reader, writer
+        except FingerprintMismatchError as e:
+            logger.critical(e)
+            return None, None
         except Exception as e:
             logger.error(f"Connection attempt {attempt} failed: {e}")
             if attempt < retries:
@@ -440,4 +450,5 @@ async def send_linear(file_path, filesize, writer, progress_bar, logger, rate_li
         loop.set_exception_handler(old_handler)
         duration = max(0.001, end_time - start_time)
         logger.debug(f"Transferred {format_bytes(sent)} in {duration:.2f}s ({format_bytes(sent / duration)}/s)")
-        return sent
+
+    return sent
