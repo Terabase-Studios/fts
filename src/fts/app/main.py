@@ -19,7 +19,6 @@ from fts.app.frontend.chat import Chat
 from fts.app.frontend.contacts import Contacts
 from fts.app.frontend.debug import DebugView
 from fts.app.frontend.library import LibraryView
-from fts.app.frontend.notepad import NotepadWindow
 from fts.app.frontend.requests import Requests
 from fts.app.frontend.sending import Sending
 from fts.app.frontend.settings import SettingsView
@@ -62,7 +61,7 @@ class FTSApp(App):
         # yield Footer()
 
         stable = ["Main", "Library", "Debug", "Settings"]
-        experimental = ["Notepad"]
+        experimental = []
         if EXPERIMENTAL_FEATURES_ENABLED:
             tabs = stable + experimental
         else:
@@ -84,10 +83,9 @@ class FTSApp(App):
             yield DebugView()
             yield SettingsView()
 
-            if EXPERIMENTAL_FEATURES_ENABLED:
-                notepad = NotepadWindow(id="notepad")
-                host_manager.host_changed_funcs.append(notepad.reconnect)
-                yield notepad
+            #if EXPERIMENTAL_FEATURES_ENABLED:
+            #    host_manager.host_changed_funcs.append(notepad.reconnect)
+            #    yield notepad
 
         setup(transfer_ui=transfers, requests_ui=requests)
 
