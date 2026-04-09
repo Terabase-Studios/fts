@@ -27,7 +27,7 @@ dependencies = [
     "psutil>=5.9.5",
     "tqdm>=4.64.0",
     "filelock>=3.12.0",
-    "textual>=0.40.0",
+    "textual>=2.0.0",
     "click>=8.1.3"
 ]
 
