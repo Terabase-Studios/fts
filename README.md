@@ -97,10 +97,7 @@ FTS development remains active, and future updates will be released. All issues 
 Pull requests are welcome! For major changes, please open an issue first to discuss your proposed modifications.
 
 * Submit PRs against the `main` branch.
-* Follow existing code style and conventions.
 * Include tests or examples when possible.
-* Respect the [Code of Conduct](https://github.com/Terabase-Studios/fts/blob/main/CODE_OF_CONDUCT.md).
-
 ---
 
 ## Safety and Usage Notes
