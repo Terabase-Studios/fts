@@ -3,6 +3,9 @@ import shutil
 import tempfile
 import zipfile
 
+from fts.config import IN_PROGRESS_DIR
+
+EXCLUDE_DIRS = {"in_progress", "__pycache__", ".git"}
 
 def cmd_cache(args, logger):
     match args.subcommand:
@@ -61,6 +64,15 @@ def show():
             num /= 1024.0
         return f"{num:.1f}P{suffix}"
 
+    def get_dir_size(path):
+        total = 0
+        for root, dirs, files in os.walk(path):
+            for f in files:
+                fp = os.path.join(root, f)
+                if os.path.exists(fp):
+                    total += os.path.getsize(fp)
+        return total
+
     def _tree(current_path, prefix=""):
         odd = False
         entries = sorted(os.listdir(current_path))
@@ -71,25 +83,34 @@ def show():
             connector = "└── " if i == len(entries) - 1 else "├── "
 
             if os.path.isdir(path):
-                print(f"{Color.DIM}{prefix}{connector}{entry}/{Color.RESET}")
+                size = sizeof_fmt(get_dir_size(path))
+                print(f"{Color.DIM}{prefix}{connector}{entry}/ ({Color.CYAN}{size}{Color.RESET}{Color.DIM}){Color.RESET}")
                 _tree(path, prefix + ("    " if i == len(entries) - 1 else "│   "))
             else:
                 odd = not odd
                 size = sizeof_fmt(os.path.getsize(path))
                 purpose = FILE_PURPOSES.get(entry.upper(), "Unknown purpose")
+                lower_path = path.lower()
                 if "Unknown" in purpose:
-                    if "__pycache__" in path.lower():
+                    if "__pycache__" in lower_path:
                         purpose = "Cache file created by python"
-                    elif "plugin" in path.lower():
+                    elif "plugin" in lower_path:
                         purpose = "Used by a plugin"
-                    elif "ini.backup" in path.lower():
-                        purpose = "A backup of a config file after an upgrade"
+                    elif "ini.backup" in lower_path:
+                        purpose = "A backup of a config file after a config upgrade"
+                    elif "in_progress" in lower_path:
+                        if lower_path.endswith(".json"):
+                            purpose = "Incomplete transfer entry"
+                        if lower_path.endswith(".ftsdownload"):
+                            purpose = "Incomplete transfer file"
 
                 print(
-                    f"{Color.DIM}{prefix}{connector}{Color.RESET}{entry} ({Color.RED}{size}{Color.RESET}) - {purpose}")
+                    f"{Color.DIM}{prefix}{connector}{Color.RESET}{entry} ({Color.RED}{size}{Color.RESET}) {Color.DIM}- {purpose}{Color.RESET}")
 
     print(f"{Color.BOLD}{APP_DIR}/{Color.RESET}")
     _tree(APP_DIR)
+    size = sizeof_fmt(get_dir_size(APP_DIR))
+    print(f"\n{Color.BOLD}Total cache size:{Color.RESET} {Color.GREEN}{size}{Color.RESET}")
 
 
 def restore(args, logger):
@@ -100,43 +121,103 @@ def restore(args, logger):
         logger.error(f"No backup found at '{backup_path}'")
         return
 
-    # Create temporary directory for restore
-    with tempfile.TemporaryDirectory() as temp_dir:
-        temp_backup = os.path.join(temp_dir, "backup.zip")
+    logger.info(f"Restoring '{backup_path}'...")
+
+    rollback_dir = None
+    preserved_in_progress = None
+
+    try:
+        # Preserve in_progress
+        in_progress_dir = os.path.join(APP_DIR, "in_progress")
+        if os.path.exists(in_progress_dir):
+            preserved_in_progress = tempfile.mkdtemp()
+            shutil.copytree(
+                in_progress_dir,
+                os.path.join(preserved_in_progress, "in_progress")
+            )
+            logger.debug(f"Preserved in_progress directory: {os.path.join(preserved_in_progress, "in_progress")}")
+
+        rollback_dir = tempfile.mkdtemp()
+
+        # Copy backup to temp
+        temp_backup = os.path.join(rollback_dir, "backup.zip")
+        shutil.copy2(backup_path, temp_backup)
+        logger.debug(f"Preserved backup.zip: {temp_backup}")
+
+
+        # Rollback snapshot
+        if os.path.exists(APP_DIR):
+            shutil.copytree(APP_DIR, os.path.join(rollback_dir, "snapshot"))
+        logger.debug(f"Rollback snapshot: {os.path.join(rollback_dir, "snapshot")}")
+
+
+        # Purge
+        clean(args, logger, level=99, yes=True)
+        logger.info("Purged existing cache")
+
+        # Restore archive
+        with zipfile.ZipFile(temp_backup, 'r') as zipf:
+            for member in zipf.infolist():
+
+                name = member.filename.replace("\\", "/")
+
+                if name.startswith("in_progress/"):
+                    continue
+
+                target_path = os.path.join(APP_DIR, *name.split("/"))
+
+                # directory entry (robust check)
+                if name.endswith("/"):
+                    os.makedirs(target_path, exist_ok=True)
+                    continue
+
+                os.makedirs(os.path.dirname(target_path), exist_ok=True)
+
+                with zipf.open(member, 'r') as source, open(target_path, 'wb') as target:
+                    shutil.copyfileobj(source, target)
+
+        logger.info(f"Restored backup into '{APP_DIR}'")
+
+        # Restore in_progress back
+        if preserved_in_progress:
+            src = os.path.join(preserved_in_progress, "in_progress")
+            dst = os.path.join(APP_DIR, "in_progress")
+
+            if os.path.exists(dst):
+                shutil.rmtree(dst)
+
+            shutil.copytree(src, dst)
+        logger.debug(f"Recached in_progress directory into '{APP_DIR}'")
+
+
+        # Restore backup file itself
+        shutil.copy2(temp_backup, os.path.join(APP_DIR, "backup.zip"))
+        logger.debug(f"Recached backup.zip into '{APP_DIR}'")
+
+    except Exception as e:
+        import sys
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        print(f"Error on line: {exc_tb.tb_lineno}")
+        logger.error(f"Restore failed: {e}")
+
         try:
-            # Copy backup to temp
-            shutil.copy2(backup_path, temp_backup)
-            logger.debug(f"Copied backup to temporary location '{temp_backup}'")
-
-            # Make a rollback copy of current APP_DIR in temp
-            rollback_dir = os.path.join(temp_dir, "rollback")
-            if os.path.exists(APP_DIR):
-                shutil.copytree(APP_DIR, rollback_dir)
-                logger.debug(f"Created rollback copy at '{rollback_dir}'")
-
-            # Purge current cache completely
-            clean(args, logger, level=99, yes=True)
-            logger.info("Purged existing .fts cache")
-
-            # Unzip backup into APP_DIR
-            with zipfile.ZipFile(temp_backup, 'r') as zipf:
-                zipf.extractall(APP_DIR)
-            logger.info(f"Restored backup into '{APP_DIR}'")
-
-            # Copy backup back into APP_DIR to keep it
-            shutil.copy2(temp_backup, os.path.join(APP_DIR, "backup.zip"))
-            logger.debug("Backup copied back into APP_DIR")
-
-        except Exception as e:
-            logger.error(f"Restore failed: {e}")
             # Rollback
-            if os.path.exists(rollback_dir):
+            if rollback_dir:
+                logger.info("Rollback started...")
                 if os.path.exists(APP_DIR):
                     shutil.rmtree(APP_DIR)
-                shutil.copytree(rollback_dir, APP_DIR)
-                logger.info("Rollback completed, restored previous state")
+
+                shutil.copytree(
+                    os.path.join(rollback_dir, "snapshot"),
+                    APP_DIR
+                )
+
+                logger.info("Rollback completed")
             else:
-                logger.error("Rollback failed: no previous state saved")
+                logger.critical("Rollback failed: no snapshot available")
+        except Exception as e:
+            import sys
+            logger.error(f"Rollback failed: {e}")
 
 
 def backup(args, logger):
@@ -155,8 +236,10 @@ def backup(args, logger):
             return
 
     try:
+        logger.info(f"Backing up '{APP_DIR}'...")
         with zipfile.ZipFile(backup_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
             for root, dirs, files in os.walk(APP_DIR):
+                dirs[:] = [d for d in dirs if d not in EXCLUDE_DIRS]
                 for file in files:
                     # Skip the backup.zip file itself during zipping
                     if file == "backup.zip":
@@ -166,7 +249,7 @@ def backup(args, logger):
                     file_path = os.path.join(root, file)
                     arcname = os.path.relpath(file_path, APP_DIR)
                     zipf.write(file_path, arcname)
-        logger.info(f"Created backup at '{backup_path}'")
+        logger.info(f"Created backup at '{backup_path}'\nReminder: Incomplete transfers are never backed up")
     except Exception as e:
         logger.error(f"Failed to create backup: {e}")
 
@@ -196,6 +279,7 @@ def clean(args, logger, level=-1, yes=False):
     if level >= 3 and not args.yes and not yes:
         confirm = input(
             f"WARNING: This will delete the FTS backup cache if it exists,\n"
+            f"and remove all incomplete transfers,\n"
             f"and remove your current FTS key and certificate,\n"
             f"and any FTS users who previously sent you files will need to manually re-trust you.\n"
             f"Type 'yes' to confirm: "

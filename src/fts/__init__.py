@@ -1,2 +1,2 @@
 def __version__():
-    return "2.4.2"
+    return "2.5.0-alpha.1"

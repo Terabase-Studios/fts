@@ -1,5 +1,7 @@
 import asyncio
+import base64
 import itertools
+import json
 import os
 import random
 import re
@@ -23,12 +25,13 @@ from fts.config import (
     PROGRESS_INTERVAL,
     RECEIVING_PID,
     MID_DOWNLOAD_EXT,
+    IN_PROGRESS_DIR,
 )
 from fts.core import secure as secure
 from fts.core.detatched import start_detached
 from fts.core.dosp import should_receive
 from fts.manager import Manager
-from fts.utilities import format_bytes, parse_byte_string
+from fts.utilities import format_bytes, parse_byte_string, load_json_index
 
 # Incrementing IDs for each client connection
 _client_ids = itertools.count(1)
@@ -263,52 +266,131 @@ async def safe_rename(temp_path: Path, out_path: Path):
     return target
 
 
+def normalize_header(header: dict) -> dict:
+    """Make header comparable to stored JSON metadata."""
+    return {
+        "magic": header["magic"].decode("ascii", errors="replace"),
+        "version": float(header["version"]),
+        "flags": int(header["flags"]),
+        "filename": header["filename"],
+        "filename_bytes": base64.b64encode(header["filename_bytes"]).decode("ascii"),
+        "filesize": int(header["filesize"]),
+        "fname_len": int(header["fname_len"]),
+        "checksum": int(header["checksum"]),
+    }
+
+
+def find_matching_json(header: dict, directory=IN_PROGRESS_DIR):
+    """
+    Returns the Path to a JSON file whose metadata matches the given header.
+    Returns None if no match is found.
+    """
+    base = Path(directory)
+    if not base.exists():
+        return None
+
+    target = normalize_header(header)
+
+    for file in base.glob("*.json"):
+        try:
+            with open(file, "r") as f:
+                data = json.load(f)
+
+            metadata = data.get("metadata")
+            if not metadata:
+                continue
+
+            # Exact match
+            if metadata == target:
+                return file
+
+        except Exception:
+            continue
+
+    return None
+
+
+async def save_temp_json(temp_dir, header: dict, source_ip):
+    normalized_header = normalize_header(header)
+    json_path = temp_dir.with_suffix(temp_dir.suffix + ".json")
+    data = {
+        "id": load_json_index()[1],
+        "type": "receive",
+        "target": source_ip,
+        "metadata": normalized_header,
+    }
+    with open(json_path, "w") as fp:
+        fp.write(json.dumps(data))
+    return json_path
+
+
+async def load_temp_json(header):
+    normalized_header = normalize_header(header)
+    temp_dir = find_matching_json(normalized_header)
+    if os.path.exists(temp_dir) and os.path.isfile(temp_dir):
+        return temp_dir, os.path.getsize(temp_dir)
+    else:
+        return None, None
+
+
+async def parse_header(reader, output_dir) -> dict:
+    # --- Parse header ---
+    header_data = await reader.readexactly(19)
+    magic, version, flags, fname_len, filesize = struct.unpack(">4sfBHQ", header_data)
+    checksum_bytes = await reader.readexactly(4)
+    checksum = struct.unpack(">I", checksum_bytes)[0]
+    filename_bytes = await reader.readexactly(fname_len)
+    filename = filename_bytes.decode("utf-8")
+    # make sure filename is unique
+    filename = uniquify_filename(filename, output_dir)
+    return {"magic": magic, "version": version, "flags": flags, "filename": filename, "filename_bytes": filename_bytes, "filesize": filesize, "fname_len": fname_len, "checksum": checksum}
+
+async def verify_transfer(header: dict, addr, writer, logger, client_id, unprotected=False):
+    valid, error = True, ""
+
+    # --- Validate ---
+    if header["magic"] != MAGIC:
+        valid, error = False, "Invalid magic number in header"
+    if int(VERSION * 1000) != int(header["version"] * 1000):
+        valid, error = False, "Version mismatch between sender and receiver"
+    if header["fname_len"] > 1024:
+        valid, error = False, "Recieving filename to longer than 1024 bytes"
+
+    calc_checksum = zlib.crc32(header["filename_bytes"] + struct.pack(">Q", header["filesize"])) & 0xFFFFFFFF
+    if calc_checksum != header["checksum"]:
+        valid, error = False, "Header checksum mismatch! The sent header may have been corrupted."
+
+    if valid:
+        valid, error = should_receive(addr, header["filesize"], header["flags"])
+    if valid or unprotected:
+        writer.write(b"SEND")
+        if not valid:
+            logger.debug(f"{client_id}: Request failed verification but server is set to unprotected: \n{error}\n")
+        else:
+             logger.debug(f"{client_id}: Permission sent to client")
+    else:
+        writer.write(b"DENY")
+        logger.error(f"{client_id}: Sender failed request validation: \n{error}\n")
+        raise Exception("Sender request denied by server")
+    await writer.drain()
+
+
 async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, output_dir: str, client_id, logger,
                         progress_bar=False, rate_limit: int = 0, unprotected=False, manager: Manager = None):
     addr = writer.get_extra_info("peername")
     logger.info(f"{client_id}: Secure connection from {addr}")
 
     try:
-        valid, error = True, ""
-        # --- Parse header ---
-        header_data = await reader.readexactly(19)
-        magic, version, flags, fname_len, filesize = struct.unpack(">4sfBHQ", header_data)
-        checksum_bytes = await reader.readexactly(4)
-        checksum = struct.unpack(">I", checksum_bytes)[0]
-        filename_bytes = await reader.readexactly(fname_len)
-        filename = filename_bytes.decode("utf-8")
-        # make sure filename is unique
-        filename = uniquify_filename(filename, output_dir)
+        header = await parse_header(reader, output_dir)
+        await verify_transfer(header, addr, writer, logger, client_id, unprotected=unprotected)
+        filename = header["filename"]
+        filesize = header["filesize"]
+        flags = header["flags"]
 
-        # --- Validate ---
-        if magic != MAGIC:
-            valid, error = False, "Invalid magic number in header"
-        if int(VERSION * 1000) != int(version * 1000):
-            valid, error = False, "Version mismatch between sender and receiver"
-        if fname_len > 1024:
-            valid, error = False, "Recieving filename to longer than 1024 bytes"
-
-        calc_checksum = zlib.crc32(filename_bytes + struct.pack(">Q", filesize)) & 0xFFFFFFFF
-        if calc_checksum != checksum:
-            valid, error = False, "Header checksum mismatch! The sent header may have been corrupted."
 
         # --- Prepare output ---
         out_path = os.path.join(output_dir, os.path.basename(filename))
         logger.info(f"{client_id}: Receiving '{filename}' ({format_bytes(filesize)}) into {output_dir}")
-
-        if valid:
-            valid, error = should_receive(addr, filesize, flags)
-        if valid or unprotected:
-            writer.write(b"SEND")
-            if not valid:
-                logger.debug(f"{client_id}: Request failed verification but server is set to unprotected: \n{error}\n")
-            else:
-                logger.debug(f"{client_id}: Permission to send file sent to server")
-        else:
-            writer.write(b"DENY")
-            logger.error(f"{client_id}: Sender failed request validation: \n{error}\n")
-            raise Exception("Sender request denied by server")
-        await writer.drain()
 
         if manager:
             if manager.cancelled:
@@ -331,8 +413,13 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
 
         # generate 16 random characters
         rand = ''.join(random.choices(string.ascii_letters + string.digits, k=16))
-        temp_path = Path(out_path).with_name(f"{Path(out_path).stem}{rand}){Path(out_path).suffix}").with_suffix(
+
+        temp_path = Path(os.path.join(IN_PROGRESS_DIR, f"receive.{Path(out_path).stem}{rand}){Path(out_path).suffix}")).with_suffix(
             MID_DOWNLOAD_EXT)
+
+        # Save data for resuming transfers
+        json_path = await save_temp_json(temp_path, header, addr[0])
+        logger.debug(f"{client_id}: Saving to temp directory: \n{temp_path}\n")
 
         # --- Receive file ---
         received = await receive_linear(reader, filesize, temp_path, client_id, logger, progress_bar=progress_bar,
@@ -340,7 +427,7 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
 
         if received < filesize:
             logger.error(f"{client_id}: Incomplete file received: {format_bytes(received)}/{format_bytes(filesize)}")
-            os.remove(temp_path)
+            #os.remove(temp_path)
             if manager:
                 if manager.cancelled:
                     logger.error("Manager cancelled transfer")
@@ -375,6 +462,7 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
             temp_path = await asyncio.to_thread(decompress_file, str(temp_path), filename, filesize, client_id, logger)
 
         final_path = await safe_rename(Path(temp_path), Path(out_path))
+        os.remove(json_path)
         logger.info(f"{client_id}: Saved as: {final_path}")
 
     except Exception as e:

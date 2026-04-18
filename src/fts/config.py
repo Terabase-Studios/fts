@@ -119,6 +119,9 @@ UNCOMPRESSIBLE_EXTS = {
 # -------------------------
 APP_DIR = os.path.expanduser("~/.fts")
 os.makedirs(APP_DIR, exist_ok=True)
+IN_PROGRESS_DIR = os.path.expanduser(os.path.join(APP_DIR, "in_progress"))
+os.makedirs(IN_PROGRESS_DIR, exist_ok=True)
+
 
 CERT_FILE = os.path.join(APP_DIR, "cert.pem")
 KEY_FILE = os.path.join(APP_DIR, "key.pem")

@@ -1,10 +1,14 @@
 import asyncio
+import json
 import os
+import random
 import shutil
+import string
 import struct
 import tempfile
 import time
 import zlib
+from pathlib import Path
 from ssl import SSLError
 
 from tqdm.asyncio import tqdm_asyncio as tqdm
@@ -19,12 +23,12 @@ from fts.config import (
     BATCH_SIZE,
     PROGRESS_INTERVAL,
     UNCOMPRESSIBLE_EXTS,
-    MAX_SEND_RETRIES
+    MAX_SEND_RETRIES, IN_PROGRESS_DIR
 )
 from fts.core import secure as secure
 from fts.core.secure import FingerprintMismatchError
 from fts.manager import Manager
-from fts.utilities import format_bytes, parse_byte_string
+from fts.utilities import format_bytes, parse_byte_string, load_json_index
 
 
 def cmd_send(args, logger, manager=None):
@@ -63,6 +67,35 @@ def resolve_path(path: str) -> str:
         raise ValueError("No path given")
     path = os.path.expanduser(path)
     return os.path.abspath(path)
+
+
+async def save_temp_json(source_path, source_ip, compressed: bool = False):
+    transfer_id = load_json_index()[1]
+    rand = ''.join(random.choices(string.ascii_letters + string.digits, k=16))
+
+    json_path = Path(os.path.join(IN_PROGRESS_DIR, f"send.{Path(source_path).stem}{rand}){Path(source_path).suffix}")).with_suffix(".json")
+    metadata = {
+        "source_path": source_path,
+        "compressed": compressed,
+    }
+    data = {
+        "id": transfer_id,
+        "type": "send",
+        "target": source_ip,
+        "metadata": metadata,
+    }
+    with open(json_path, "w") as fp:
+        fp.write(json.dumps(data))
+    return json_path
+
+async def load_temp_json():
+    pass
+    #normalized_header = normalize_header(header)
+    #temp_dir = find_matching_json(normalized_header)
+    #if os.path.exists(temp_dir) and os.path.isfile(temp_dir):
+    #    return temp_dir, os.path.getsize(temp_dir)
+    #else:
+    #    return None, None
 
 
 # -------------------------
@@ -274,6 +307,9 @@ async def send_file(
 
         logger.debug(f"Successfully received server permission")
 
+        # Save transfer for resume
+        json_path = await save_temp_json(file_path, host, compressed)
+
         # Send file using asyncio-based pipeline
         sent = await send_linear(file_path, filesize, writer, progress_bar, logger, rate_limit, manager=manager)
 
@@ -295,6 +331,7 @@ async def send_file(
                     manager.state = "failed"
                 return
 
+            os.remove(json_path)
             logger.info(f"File sent successfully: {filename}")
         except:
             logger.warning("Transfer confirmation from receiver failed")
@@ -371,7 +408,6 @@ async def send_linear(file_path, filesize, writer, progress_bar, logger, rate_li
     next_send_time = time.monotonic()
     last_progress_update = time.monotonic()
     start_time = time.monotonic()
-    end_time = start_time
 
     def read_chunk(f, size):
         return f.read(size)
@@ -438,8 +474,6 @@ async def send_linear(file_path, filesize, writer, progress_bar, logger, rate_li
             if manager:
                 manager.progress = sent
 
-        end_time = time.monotonic()
-
     except asyncio.CancelledError:
         raise
     except Exception as e:
@@ -448,6 +482,7 @@ async def send_linear(file_path, filesize, writer, progress_bar, logger, rate_li
     finally:
         progress.close()
         loop.set_exception_handler(old_handler)
+        end_time = time.monotonic()
         duration = max(0.001, end_time - start_time)
         logger.debug(f"Transferred {format_bytes(sent)} in {duration:.2f}s ({format_bytes(sent / duration)}/s)")
 
