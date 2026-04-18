@@ -14,6 +14,7 @@ from ssl import SSLError
 from tqdm.asyncio import tqdm_asyncio as tqdm
 
 import fts.flags as transferflags
+from fts.commands.resume import load_json_index
 from fts.config import (
     DEFAULT_FILE_PORT,
     MAGIC,
@@ -23,12 +24,14 @@ from fts.config import (
     BATCH_SIZE,
     PROGRESS_INTERVAL,
     UNCOMPRESSIBLE_EXTS,
-    MAX_SEND_RETRIES, IN_PROGRESS_DIR
+    MAX_SEND_RETRIES,
+    IN_PROGRESS_DIR,
+    JSON_PROGRESS_INTERVAL
 )
 from fts.core import secure as secure
 from fts.core.secure import FingerprintMismatchError
 from fts.manager import Manager
-from fts.utilities import format_bytes, parse_byte_string, load_json_index
+from fts.utilities import format_bytes, parse_byte_string
 
 
 def cmd_send(args, logger, manager=None):
@@ -73,7 +76,9 @@ async def save_temp_json(source_path, source_ip, compressed: bool = False):
     transfer_id = load_json_index()[1]
     rand = ''.join(random.choices(string.ascii_letters + string.digits, k=16))
 
-    json_path = Path(os.path.join(IN_PROGRESS_DIR, f"send.{Path(source_path).stem}{rand}){Path(source_path).suffix}")).with_suffix(".json")
+    json_path = Path(
+        os.path.join(IN_PROGRESS_DIR, f"send.{Path(source_path).stem}{rand}){Path(source_path).suffix}")).with_suffix(
+        ".json")
     metadata = {
         "source_path": source_path,
         "compressed": compressed,
@@ -82,19 +87,21 @@ async def save_temp_json(source_path, source_ip, compressed: bool = False):
         "id": transfer_id,
         "type": "send",
         "target": source_ip,
+        "progress": 0,
         "metadata": metadata,
     }
     with open(json_path, "w") as fp:
         fp.write(json.dumps(data))
-    return json_path
+    return json_path, data
+
 
 async def load_temp_json():
     pass
-    #normalized_header = normalize_header(header)
-    #temp_dir = find_matching_json(normalized_header)
-    #if os.path.exists(temp_dir) and os.path.isfile(temp_dir):
+    # normalized_header = normalize_header(header)
+    # temp_dir = find_matching_json(normalized_header)
+    # if os.path.exists(temp_dir) and os.path.isfile(temp_dir):
     #    return temp_dir, os.path.getsize(temp_dir)
-    #else:
+    # else:
     #    return None, None
 
 
@@ -262,7 +269,7 @@ async def send_file(
 
     try:
         # --- secure connection with TOFU ---
-        reader, writer = await connect_with_retry(host, port, logger, retries = MAX_SEND_RETRIES, auto_trust = auto_trust)
+        reader, writer = await connect_with_retry(host, port, logger, retries=MAX_SEND_RETRIES, auto_trust=auto_trust)
         if not reader or not writer:
             logger.error(f"Connection to ('{host}', {port}) failed")
             return
@@ -308,10 +315,11 @@ async def send_file(
         logger.debug(f"Successfully received server permission")
 
         # Save transfer for resume
-        json_path = await save_temp_json(file_path, host, compressed)
+        json_path, json_data = await save_temp_json(file_path, host, compressed)
 
         # Send file using asyncio-based pipeline
-        sent = await send_linear(file_path, filesize, writer, progress_bar, logger, rate_limit, manager=manager)
+        sent = await send_linear(file_path, filesize, writer, progress_bar, logger, rate_limit, manager=manager,
+                                 json_path=json_path, json_data=json_data)
 
         if sent < filesize:
             logger.warning("Not all bytes were sent")
@@ -354,10 +362,11 @@ async def send_file(
         return
 
 
-async def connect_with_retry(host, port, logger, retries: int = 5, delay: int = 3, auto_trust = False):
+async def connect_with_retry(host, port, logger, retries: int = 5, delay: int = 3, auto_trust=False):
     for attempt in range(1, retries + 1):
         try:
-            reader, writer = await secure.connect_with_tofu_async(host, port, logger, require_confirmation=not auto_trust)
+            reader, writer = await secure.connect_with_tofu_async(host, port, logger,
+                                                                  require_confirmation=not auto_trust)
             return reader, writer
         except FingerprintMismatchError as e:
             logger.critical(e)
@@ -372,7 +381,8 @@ async def connect_with_retry(host, port, logger, retries: int = 5, delay: int = 
     return None, None
 
 
-async def send_linear(file_path, filesize, writer, progress_bar, logger, rate_limit: int = 0, manager: Manager = None):
+async def send_linear(file_path, filesize, writer, progress_bar, logger, rate_limit: int = 0, manager: Manager = None,
+                      json_path=None, json_data=None):
     """
     Ultra-fast async file sender using thread-based blocking file reads.
     Avoids blocking event loop and unnecessary memory copies.
@@ -405,6 +415,7 @@ async def send_linear(file_path, filesize, writer, progress_bar, logger, rate_li
     )
 
     sent = 0
+    last_save = 0
     next_send_time = time.monotonic()
     last_progress_update = time.monotonic()
     start_time = time.monotonic()
@@ -453,6 +464,13 @@ async def send_linear(file_path, filesize, writer, progress_bar, logger, rate_li
                 # Update progress periodically
                 now = time.monotonic()
                 if progress_bar and now - last_progress_update >= PROGRESS_INTERVAL:
+                    if json_path and json_data and (now - last_save > JSON_PROGRESS_INTERVAL):
+                        json_data["progress"] = int(progress.n / filesize * 100)
+
+                        with open(json_path, "w") as fp:
+                            fp.write(json.dumps(json_data))
+
+                        last_save = now
                     progress.n = sent
                     progress.refresh()
                     if manager:

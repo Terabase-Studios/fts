@@ -138,7 +138,7 @@ class LibraryTreeDisplay(Vertical):
 class LibraryTree(Tree):
     """A Tree widget showing folders and files with sizes, supports local or network libraries."""
 
-    def __init__(self, library = FTSLibrary(), name = None):
+    def __init__(self, library=FTSLibrary(), name=None):
         """
         `library` can be an instance of FTSLibrary or FTSNetLibrary.
         """

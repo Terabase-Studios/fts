@@ -81,6 +81,7 @@ def ensure_func(args):
     mapping = {
         "open": ("fts.commands.server", "cmd_open"),
         "send": ("fts.commands.sender", "cmd_send"),
+        "resume": ("fts.commands.resume", "cmd_resume"),
         "close": ("fts.core.detatched", "cmd_close"),
         "version": ("fts.commands.misc", "cmd_version"),
         "trust": ("fts.core.secure", "cmd_clear_fingerprint"),

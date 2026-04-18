@@ -83,7 +83,7 @@ class FTSApp(App):
             yield DebugView()
             yield SettingsView()
 
-            #if EXPERIMENTAL_FEATURES_ENABLED:
+            # if EXPERIMENTAL_FEATURES_ENABLED:
             #    host_manager.host_changed_funcs.append(notepad.reconnect)
             #    yield notepad
 

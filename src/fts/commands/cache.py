@@ -3,22 +3,23 @@ import shutil
 import tempfile
 import zipfile
 
-from fts.config import IN_PROGRESS_DIR
-
 EXCLUDE_DIRS = {"in_progress", "__pycache__", ".git"}
 
+
 def cmd_cache(args, logger):
-    match args.subcommand:
-        case "show":
-            show()
-        case "backup":
-            backup(args, logger)
-        case "restore":
-            restore(args, logger)
-        case "clean":
-            clean(args, logger)
-        case _:
-            logger.error(f"Unknown subcommand : {args.subcommand}")
+    commands = {
+        "show": show,
+        "backup": backup,
+        "restore": restore,
+        "clean": clean,
+    }
+
+    cmd = commands.get(args.subcommand)
+
+    if cmd:
+        cmd(args, logger)
+    else:
+        logger.error(f"Unknown subcommand: {args.subcommand}")
 
 
 def show():
@@ -84,7 +85,8 @@ def show():
 
             if os.path.isdir(path):
                 size = sizeof_fmt(get_dir_size(path))
-                print(f"{Color.DIM}{prefix}{connector}{entry}/ ({Color.CYAN}{size}{Color.RESET}{Color.DIM}){Color.RESET}")
+                print(
+                    f"{Color.DIM}{prefix}{connector}{entry}/ ({Color.CYAN}{size}{Color.RESET}{Color.DIM}){Color.RESET}")
                 _tree(path, prefix + ("    " if i == len(entries) - 1 else "│   "))
             else:
                 odd = not odd
@@ -135,7 +137,8 @@ def restore(args, logger):
                 in_progress_dir,
                 os.path.join(preserved_in_progress, "in_progress")
             )
-            logger.debug(f"Preserved in_progress directory: {os.path.join(preserved_in_progress, "in_progress")}")
+            printed_dir = os.path.join(preserved_in_progress, "in_progress")
+            logger.debug(f"Preserved in_progress directory: {printed_dir}")
 
         rollback_dir = tempfile.mkdtemp()
 
@@ -144,12 +147,11 @@ def restore(args, logger):
         shutil.copy2(backup_path, temp_backup)
         logger.debug(f"Preserved backup.zip: {temp_backup}")
 
-
         # Rollback snapshot
         if os.path.exists(APP_DIR):
             shutil.copytree(APP_DIR, os.path.join(rollback_dir, "snapshot"))
-        logger.debug(f"Rollback snapshot: {os.path.join(rollback_dir, "snapshot")}")
-
+        printed_dir = os.path.join(rollback_dir, "snapshot")
+        logger.debug(f"Rollback snapshot: {printed_dir}")
 
         # Purge
         clean(args, logger, level=99, yes=True)
@@ -188,7 +190,6 @@ def restore(args, logger):
 
             shutil.copytree(src, dst)
         logger.debug(f"Recached in_progress directory into '{APP_DIR}'")
-
 
         # Restore backup file itself
         shutil.copy2(temp_backup, os.path.join(APP_DIR, "backup.zip"))

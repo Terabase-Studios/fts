@@ -16,6 +16,7 @@ from pathlib import Path
 from tqdm.asyncio import tqdm_asyncio as tqdm
 
 import fts.flags as transferflags
+from fts.commands.resume import load_json_index
 from fts.config import (
     DEFAULT_FILE_PORT,
     MAGIC,
@@ -26,12 +27,13 @@ from fts.config import (
     RECEIVING_PID,
     MID_DOWNLOAD_EXT,
     IN_PROGRESS_DIR,
+    JSON_PROGRESS_INTERVAL,
 )
 from fts.core import secure as secure
 from fts.core.detatched import start_detached
 from fts.core.dosp import should_receive
 from fts.manager import Manager
-from fts.utilities import format_bytes, parse_byte_string, load_json_index
+from fts.utilities import format_bytes, parse_byte_string
 
 # Incrementing IDs for each client connection
 _client_ids = itertools.count(1)
@@ -317,11 +319,12 @@ async def save_temp_json(temp_dir, header: dict, source_ip):
         "id": load_json_index()[1],
         "type": "receive",
         "target": source_ip,
+        "progress": 0,
         "metadata": normalized_header,
     }
     with open(json_path, "w") as fp:
         fp.write(json.dumps(data))
-    return json_path
+    return json_path, data
 
 
 async def load_temp_json(header):
@@ -343,7 +346,9 @@ async def parse_header(reader, output_dir) -> dict:
     filename = filename_bytes.decode("utf-8")
     # make sure filename is unique
     filename = uniquify_filename(filename, output_dir)
-    return {"magic": magic, "version": version, "flags": flags, "filename": filename, "filename_bytes": filename_bytes, "filesize": filesize, "fname_len": fname_len, "checksum": checksum}
+    return {"magic": magic, "version": version, "flags": flags, "filename": filename, "filename_bytes": filename_bytes,
+            "filesize": filesize, "fname_len": fname_len, "checksum": checksum}
+
 
 async def verify_transfer(header: dict, addr, writer, logger, client_id, unprotected=False):
     valid, error = True, ""
@@ -367,7 +372,7 @@ async def verify_transfer(header: dict, addr, writer, logger, client_id, unprote
         if not valid:
             logger.debug(f"{client_id}: Request failed verification but server is set to unprotected: \n{error}\n")
         else:
-             logger.debug(f"{client_id}: Permission sent to client")
+            logger.debug(f"{client_id}: Permission sent to client")
     else:
         writer.write(b"DENY")
         logger.error(f"{client_id}: Sender failed request validation: \n{error}\n")
@@ -386,7 +391,6 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
         filename = header["filename"]
         filesize = header["filesize"]
         flags = header["flags"]
-
 
         # --- Prepare output ---
         out_path = os.path.join(output_dir, os.path.basename(filename))
@@ -414,20 +418,22 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
         # generate 16 random characters
         rand = ''.join(random.choices(string.ascii_letters + string.digits, k=16))
 
-        temp_path = Path(os.path.join(IN_PROGRESS_DIR, f"receive.{Path(out_path).stem}{rand}){Path(out_path).suffix}")).with_suffix(
+        temp_path = Path(
+            os.path.join(IN_PROGRESS_DIR, f"receive.{Path(out_path).stem}{rand}){Path(out_path).suffix}")).with_suffix(
             MID_DOWNLOAD_EXT)
 
         # Save data for resuming transfers
-        json_path = await save_temp_json(temp_path, header, addr[0])
+        json_path, json_data = await save_temp_json(temp_path, header, addr[0])
         logger.debug(f"{client_id}: Saving to temp directory: \n{temp_path}\n")
 
         # --- Receive file ---
         received = await receive_linear(reader, filesize, temp_path, client_id, logger, progress_bar=progress_bar,
-                                        rate_limit=rate_limit, manager=manager)
+                                        rate_limit=rate_limit, manager=manager, json_path=json_path,
+                                        json_data=json_data)
 
         if received < filesize:
             logger.error(f"{client_id}: Incomplete file received: {format_bytes(received)}/{format_bytes(filesize)}")
-            #os.remove(temp_path)
+            # os.remove(temp_path)
             if manager:
                 if manager.cancelled:
                     logger.error("Manager cancelled transfer")
@@ -487,13 +493,14 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
 
 
 async def receive_linear(reader, filesize, out_path, client_id, logger, progress_bar=False, rate_limit: int = 0,
-                         manager: Manager = None):
+                         manager: Manager = None, json_path=None, json_data=None):
     """
     High-performance async file receiver using batch reads and memoryview,
     with thread-based file writes to avoid blocking the event loop and optional rate limiting.
     """
 
     received = 0
+    last_save = 0
     last_progress_update = time.monotonic()
     next_recv_time = time.monotonic()
     start_time = 0
@@ -545,6 +552,13 @@ async def receive_linear(reader, filesize, out_path, client_id, logger, progress
                 # Periodic progress update
                 now = time.monotonic()
                 if progress_bar and now - last_progress_update >= PROGRESS_INTERVAL:
+                    if json_path and json_data and (now - last_save > JSON_PROGRESS_INTERVAL):
+                        json_data["progress"] = int(progress.n / filesize * 100)
+
+                        with open(json_path, "w") as fp:
+                            fp.write(json.dumps(json_data))
+
+                        last_save = now
                     progress.n = received
                     progress.refresh()
                     if manager:
@@ -590,7 +604,8 @@ def decompress_file(file_path: str, filename: str, file_size, client_id, logger)
         final_path = os.path.join(os.path.dirname(file_path), os.path.basename(decompressed_path))
         shutil.move(decompressed_path, final_path)
         shutil.rmtree(temp_dir, ignore_errors=True)
-        logger.info(f"{client_id}: Decompressed {filename} {format_bytes(file_size)} -> {format_bytes(os.path.getsize(final_path))}")
+        logger.info(
+            f"{client_id}: Decompressed {filename} {format_bytes(file_size)} -> {format_bytes(os.path.getsize(final_path))}")
         return final_path
 
     except Exception as e:

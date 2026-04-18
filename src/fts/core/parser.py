@@ -39,6 +39,7 @@ def create_parser() -> argparse.ArgumentParser:
     parents = [log_parent]
     open_parser_add(subparsers, parents)
     send_parser_add(subparsers, parents)
+    resume_parser_add(subparsers, parents)
     close_parser_add(subparsers, parents)
     trust_parser_add(subparsers, parents)
     alias_parser_add(subparsers, parents)
@@ -81,6 +82,34 @@ def send_parser_add(parser, parents):
     send_parser.add_argument("--nocompress", action="store_true",
                              help="Skip compression (use if fts is compressing an already compressed file)")
     send_parser.add_argument("--progress", action="store_true", help="show progress bar for the transfer")
+
+
+def resume_parser_add(parser, parents):
+    resume_parser = parser.add_parser(
+        "resume",
+        help="view and resume incomplete transfers",
+        parents=parents
+    )
+
+    subparsers = resume_parser.add_subparsers(
+        dest="subcommand",
+        required=True
+    )
+
+    # List stopped transfers
+    list_parser = subparsers.add_parser(
+        "show",
+        help="show all incomplete transfers",
+        parents=parents
+    )
+
+    # Resume a transfer
+    resume_one = subparsers.add_parser(
+        "start",
+        help="resume a transfer by ID",
+        parents=parents
+    )
+    resume_one.add_argument("id", type=int, help="transfer ID to resume")
 
 
 def close_parser_add(parser, parents):

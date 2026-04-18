@@ -263,7 +263,8 @@ class TransferHandler:
             tries = 0
             while not connected and tries < 3:
                 try:
-                    reader, writer = await secure.connect_with_tofu_async(target, TRANSFER_PORT, Logger, require_confirmation=False)
+                    reader, writer = await secure.connect_with_tofu_async(target, TRANSFER_PORT, Logger,
+                                                                          require_confirmation=False)
                 except Exception as e:
                     time.sleep(1)
                     tries += 1
@@ -291,7 +292,8 @@ class TransferHandler:
             tries = 0
             while not connected and tries < 3:
                 try:
-                    reader, writer = await secure.connect_with_tofu_async(receiver[0], receiver[1], Logger, require_confirmation=False)
+                    reader, writer = await secure.connect_with_tofu_async(receiver[0], receiver[1], Logger,
+                                                                          require_confirmation=False)
                 except Exception as e:
                     time.sleep(1)
                     tries += 1

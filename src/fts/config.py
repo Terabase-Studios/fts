@@ -48,6 +48,7 @@ BATCH_SIZE = 4
 FLUSH_SIZE = (1024 * 1024) * 16
 MAX_SEND_RETRIES = 5
 PROGRESS_INTERVAL = 0
+JSON_PROGRESS_INTERVAL = 1.0  # seconds
 MID_DOWNLOAD_EXT = ".ftsdownload"
 
 # -------------------------
@@ -122,7 +123,6 @@ os.makedirs(APP_DIR, exist_ok=True)
 IN_PROGRESS_DIR = os.path.expanduser(os.path.join(APP_DIR, "in_progress"))
 os.makedirs(IN_PROGRESS_DIR, exist_ok=True)
 
-
 CERT_FILE = os.path.join(APP_DIR, "cert.pem")
 KEY_FILE = os.path.join(APP_DIR, "key.pem")
 FINGERPRINT_FILE = os.path.join(APP_DIR, "known_servers.json")
@@ -177,6 +177,7 @@ def _write_default_config(path: str):
         "flush_size": str(FLUSH_SIZE),
         "max_send_retries": str(MAX_SEND_RETRIES),
         "progress_interval": str(PROGRESS_INTERVAL),
+        "json_interval": str(JSON_PROGRESS_INTERVAL),
     }
 
     cp["paths"] = {
