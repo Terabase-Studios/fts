@@ -177,40 +177,7 @@ def replace_with_ip(to_replace: Union[str, List[str]]) -> Union[str, List[str]]:
 
 
 def is_phantom(iface_name: str) -> bool:
-    """
-    Returns True if the interface is likely a virtual/phantom adapter (VirtualBox, Docker, etc.)
-    """
-    addrs = psutil.net_if_addrs().get(iface_name, [])
-    stats = psutil.net_if_stats().get(iface_name)
-
-    # Missing stats or down interface = phantom
-    if not stats or not stats.isup:
-        return True
-
-    # Zero speed = likely phantom
-    if stats.speed == 0:
-        return True
-
-    for addr in addrs:
-        try:
-            ip = ipaddress.IPv4Address(addr.address)
-            # Ignore loopback and link-local
-            if ip.is_loopback or ip.is_link_local:
-                continue
-
-            # Check if the IP is in a known virtual subnet
-            for vnet in VIRTUAL_IP_RANGES:
-                if ip in vnet:
-                    return True  # IP in virtual range → phantom
-
-            # Otherwise, private IP not in virtual range → likely real LAN
-            if ip.is_private:
-                return False
-        except ValueError:
-            continue
-
-    # No usable IP found → phantom
-    return True
+    return False
 
 
 def get_broadcast_addresses():
