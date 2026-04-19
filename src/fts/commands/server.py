@@ -13,6 +13,7 @@ import time
 import zlib
 from pathlib import Path
 
+from filelock import FileLock
 from tqdm.asyncio import tqdm_asyncio as tqdm
 
 import fts.flags as transferflags
@@ -424,50 +425,52 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
 
         # Save data for resuming transfers
         json_path, json_data = await save_temp_json(temp_path, header, addr[0])
-        logger.debug(f"{client_id}: Saving to temp directory: \n{temp_path}\n")
+        lock = FileLock(str(json_path)+".lock")
+        with lock:
+            logger.debug(f"{client_id}: Saving to temp directory: \n{temp_path}\n")
 
-        # --- Receive file ---
-        received = await receive_linear(reader, filesize, temp_path, client_id, logger, progress_bar=progress_bar,
-                                        rate_limit=rate_limit, manager=manager, json_path=json_path,
-                                        json_data=json_data)
+            # --- Receive file ---
+            received = await receive_linear(reader, filesize, temp_path, client_id, logger, progress_bar=progress_bar,
+                                            rate_limit=rate_limit, manager=manager, json_path=json_path,
+                                            json_data=json_data)
 
-        if received < filesize:
-            logger.error(f"{client_id}: Incomplete file received: {format_bytes(received)}/{format_bytes(filesize)}")
-            # os.remove(temp_path)
-            if manager:
-                if manager.cancelled:
-                    logger.error("Manager cancelled transfer")
-                    raise Exception("Cancelled by manager")
+            if received < filesize:
+                logger.error(f"{client_id}: Incomplete file received: {format_bytes(received)}/{format_bytes(filesize)}")
+                # os.remove(temp_path)
+                if manager:
+                    if manager.cancelled:
+                        logger.error("Manager cancelled transfer")
+                        raise Exception("Cancelled by manager")
 
-                if not manager.no_dict:
-                    p = manager.state
-                    p[client_id] = "failed"
-                    manager.state = p
-                else:
-                    manager.state = "failed"
-            return
+                    if not manager.no_dict:
+                        p = manager.state
+                        p[client_id] = "failed"
+                        manager.state = p
+                    else:
+                        manager.state = "failed"
+                return
 
-        await writer.drain()
-        writer.write(b"OKAY")
-        await writer.drain()
-        logger.info(f"{client_id}: File received successfully: {filename}")
+            await writer.drain()
+            writer.write(b"OKAY")
+            await writer.drain()
+            logger.info(f"{client_id}: File received successfully: {filename}")
 
-        # --- Decompress if needed ---
-        if flags & transferflags.FLAG_COMPRESSED:
-            if manager:
-                if manager.cancelled:
-                    logger.error("Manager cancelled transfer")
-                    raise Exception("Cancelled by manager")
+            # --- Decompress if needed ---
+            if flags & transferflags.FLAG_COMPRESSED:
+                if manager:
+                    if manager.cancelled:
+                        logger.error("Manager cancelled transfer")
+                        raise Exception("Cancelled by manager")
 
-                if not manager.no_dict:
-                    p = manager.state
-                    p[client_id] = "decompressing"
-                    manager.state = p
-                else:
-                    manager.state = "decompressing"
-            temp_path = await asyncio.to_thread(decompress_file, str(temp_path), filename, filesize, client_id, logger)
+                    if not manager.no_dict:
+                        p = manager.state
+                        p[client_id] = "decompressing"
+                        manager.state = p
+                    else:
+                        manager.state = "decompressing"
+                temp_path = await asyncio.to_thread(decompress_file, str(temp_path), filename, filesize, client_id, logger)
 
-        final_path = await safe_rename(Path(temp_path), Path(out_path))
+            final_path = await safe_rename(Path(temp_path), Path(out_path))
         os.remove(json_path)
         logger.info(f"{client_id}: Saved as: {final_path}")
 

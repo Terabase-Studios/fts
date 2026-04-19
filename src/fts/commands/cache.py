@@ -22,7 +22,7 @@ def cmd_cache(args, logger):
         logger.error(f"Unknown subcommand: {args.subcommand}")
 
 
-def show():
+def show(args, logger):
     from fts.config import APP_DIR
     FILE_PURPOSES = {
         "LOG.TXT": "History of transfers",

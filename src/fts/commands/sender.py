@@ -11,6 +11,7 @@ import zlib
 from pathlib import Path
 from ssl import SSLError
 
+from filelock import FileLock
 from tqdm.asyncio import tqdm_asyncio as tqdm
 
 import fts.flags as transferflags
@@ -316,33 +317,34 @@ async def send_file(
 
         # Save transfer for resume
         json_path, json_data = await save_temp_json(file_path, host, compressed)
+        lock = FileLock(str(json_path)+".lock")
+        with lock:
+            # Send file using asyncio-based pipeline
+            sent = await send_linear(file_path, filesize, writer, progress_bar, logger, rate_limit, manager=manager,
+                                     json_path=json_path, json_data=json_data)
 
-        # Send file using asyncio-based pipeline
-        sent = await send_linear(file_path, filesize, writer, progress_bar, logger, rate_limit, manager=manager,
-                                 json_path=json_path, json_data=json_data)
-
-        if sent < filesize:
-            logger.warning("Not all bytes were sent")
-            if manager:
-                manager.state = "failed"
-                if manager.cancelled:
-                    logger.error("Manager cancelled transfer")
-                    raise Exception("Manager cancelled transfer")
-            return
-
-        # --- Wait for confirmation ---
-        try:
-            ack = await reader.readexactly(4)
-            if ack != b"OKAY":
-                logger.error("Did not receive confirmation from receiver")
+            if sent < filesize:
+                logger.warning("Not all bytes were sent")
                 if manager:
                     manager.state = "failed"
+                    if manager.cancelled:
+                        logger.error("Manager cancelled transfer")
+                        raise Exception("Manager cancelled transfer")
                 return
 
-            os.remove(json_path)
-            logger.info(f"File sent successfully: {filename}")
-        except:
-            logger.warning("Transfer confirmation from receiver failed")
+            # --- Wait for confirmation ---
+            try:
+                ack = await reader.readexactly(4)
+                if ack != b"OKAY":
+                    logger.error("Did not receive confirmation from receiver")
+                    if manager:
+                        manager.state = "failed"
+                    return
+
+                os.remove(json_path)
+                logger.info(f"File sent successfully: {filename}")
+            except:
+                logger.warning("Transfer confirmation from receiver failed")
 
         logger.info(f"Secure connection to ('{host}', {port}) closed")
         writer.close()

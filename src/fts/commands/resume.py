@@ -1,3 +1,11 @@
+import os
+import time
+
+from fts.config import JSON_PROGRESS_INTERVAL
+
+_progress_cache = {}  # {id: last_progress}
+
+
 def cmd_resume(args, logger):
     commands = {
         "show": print_incomplete_transfers,
@@ -13,7 +21,17 @@ def cmd_resume(args, logger):
 
 
 def resume(args, logger):
+    transfers = retrieve_incomplete_transfers()
     return
+
+
+def filter_in_progress(transfers):
+    filtered_transfers = []
+    for transfer in transfers:
+        if transfer.get("in_progress"):
+            continue
+        filtered_transfers.append(transfer)
+    return filtered_transfers
 
 
 def retrieve_incomplete_transfers():
@@ -34,8 +52,10 @@ def retrieve_incomplete_transfers():
                 data = json.load(f)
 
             transfer_id = str(data.get("id", "UNKNOWN"))
+            type = data.get("type", "UNKNOWN")
             dst = str(data.get("target", "unknown"))
             progress = data.get("progress", None)
+            in_progress = os.path.exists(str(file) + ".lock")
 
             file_name = str(file.name.removesuffix(".json").removesuffix(".ftsdownload"))[:-17]
 
@@ -46,9 +66,11 @@ def retrieve_incomplete_transfers():
 
             incomplete.append({
                 "id": transfer_id,
+                "type": type,
                 "destination": dst,
                 "progress": prog,
-                "file": file_name
+                "file": file_name,
+                "in_progress": in_progress,
             })
 
         except Exception:
@@ -65,8 +87,9 @@ def print_incomplete_transfers(args, logger):
     GREEN = "\033[32m"
     CYAN = "\033[36m"
     DIM = "\033[2m"
+    BOLD = "\033[1m"
 
-    incomplete = retrieve_incomplete_transfers()
+    incomplete = filter_in_progress(retrieve_incomplete_transfers())
 
     if incomplete is None:
         print(f"{RED}No in-progress directory found.{RESET}")
@@ -76,12 +99,20 @@ def print_incomplete_transfers(args, logger):
         print(f"{GREEN}No incomplete transfers found.{RESET}")
         return
 
+    # --- Split by type ---
+    send_transfers = [t for t in incomplete if t.get("type") == "send"]
+    recv_transfers = [t for t in incomplete if t.get("type") == "receive"]
+
+    # --- Combine (SEND first, RECEIVE last) ---
+    ordered = sorted(send_transfers, key=lambda x: x["id"]) + \
+              sorted(recv_transfers, key=lambda x: x["id"])
+
     # --- Column widths ---
     col_widths = {
-        "id": max(len("ID"), *(len(t["id"]) for t in incomplete)),
-        "file": max(len("FILE"), *(len(t["file"]) for t in incomplete)),
-        "destination": max(len("DESTINATION"), *(len(t["destination"]) for t in incomplete)),
-        "progress": max(len("PROGRESS"), *(len(t["progress"]) for t in incomplete)),
+        "id": max(len("ID"), *(len(t["id"]) for t in ordered)),
+        "file": max(len("FILE"), *(len(t["file"]) for t in ordered)),
+        "destination": max(len("DESTINATION"), *(len(t["destination"]) for t in ordered)),
+        "progress": max(len("PROGRESS"), *(len(t["progress"]) for t in ordered)),
     }
 
     def pad(text, width):
@@ -95,7 +126,11 @@ def print_incomplete_transfers(args, logger):
             f"-+-{'-' * (col_widths['progress'])}-+"
         )
 
+    # --- Top message ---
     print(f"\n{CYAN}=== Incomplete Transfers ==={RESET}")
+    print(f"{BOLD}{GREEN}SEND transfers can be resumed if destination has a server up{RESET}")
+    print(f"{BOLD}{RED}RECEIVE transfers are view-only and must be resumed by the sender{RESET}")
+
     print(sep())
 
     # Header
@@ -109,12 +144,18 @@ def print_incomplete_transfers(args, logger):
     print(sep())
 
     # Rows
-    for t in sorted(incomplete, key=lambda x: x["id"]):
+    for t in ordered:
+        is_send = t.get("type") == "send"
+
+        file_color = GREEN if is_send else DIM
+        dest_color = GREEN if is_send else DIM
+        prog_color = YELLOW if is_send else DIM
+
         print(
             f"| {pad(t['id'], col_widths['id'])} "
-            f"| {pad(t['file'], col_widths['file'])} "
-            f"| {GREEN}{pad(t['destination'], col_widths['destination'])}{RESET} "
-            f"| {YELLOW}{pad(t['progress'], col_widths['progress'])}{RESET} |"
+            f"| {file_color}{pad(t['file'], col_widths['file'])}{RESET} "
+            f"| {dest_color}{pad(t['destination'], col_widths['destination'])}{RESET} "
+            f"| {prog_color}{pad(t['progress'], col_widths['progress'])}{RESET} |"
         )
 
     print(sep())
