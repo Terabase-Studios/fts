@@ -15,6 +15,13 @@ from fts.core.secure import get_ip_to_mac
 
 FILES_TO_UPDATE_IP = [CONTACTS_FILE, MUTED_FILE, SEEN_IPS_FILE, os.path.join(PLUGIN_DIR, "ip_blacklist.txt")]
 
+VIRTUAL_IP_RANGES = [
+    ipaddress.ip_network("192.168.56.0/24"),
+    ipaddress.ip_network("192.168.99.0/24"),
+    ipaddress.ip_network("10.0.2.0/24"),
+    ipaddress.ip_network("172.22.128.0/24"),
+    ipaddress.ip_network("10.0.3.0/24"),
+]
 
 DISCOVERY_MESSAGE = b"FTSCHECK123"
 DISCOVERY_RESPOND = b"FTSRECIEVE456"
@@ -168,6 +175,10 @@ def replace_with_ip(to_replace: Union[str, List[str]]) -> Union[str, List[str]]:
         return to_replace
 
 
+def is_phantom(iface_name: str) -> bool:
+    return False
+
+
 def get_broadcast_addresses():
     """
     Returns broadcast addresses for all private IPv4 interfaces, filtered for usable LAN only.
@@ -175,6 +186,8 @@ def get_broadcast_addresses():
     broadcasts = set()
 
     for iface, addrs in psutil.net_if_addrs().items():
+        if is_phantom(iface):
+            continue
         for addr in addrs:
             if addr.family != socket.AF_INET:
                 continue
