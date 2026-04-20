@@ -3,6 +3,8 @@ import shutil
 import tempfile
 import zipfile
 
+from fts.config import IN_PROGRESS_DIR
+
 EXCLUDE_DIRS = {"in_progress", "__pycache__", ".git"}
 
 
@@ -328,6 +330,8 @@ def clean(args, logger, level=-1, yes=False):
                 safe_remove(f)
         for f in [CONFIG_FILE, ALIASES_FILE, FINGERPRINT_FILE]:
             safe_remove(f)
+        if os.path.exists(IN_PROGRESS_DIR):
+            safe_remove(IN_PROGRESS_DIR)
 
     # Level 3: purge
     if level >= 3:

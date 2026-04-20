@@ -59,6 +59,7 @@ def open_parser_add(parser, parents):
     open_parser.add_argument("output", type=pathlib.Path, metavar="OUTPUT_PATH", nargs="?",
                              help="directory to save incoming transfers")
     open_parser.add_argument("-d", "--detached", action="store_true", help="run server in the background", )
+    open_parser.add_argument("-r", "--resume", action="store_true", help="allow resuming incomplete transfers")
     open_parser.add_argument("--progress", action="store_true", help="show progress bar for incoming transfers")
     open_parser.add_argument("--unprotected", action="store_true", help="disable file request verification", )
     open_parser.add_argument("-l", "--limit", type=str, metavar="SIZE",
@@ -110,6 +111,10 @@ def resume_parser_add(parser, parents):
         parents=parents
     )
     resume_one.add_argument("id", type=int, help="transfer ID to resume")
+    resume_one.add_argument("-p", "--port", type=int,
+                             help="override port used (change to port an open server is running on)")
+    resume_one.add_argument("-l", "--limit", type=str, help="max sending speed (e.g. 500KB, 2MB, 1GB)")
+    resume_one.add_argument("--progress", action="store_true", help="show progress bar for the transfer")
 
 
 def close_parser_add(parser, parents):
@@ -180,7 +185,7 @@ def cache_parser_add(parser, parents):
     def clean_subparser_add(subparser, parents):
         clean_parser = subparser.add_parser(
             "clean",
-            help="Perform cache cleanup at various levels",
+            help="Perform cache cleanup at various levels. Do NOT run while any instance of fts is running",
             parents=parents
         )
 

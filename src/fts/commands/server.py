@@ -49,7 +49,10 @@ def cmd_open(args, logger, manager=None):
     if start_detached(args, logger, RECEIVING_PID, "receiving"):
         return
 
-    logger.info(f"Preparing to receive files to '{args.output}'")
+    if not args.resume:
+        logger.info(f"Preparing to receive files to '{args.output}'")
+    else:
+        logger.info(f"Preparing to receive files to '{args.output}' or any resume save path")
     logger.debug(f"Options: {vars(args)}")
 
     host = args.ip or "0.0.0.0"
@@ -73,7 +76,7 @@ def cmd_open(args, logger, manager=None):
     for attempt in range(45):
         try:
             server_coro = start_server(host, port, output_dir, logger, args.progress, limit, max_sends,
-                                       args.unprotected, args.max_transfers, manager=manager)
+                                       args.unprotected, args.max_transfers, args.resume, manager=manager)
             asyncio.run(server_coro)
             return
         except OSError as e:
@@ -97,7 +100,7 @@ def cmd_open(args, logger, manager=None):
 
 async def start_server(host: str, port: int, output_dir: str, logger,
                        progress_bar=False, rate_limit: int = 0, max_sends=None, unprotected=False,
-                       max_concurrent_transfers=0, manager: Manager = None):
+                       max_concurrent_transfers=0, allow_resume = False, manager: Manager = None):
     from ssl import SSLContext
     ssl_context: SSLContext = secure.get_server_context()
     os.makedirs(output_dir, exist_ok=True)
@@ -165,7 +168,7 @@ async def start_server(host: str, port: int, output_dir: str, logger,
                     manager.state = "awaiting"
             current_transfers += 1
             file_sent = await handle_client(reader, writer, output_dir, client_id,
-                                            logger, progress_bar, rate_limit, unprotected, manager=manager)
+                                            logger, progress_bar, rate_limit, unprotected, allow_resume, manager=manager)
 
         except Exception as e:
             logger.error(f"{client_id}: Unhandled client exception: {e}", exc_info=True)
@@ -288,6 +291,23 @@ def find_matching_json(header: dict, directory=IN_PROGRESS_DIR):
     Returns the Path to a JSON file whose metadata matches the given header.
     Returns None if no match is found.
     """
+    def compare_headers(a, b):
+        errors = []
+
+        checks = [
+            ("magic", "Magic mismatch"),
+            ("version", "Version mismatch"),
+            ("filename_bytes", "Filename bytes mismatch"),
+            ("filesize", "Filesize mismatch"),
+            ("fname_len", "Filename length mismatch"),
+            ("checksum", "Checksum mismatch"),
+        ]
+
+        for key, msg in checks:
+            if a.get(key) != b.get(key):
+                errors.append(f"{msg}: {a.get(key)} != {b.get(key)}")
+        return len(errors) == 0, errors
+
     base = Path(directory)
     if not base.exists():
         return None
@@ -304,17 +324,18 @@ def find_matching_json(header: dict, directory=IN_PROGRESS_DIR):
                 continue
 
             # Exact match
-            if metadata == target:
-                return file
+            if compare_headers(metadata, target)[0]:
+                return file, metadata
 
         except Exception:
             continue
 
-    return None
+    return None, None
 
 
-async def save_temp_json(temp_dir, header: dict, source_ip):
+async def save_temp_json(temp_dir, header: dict, source_ip, save_path):
     normalized_header = normalize_header(header)
+    normalized_header["save_path"] = save_path
     json_path = temp_dir.with_suffix(temp_dir.suffix + ".json")
     data = {
         "id": load_json_index()[1],
@@ -329,12 +350,12 @@ async def save_temp_json(temp_dir, header: dict, source_ip):
 
 
 async def load_temp_json(header):
-    normalized_header = normalize_header(header)
-    temp_dir = find_matching_json(normalized_header)
-    if os.path.exists(temp_dir) and os.path.isfile(temp_dir):
-        return temp_dir, os.path.getsize(temp_dir)
+    temp_dir, metadata = find_matching_json(header)
+    temp_dir = str(temp_dir).removesuffix(".json")
+    if temp_dir and os.path.exists(temp_dir) and os.path.isfile(temp_dir):
+        return temp_dir, os.path.getsize(temp_dir), metadata["save_path"]
     else:
-        return None, None
+        return None, None, None
 
 
 async def parse_header(reader, output_dir) -> dict:
@@ -351,10 +372,13 @@ async def parse_header(reader, output_dir) -> dict:
             "filesize": filesize, "fname_len": fname_len, "checksum": checksum}
 
 
-async def verify_transfer(header: dict, addr, writer, logger, client_id, unprotected=False):
+async def verify_transfer(header: dict, addr, writer, logger, client_id, unprotected=False, allow_resume=False):
     valid, error = True, ""
 
     # --- Validate ---
+    if header["flags"] & transferflags.FLAG_RESUME and not allow_resume:
+        valid, error = False, "Server does not allow resuming transfers"
+
     if header["magic"] != MAGIC:
         valid, error = False, "Invalid magic number in header"
     if int(VERSION * 1000) != int(header["version"] * 1000):
@@ -382,19 +406,49 @@ async def verify_transfer(header: dict, addr, writer, logger, client_id, unprote
 
 
 async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, output_dir: str, client_id, logger,
-                        progress_bar=False, rate_limit: int = 0, unprotected=False, manager: Manager = None):
+                        progress_bar=False, rate_limit: int = 0, unprotected=False, allow_resume = False, manager: Manager = None):
     addr = writer.get_extra_info("peername")
     logger.info(f"{client_id}: Secure connection from {addr}")
 
     try:
         header = await parse_header(reader, output_dir)
-        await verify_transfer(header, addr, writer, logger, client_id, unprotected=unprotected)
+        await verify_transfer(header, addr, writer, logger, client_id, unprotected=unprotected, allow_resume=allow_resume)
         filename = header["filename"]
         filesize = header["filesize"]
         flags = header["flags"]
 
         # --- Prepare output ---
         out_path = os.path.join(output_dir, os.path.basename(filename))
+
+        # --- Is resuming? ---
+        offset = 0
+        resume = False
+        temp_path_override = None
+        if flags & transferflags.FLAG_RESUME:
+            logger.info(f"{client_id}: Resuming: Locating incomplete transfer")
+            transfer_temp_path, transfer_size, transfer_save_path = await load_temp_json(header)
+            response = {
+                "VALID": False,
+                "OFFSET": 0
+            }
+            if transfer_save_path:
+                response["VALID"] = True
+                response["OFFSET"] = transfer_size
+                logger.debug(f"{client_id}: Found transfer saved at {transfer_save_path}\nOffset: {transfer_size}")
+            else:
+                logger.error(f"{client_id}: No transfer found")
+                writer.write((json.dumps(response) + "\n").encode())
+                await writer.drain()
+                return False
+
+            resume = True
+            out_path = transfer_save_path
+            temp_path_override = transfer_temp_path
+            offset = transfer_size
+
+            writer.write((json.dumps(response) + "\n").encode())
+            await writer.drain()
+
         logger.info(f"{client_id}: Receiving '{filename}' ({format_bytes(filesize)}) into {output_dir}")
 
         if manager:
@@ -416,15 +470,22 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
 
         os.makedirs(output_dir, exist_ok=True)
 
-        # generate 16 random characters
-        rand = ''.join(random.choices(string.ascii_letters + string.digits, k=16))
+        json_data = None
+        if not resume:
+            # generate 16 random characters
+            rand = ''.join(random.choices(string.ascii_letters + string.digits, k=16))
 
-        temp_path = Path(
-            os.path.join(IN_PROGRESS_DIR, f"receive.{Path(out_path).stem}{rand}){Path(out_path).suffix}")).with_suffix(
-            MID_DOWNLOAD_EXT)
+            temp_path = Path(
+                os.path.join(IN_PROGRESS_DIR, f"receive.{Path(out_path).stem}{rand}){Path(out_path).suffix}")).with_suffix(
+                MID_DOWNLOAD_EXT)
 
-        # Save data for resuming transfers
-        json_path, json_data = await save_temp_json(temp_path, header, addr[0])
+            # Save data for resuming transfers
+            json_path, json_data = await save_temp_json(temp_path, header, addr[0], out_path)
+        else:
+            temp_path = temp_path_override
+            json_path = str(temp_path) + ".json"
+            with open(json_path, "r") as f:
+                json_data = json.load(f)
         lock = FileLock(str(json_path)+".lock")
         with lock:
             logger.debug(f"{client_id}: Saving to temp directory: \n{temp_path}\n")
@@ -432,7 +493,7 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
             # --- Receive file ---
             received = await receive_linear(reader, filesize, temp_path, client_id, logger, progress_bar=progress_bar,
                                             rate_limit=rate_limit, manager=manager, json_path=json_path,
-                                            json_data=json_data)
+                                            json_data=json_data, start_offset=offset)
 
             if received < filesize:
                 logger.error(f"{client_id}: Incomplete file received: {format_bytes(received)}/{format_bytes(filesize)}")
@@ -496,13 +557,18 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
 
 
 async def receive_linear(reader, filesize, out_path, client_id, logger, progress_bar=False, rate_limit: int = 0,
-                         manager: Manager = None, json_path=None, json_data=None):
+                         manager: Manager = None, json_path=None, json_data=None, start_offset: int = 0):
     """
     High-performance async file receiver using batch reads and memoryview,
     with thread-based file writes to avoid blocking the event loop and optional rate limiting.
     """
 
-    received = 0
+    if start_offset > 0:
+        existing = os.path.getsize(out_path)
+        if existing != start_offset:
+            raise ValueError("Resume offset does not match existing file size")
+
+    received = start_offset
     last_save = 0
     last_progress_update = time.monotonic()
     next_recv_time = time.monotonic()
@@ -524,7 +590,9 @@ async def receive_linear(reader, filesize, out_path, client_id, logger, progress
 
     try:
         start_time = time.monotonic()
-        with open(out_path, "wb") as f:  # regular file
+        with open(out_path, "r+b" if start_offset > 0 else "wb") as f:
+            if start_offset > 0:
+                f.seek(start_offset)
             while received < filesize:
                 chunk_size = min(BUFFER_SIZE * BATCH_SIZE, filesize - received)
                 if chunk_size <= 0:
@@ -538,6 +606,9 @@ async def receive_linear(reader, filesize, out_path, client_id, logger, progress
 
                 if not chunk:
                     break
+
+                if received + chunk_size > filesize:
+                    chunk = chunk[:filesize - received]
 
                 mv = memoryview(chunk)
                 await asyncio.to_thread(write_chunk, f, mv)
@@ -556,7 +627,7 @@ async def receive_linear(reader, filesize, out_path, client_id, logger, progress
                 now = time.monotonic()
                 if progress_bar and now - last_progress_update >= PROGRESS_INTERVAL:
                     if json_path and json_data and (now - last_save > JSON_PROGRESS_INTERVAL):
-                        json_data["progress"] = int(progress.n / filesize * 100)
+                        json_data["progress"] = int(received / filesize * 100)
 
                         with open(json_path, "w") as fp:
                             fp.write(json.dumps(json_data))

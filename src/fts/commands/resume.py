@@ -1,9 +1,7 @@
 import os
-import time
+from argparse import Namespace
 
-from fts.config import JSON_PROGRESS_INTERVAL
-
-_progress_cache = {}  # {id: last_progress}
+from fts.core.aliases import resolve_args
 
 
 def cmd_resume(args, logger):
@@ -21,8 +19,34 @@ def cmd_resume(args, logger):
 
 
 def resume(args, logger):
-    transfers = retrieve_incomplete_transfers()
-    return
+    transfers = filter_in_progress(retrieve_incomplete_transfers())
+    target_transfer = None
+    transfer_json = None
+    for transfer in transfers:
+        if transfer["id"] == str(args.id):
+            target_transfer = transfer["complete"]
+            transfer_json = transfer["path"]
+            break
+
+    if not target_transfer:
+        logger.error(f"Incomplete transfer not found")
+        return
+    elif target_transfer["type"] == "receive":
+        logger.error(f"Transfers must be resumed by sender")
+        return
+
+    args = Namespace(
+        path=target_transfer["metadata"]["source_path"],
+        ip=target_transfer["target"],
+        limit=args.limit,
+        port=0 if args.port == -1 else args.port,
+        progress=args.progress,
+        name=target_transfer["metadata"]["name"],
+        nocompress=not target_transfer["metadata"]["compressed"],
+        autotrust=True
+    )
+    from fts.commands.sender import cmd_send
+    cmd_send(resolve_args(args, logger), logger, resume=transfer_json, override_compress= "y" if target_transfer["metadata"]["compressed"] else "n")
 
 
 def filter_in_progress(transfers):
@@ -71,6 +95,8 @@ def retrieve_incomplete_transfers():
                 "progress": prog,
                 "file": file_name,
                 "in_progress": in_progress,
+                "complete": data,
+                "path": file
             })
 
         except Exception:

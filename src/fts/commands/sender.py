@@ -35,7 +35,7 @@ from fts.manager import Manager
 from fts.utilities import format_bytes, parse_byte_string
 
 
-def cmd_send(args, logger, manager=None):
+def cmd_send(args, logger, manager=None, resume=None, override_compress=None):
     """Send a single file."""
     try:
         path = resolve_path(args.path)
@@ -58,7 +58,7 @@ def cmd_send(args, logger, manager=None):
 
     try:
         asyncio.run(send_file(path, args.ip, args.port, logger, progress_bar=args.progress, name=args.name,
-                              compress=not args.nocompress, rate_limit=limit, manager=manager, auto_trust=autotrust))
+                              compress=not args.nocompress, rate_limit=limit, manager=manager, auto_trust=autotrust, resume=resume, override_compress=override_compress))
     except KeyboardInterrupt:
         raise KeyboardInterrupt
 
@@ -73,7 +73,7 @@ def resolve_path(path: str) -> str:
     return os.path.abspath(path)
 
 
-async def save_temp_json(source_path, source_ip, compressed: bool = False):
+async def save_temp_json(source_path, source_ip, compressed: bool = False, name=None):
     transfer_id = load_json_index()[1]
     rand = ''.join(random.choices(string.ascii_letters + string.digits, k=16))
 
@@ -82,6 +82,7 @@ async def save_temp_json(source_path, source_ip, compressed: bool = False):
         ".json")
     metadata = {
         "source_path": source_path,
+        "name": name,
         "compressed": compressed,
     }
     data = {
@@ -155,12 +156,16 @@ def should_compress(file_path: str) -> bool:
     return True
 
 
-def compress_file(file_path, filename, filesize, logger, compress=True):
+def compress_file(file_path, filename, filesize, logger, compress=True, override_compress=None):
     temp_dir = None
+    if override_compress == "y":
+        compress = True
+    elif override_compress == "n":
+        compress = False
 
     try:
         if compress:
-            if not should_compress(file_path):
+            if not should_compress(file_path) and override_compress != "y":
                 logger.info("This file is already compressed, skipping compression")
                 return file_path, filesize, False
             else:
@@ -215,7 +220,9 @@ async def send_file(
         compress: bool = False,
         rate_limit: int = 0,
         auto_trust: bool = False,
-        manager: Manager = None
+        manager: Manager = None,
+        resume=False,
+        override_compress=None
 ):
     """
     Asynchronously send a file over a secure socket with optional compression and rate limiting.
@@ -256,7 +263,7 @@ async def send_file(
                 logger.error("Manager cancelled transfer")
                 return
         file_path, filesize, compressed = compress_file(
-            file_path, filename, filesize, logger, compress
+            file_path, filename, filesize, logger, compress, override_compress=override_compress,
         )
         if compressed:
             flags |= transferflags.FLAG_COMPRESSED
@@ -265,6 +272,10 @@ async def send_file(
         if manager:
             manager.state = "failed"
         return
+
+    # Set resume flag
+    if resume:
+        flags |= transferflags.FLAG_RESUME
 
     port = port or DEFAULT_FILE_PORT
 
@@ -300,7 +311,10 @@ async def send_file(
                             return
                         manager.state = "hold"
                 elif ack != b"SEND":
-                    logger.error("Send request denied by receiver")
+                    if resume:
+                        logger.error("Send request denied by receiver\nServer may not allow resuming transfers")
+                    else:
+                        logger.error("Send request denied by receiver")
                     if manager:
                         manager.state = "failed"
                     return
@@ -315,13 +329,35 @@ async def send_file(
 
         logger.debug(f"Successfully received server permission")
 
+        offset = 0
+        if resume:
+            logger.debug(f"Resuming: Awaiting transfer offset")
+            line = await reader.readline()
+            offset_json = json.loads(line.decode())
+            valid = offset_json["VALID"]
+            if valid:
+                offset = offset_json["OFFSET"]
+                logger.debug(f"Received offset from receiver: {offset}")
+            else:
+                logger.error(f"Receiver could not find an incomplete transfer")
+                # noinspection PyTypeChecker
+                os.remove(resume)
+                return
+            logger.info(f"Resuming transfer")
+
         # Save transfer for resume
-        json_path, json_data = await save_temp_json(file_path, host, compressed)
+        json_data = None
+        if not resume:
+            json_path, json_data = await save_temp_json(file_path, host, compressed, name)
+        else:
+            json_path = resume
+            with open(json_path, "r") as f:
+                json_data = json.load(f)
         lock = FileLock(str(json_path)+".lock")
         with lock:
             # Send file using asyncio-based pipeline
             sent = await send_linear(file_path, filesize, writer, progress_bar, logger, rate_limit, manager=manager,
-                                     json_path=json_path, json_data=json_data)
+                                     json_path=json_path, json_data=json_data, start_offset=offset)
 
             if sent < filesize:
                 logger.warning("Not all bytes were sent")
@@ -384,7 +420,7 @@ async def connect_with_retry(host, port, logger, retries: int = 5, delay: int = 
 
 
 async def send_linear(file_path, filesize, writer, progress_bar, logger, rate_limit: int = 0, manager: Manager = None,
-                      json_path=None, json_data=None):
+                      json_path=None, json_data=None, start_offset: int = 0):
     """
     Ultra-fast async file sender using thread-based blocking file reads.
     Avoids blocking event loop and unnecessary memory copies.
@@ -416,7 +452,7 @@ async def send_linear(file_path, filesize, writer, progress_bar, logger, rate_li
         leave=False,
     )
 
-    sent = 0
+    sent = start_offset
     last_save = 0
     next_send_time = time.monotonic()
     last_progress_update = time.monotonic()
@@ -427,8 +463,11 @@ async def send_linear(file_path, filesize, writer, progress_bar, logger, rate_li
 
     try:
         with open(file_path, "rb") as f:
+            f.seek(start_offset)
             while True:
-                chunk = await asyncio.to_thread(read_chunk, f, BUFFER_SIZE * BATCH_SIZE)
+                remaining = filesize - sent
+                read_size = min(BUFFER_SIZE * BATCH_SIZE, remaining)
+                chunk = await asyncio.to_thread(read_chunk, f, read_size)
                 if not chunk:
                     break
 
@@ -465,16 +504,17 @@ async def send_linear(file_path, filesize, writer, progress_bar, logger, rate_li
 
                 # Update progress periodically
                 now = time.monotonic()
-                if progress_bar and now - last_progress_update >= PROGRESS_INTERVAL:
+                if now - last_progress_update >= PROGRESS_INTERVAL:
                     if json_path and json_data and (now - last_save > JSON_PROGRESS_INTERVAL):
-                        json_data["progress"] = int(progress.n / filesize * 100)
+                        json_data["progress"] = int(sent / filesize * 100)
 
                         with open(json_path, "w") as fp:
                             fp.write(json.dumps(json_data))
 
                         last_save = now
-                    progress.n = sent
-                    progress.refresh()
+                    if progress_bar:
+                        progress.n = sent
+                        progress.refresh()
                     if manager:
                         if manager.cancelled:
                             logger.error("Manager cancelled transfer")
@@ -504,6 +544,6 @@ async def send_linear(file_path, filesize, writer, progress_bar, logger, rate_li
         loop.set_exception_handler(old_handler)
         end_time = time.monotonic()
         duration = max(0.001, end_time - start_time)
-        logger.debug(f"Transferred {format_bytes(sent)} in {duration:.2f}s ({format_bytes(sent / duration)}/s)")
+        logger.debug(f"Transferred {format_bytes(sent - start_offset)} in {duration:.2f}s ({format_bytes((sent - start_offset) / duration)}/s)")
 
     return sent
