@@ -4,21 +4,22 @@ from argparse import Namespace
 from fts.core.aliases import resolve_args
 
 
-def cmd_resume(args, logger):
+def cmd_resume(args, logger, manager=None):
     commands = {
         "show": print_incomplete_transfers,
         "start": resume,
+        "remove": remove
     }
 
     cmd = commands.get(args.subcommand)
 
     if cmd:
-        cmd(args, logger)
+        cmd(args, logger, manager=manager)
     else:
         logger.error(f"Unknown subcommand: {args.subcommand}")
 
 
-def resume(args, logger):
+def resume(args, logger, manager=None):
     transfers = filter_in_progress(retrieve_incomplete_transfers())
     target_transfer = None
     transfer_json = None
@@ -43,10 +44,36 @@ def resume(args, logger):
         progress=args.progress,
         name=target_transfer["metadata"]["name"],
         nocompress=not target_transfer["metadata"]["compressed"],
-        autotrust=True
+        autotrust=getattr(args, "autotrust", False)
     )
     from fts.commands.sender import cmd_send
-    cmd_send(resolve_args(args, logger), logger, resume=transfer_json, override_compress= "y" if target_transfer["metadata"]["compressed"] else "n")
+    cmd_send(resolve_args(args, logger), logger, resume=transfer_json, override_compress= "y" if target_transfer["metadata"]["compressed"] else "n", manager=manager)
+
+
+def remove(args, logger=None, manager=None):
+    transfers = filter_in_progress(retrieve_incomplete_transfers())
+    target_transfer = None
+    transfer_json = None
+    for transfer in transfers:
+        if transfer["id"] == str(args.id):
+            target_transfer = transfer["complete"]
+            transfer_json = transfer["path"]
+            break
+
+    if not target_transfer:
+        if logger:
+            logger.error("Incomplete transfer not found")
+        else:
+            raise "Incomplete transfer not found"
+        return
+
+    if transfer_json:
+        os.remove(transfer_json)
+        if os.path.exists(str(transfer_json).removesuffix(".json")):
+            os.remove(str(transfer_json).removesuffix(".json"))
+        if logger:
+            logger.info(f"Transfers removed")
+
 
 
 def filter_in_progress(transfers):
@@ -105,7 +132,7 @@ def retrieve_incomplete_transfers():
     return incomplete
 
 
-def print_incomplete_transfers(args, logger):
+def print_incomplete_transfers(args, logger, manager=None):
     # --- ANSI colors ---
     RESET = "\033[0m"
     RED = "\033[31m"

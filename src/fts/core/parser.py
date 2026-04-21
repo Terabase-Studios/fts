@@ -116,6 +116,14 @@ def resume_parser_add(parser, parents):
     resume_one.add_argument("-l", "--limit", type=str, help="max sending speed (e.g. 500KB, 2MB, 1GB)")
     resume_one.add_argument("--progress", action="store_true", help="show progress bar for the transfer")
 
+    # List stopped transfers
+    remove_parser = subparsers.add_parser(
+        "remove",
+        help="remove a transfer by ID",
+        parents=parents
+    )
+    remove_parser.add_argument("id", type=int, help="transfer ID to remove")
+
 
 def close_parser_add(parser, parents):
     close_parser = parser.add_parser("close", help="close a detached server", parents=parents)

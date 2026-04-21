@@ -10,9 +10,10 @@ from fts.cli import create_parser
 from fts.config import RECEIVING_PID
 
 
-def cmd_close(args, logger):
-    logger.debug("Closing detached FTS server(s)")
-    logger.debug(f"Options: {vars(args)}")
+def cmd_close(args, logger=None):
+    if logger:
+        logger.debug("Closing detached FTS server(s)")
+        logger.debug(f"Options: {vars(args)}")
 
     end_detached(args, logger, RECEIVING_PID, "receiving")
 

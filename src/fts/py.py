@@ -1,6 +1,7 @@
 import sys
 from argparse import Namespace
 
+from fts.commands.resume import retrieve_incomplete_transfers, filter_in_progress, cmd_resume, remove
 from fts.commands.sender import cmd_send
 from fts.commands.server import cmd_open
 from fts.core.aliases import resolve_args, load_aliases, cmd_alias
@@ -8,6 +9,7 @@ from fts.core.detatched import cmd_close
 from fts.core.logger import setup_logging
 from fts.core.secure import cmd_clear_fingerprint, is_public_network
 from fts.manager import Manager
+
 
 logger = setup_logging()
 
@@ -42,10 +44,11 @@ def send(path: str, ip: str, port: int = -1, limit=0, progress: bool = False, na
 
 
 def open(path: str, ip: str = None, port: int = -1, limit=0, progress: bool = False,
-         protected: bool = True, max_concurrent_transfers: int = 0, manager: Manager = None, max_transfers: int = None):
+         protected: bool = True, max_concurrent_transfers: int = 0, manager: Manager = None, max_transfers: int = None, allow_resumes: bool = False):
     args = Namespace(
         output=path,
         ip=ip,
+        resume=allow_resumes,
         port=0 if port == -1 else port,
         limit=limit,
         progress=progress,
@@ -56,6 +59,32 @@ def open(path: str, ip: str = None, port: int = -1, limit=0, progress: bool = Fa
 
     func_logger = _get_logger(logger, "open")
     cmd_open(resolve_args(args, func_logger), func_logger, manager=manager)
+
+
+def get_incomplete_transfers(include_in_progress: bool = False):
+    transfer_list = retrieve_incomplete_transfers()
+    if not include_in_progress:
+        transfer_list = filter_in_progress(transfer_list)
+    return transfer_list
+
+def resume_incomplete_transfer(transfer_id: int, port: int = -1, limit=0, progress: bool = False, manager: Manager = None):
+    args = Namespace(
+        subcommand="start",
+        id=transfer_id,
+        limit=limit,
+        port=0 if port == -1 else port,
+        progress=progress,
+        autotrust=True
+    )
+
+    func_logger = _get_logger(logger, "resume")
+    cmd_resume(resolve_args(args, func_logger), func_logger, manager=manager)
+
+def remove_incomplete_transfer(transfer_id):
+    args = Namespace(
+        id=transfer_id,
+    )
+    remove(args)
 
 
 def close():
@@ -76,7 +105,6 @@ def trust(ip):
 def get_aliases():
     return load_aliases()
 
-
 def add_alias(name: str, value: str, alias_type: str):
     args = Namespace(
         action="add",
@@ -89,7 +117,6 @@ def add_alias(name: str, value: str, alias_type: str):
     func_logger = _get_logger(logger, "alias")
 
     cmd_alias(args, func_logger)
-
 
 def remove_alias(name: str, alias_type: str):
     args = Namespace(
