@@ -32,7 +32,7 @@ from fts.config import (
 from fts.core import secure as secure
 from fts.core.secure import FingerprintMismatchError
 from fts.manager import Manager
-from fts.utilities import format_bytes, parse_byte_string
+from fts.utilities import format_bytes, parse_byte_string, run_async
 
 
 def cmd_send(args, logger, manager=None, resume=None, override_compress=None):
@@ -57,7 +57,7 @@ def cmd_send(args, logger, manager=None, resume=None, override_compress=None):
     autotrust = args.autotrust if hasattr(args, "autotrust") else False
 
     try:
-        asyncio.run(send_file(path, args.ip, args.port, logger, progress_bar=args.progress, name=args.name,
+        run_async(send_file(path, args.ip, args.port, logger, progress_bar=args.progress, name=args.name,
                               compress=not args.nocompress, rate_limit=limit, manager=manager, auto_trust=autotrust, resume=resume, override_compress=override_compress))
     except KeyboardInterrupt:
         raise KeyboardInterrupt

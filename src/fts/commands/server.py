@@ -34,7 +34,7 @@ from fts.core import secure as secure
 from fts.core.detatched import start_detached
 from fts.core.dosp import should_receive
 from fts.manager import Manager
-from fts.utilities import format_bytes, parse_byte_string
+from fts.utilities import format_bytes, parse_byte_string, run_async
 
 # Incrementing IDs for each client connection
 _client_ids = itertools.count(1)
@@ -77,7 +77,7 @@ def cmd_open(args, logger, manager=None):
         try:
             server_coro = start_server(host, port, output_dir, logger, args.progress, limit, max_sends,
                                        args.unprotected, args.max_transfers, args.resume, manager=manager)
-            asyncio.run(server_coro)
+            run_async(server_coro)
             return
         except OSError as e:
             if port != 0:

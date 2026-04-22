@@ -12,6 +12,7 @@ import psutil
 from fts.app.config import CONTACTS_FILE, SEEN_IPS_FILE, DISCOVERY_PORT, MAC_FILE, MUTED_FILE, PLUGIN_DIR, \
     logger, IP_REMAPPING_WITH_MAC
 from fts.core.secure import get_ip_to_mac
+from fts.utilities import run_async
 
 FILES_TO_UPDATE_IP = [CONTACTS_FILE, MUTED_FILE, SEEN_IPS_FILE, os.path.join(PLUGIN_DIR, "ip_blacklist.txt")]
 
@@ -351,7 +352,7 @@ def start_discovery_responder():
             transport.close()
 
     def _thread_target():
-        asyncio.run(_run_responder())
+        run_async(_run_responder())
 
     thread = threading.Thread(target=_thread_target, daemon=True)
     thread.start()

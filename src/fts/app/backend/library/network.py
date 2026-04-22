@@ -9,6 +9,7 @@ from fts.app.backend.contacts import discover
 from fts.app.backend.library import FTSLibrary
 from fts.app.backend.library.config import LIBRARY_PORT, LIBRARY_LOG_FILE
 from fts.app.config import logger
+from fts.utilities import run_async
 
 LIBRARY_DISCOVER = b"FTSLIBRARYDISCOVER"
 LIBRARY_RESPONSE = b"FTSLIBRARYRESPONSE"
@@ -142,7 +143,7 @@ def start_library_responder():
     """Run the TCP responder in a background thread."""
 
     def _thread_target():
-        asyncio.run(DiscoveryResponder().run_server())
+        run_async(DiscoveryResponder().run_server())
 
     thread = threading.Thread(target=_thread_target, daemon=True)
     thread.start()

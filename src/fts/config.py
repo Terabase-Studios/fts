@@ -15,19 +15,21 @@ and then load/override values from it automatically on import.
 
 import configparser
 import os
+import platform
 import warnings
 from pathlib import Path
 
 # ======================================================
 # Default Configuration
 # ======================================================
-CONFIG_VERSION = 1
+CONFIG_VERSION = 2
 current_config_version = int(CONFIG_VERSION)
 
 # -------------------------
 # General
 # -------------------------
 EXPERIMENTAL_FEATURES_ENABLED = False
+UV_OR_WIN_LOOP_ACCELERATION_ENABLED = True
 
 # -------------------------
 # Protocol
@@ -165,6 +167,7 @@ def _write_default_config(path: str):
     cp["general"] = {
         "config_version": str(CONFIG_VERSION),
         "experimental_features_enabled": str(EXPERIMENTAL_FEATURES_ENABLED),
+        "uv_or_win_loop_acceleration_enabled": str(UV_OR_WIN_LOOP_ACCELERATION_ENABLED),
     }
 
     cp["networking"] = {
@@ -314,8 +317,21 @@ def resave_config(backup=True):
 
 
 if broken_config:
-    print("INFO: Recreating config.ini with default settings, a backup will be saved in the same directory.")
+    print("[FTS-TOOL][INFO]: Recreating config.ini with default settings, a backup will be saved in the same directory.")
     resave_config()
 elif CONFIG_VERSION != current_config_version:
-    print("INFO: Migrating config.ini to a new config version, a backup will be saved in the same directory.")
+    print("[FTS-TOOL][INFO]: Migrating config.ini to a new config version, a backup will be saved in the same directory.")
     resave_config()
+
+
+# ======= OS Specific ========
+# OS identifiers
+operating_system = platform.system()
+IS_WINDOWS = operating_system == "Windows"
+IS_LINUX = operating_system == "Linux"
+IS_MAC = operating_system == "Darwin"
+IS_UNIX = operating_system == "Unix"
+
+# OS specific settings
+USE_UVLOOP = not IS_WINDOWS and UV_OR_WIN_LOOP_ACCELERATION_ENABLED
+USE_WINLOOP = IS_WINDOWS and UV_OR_WIN_LOOP_ACCELERATION_ENABLED
