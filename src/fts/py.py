@@ -1,7 +1,6 @@
 import sys
 from argparse import Namespace
 
-from fts import install_fast_event_loop
 from fts.commands.resume import retrieve_incomplete_transfers, filter_in_progress, cmd_resume, remove
 from fts.commands.sender import cmd_send
 from fts.commands.server import cmd_open
@@ -10,7 +9,7 @@ from fts.core.detatched import cmd_close
 from fts.core.logger import setup_logging
 from fts.core.secure import cmd_clear_fingerprint, is_public_network
 from fts.manager import Manager
-
+from fts.utilities import install_fast_event_loop
 
 logger = setup_logging()
 
