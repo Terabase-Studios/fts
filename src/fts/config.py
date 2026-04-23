@@ -19,6 +19,8 @@ import platform
 import warnings
 from pathlib import Path
 
+from platformdirs import PlatformDirs
+
 # ======================================================
 # Default Configuration
 # ======================================================
@@ -120,8 +122,19 @@ UNCOMPRESSIBLE_EXTS = {
 # -------------------------
 # Paths
 # -------------------------
-APP_DIR = os.path.expanduser("~/.fts")
-os.makedirs(APP_DIR, exist_ok=True)
+dirs = PlatformDirs("Fts-Tool", "Terabase")
+
+CONFIG_DIR = Path(dirs.user_config_dir)
+CACHE_DIR = Path(dirs.user_cache_dir)
+STATE_DIR = Path(dirs.user_state_dir)
+LOGS_DIR = Path(dirs.user_log_dir)
+DOWNLOAD_DIR = Path(dirs.user_downloads_dir)
+DATA_DIR = Path(dirs.user_data_dir)
+
+PLUGINS_DIR = CONFIG_DIR / "plugins"
+PLUGIN_DATA_DIR = DATA_DIR / "plugins"
+
+
 IN_PROGRESS_DIR = os.path.expanduser(os.path.join(APP_DIR, "in_progress"))
 os.makedirs(IN_PROGRESS_DIR, exist_ok=True)
 
