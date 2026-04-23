@@ -100,7 +100,7 @@ class FTSApp(App):
 
 def start(print_icon=False):
     global fts_app
-    fts.install_accelerated_event_loop(debug_prints=True)
+    fts.install_accelerated_event_loop()
     if print_icon:
         print(ICON)
 

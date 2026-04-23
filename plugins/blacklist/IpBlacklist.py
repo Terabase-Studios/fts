@@ -31,6 +31,7 @@ Usage:
 
 Warning: This plugin currently does not block file transfer requests!
 """
+from __future__ import annotations
 
 import json
 import os
