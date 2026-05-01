@@ -15,6 +15,7 @@ from filelock import FileLock
 from tqdm.asyncio import tqdm_asyncio as tqdm
 
 import fts.flags as transferflags
+from fts.cache import IN_PROGRESS_DIR
 from fts.commands.resume import load_json_index
 from fts.config import (
     DEFAULT_FILE_PORT,
@@ -26,13 +27,12 @@ from fts.config import (
     PROGRESS_INTERVAL,
     UNCOMPRESSIBLE_EXTS,
     MAX_SEND_RETRIES,
-    IN_PROGRESS_DIR,
     JSON_PROGRESS_INTERVAL
 )
 from fts.core import secure as secure
 from fts.core.secure import FingerprintMismatchError
 from fts.manager import Manager
-from fts.utilities import format_bytes, parse_byte_string, run_async
+from fts.core.utilities import format_bytes, parse_byte_string, run_async
 
 
 def cmd_send(args, logger, manager=None, resume=None, override_compress=None):

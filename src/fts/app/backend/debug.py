@@ -4,7 +4,7 @@ from typing import List, Optional
 
 from rich.text import Text
 
-from fts.app.config import DEBUG_FILE
+from fts.app.cache import DEBUG_FILE
 
 HEADER_RE = re.compile(r"^===== APP \| ([A-Za-z0-9]+) =====$")
 TIMESTAMP_RE = re.compile(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})")

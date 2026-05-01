@@ -13,7 +13,7 @@ import fts.py as fts
 from fts.app.backend.contacts import replace_with_contact, ONLINE_USERS, replace_with_ip
 from fts.app.config import SAVE_DIR, logger
 from fts.manager import Manager
-from fts.utilities import run_async
+from fts.core.utilities import run_async
 
 TRANSFER_PORT = 9064
 REQUEST_MSG = b"request"

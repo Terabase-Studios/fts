@@ -7,9 +7,10 @@ import fts.app.backend.transfer as fts_transfer
 import fts.app.config as app_config
 from fts.app.backend.contacts import discover
 from fts.app.backend.library import FTSLibrary
-from fts.app.backend.library.config import LIBRARY_PORT, LIBRARY_LOG_FILE
+from fts.app.backend.library.config import LIBRARY_PORT
+from fts.app.cache import LIBRARY_LOG_FILE
 from fts.app.config import logger
-from fts.utilities import run_async
+from fts.core.utilities import run_async
 
 LIBRARY_DISCOVER = b"FTSLIBRARYDISCOVER"
 LIBRARY_RESPONSE = b"FTSLIBRARYRESPONSE"

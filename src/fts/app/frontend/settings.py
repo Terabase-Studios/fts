@@ -6,7 +6,7 @@ from textual.containers import Container, Vertical, Horizontal, VerticalScroll, 
 from textual.screen import ModalScreen
 from textual.widgets import Button, Label, TabbedContent, Switch, Input
 
-from fts.app.config import CONFIG_PATH as APP_CONFIG
+from fts.app.config import CONFIG_FILE as APP_CONFIG
 from fts.app.config import resave_config as reset_app_config
 from fts.config import CONFIG_FILE as MAIN_CONFIG
 from fts.config import resave_config as reset_main_config

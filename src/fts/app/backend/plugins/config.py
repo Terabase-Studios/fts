@@ -1,18 +1,10 @@
-import os
-
-from fts.app.config import PLUGIN_DIR
-
 GITHUB_BASE = "https://raw.githubusercontent.com/Terabase-Studios/fts/refs/heads/main/"
 GITHUB_PLUGIN_DIR = GITHUB_BASE + "plugins/"
 
 ERROR_FREEZE_TIME = 3
 
-SECURE_PLUGIN_DIR = PLUGIN_DIR + "_secure/"
-os.makedirs(SECURE_PLUGIN_DIR, exist_ok=True)
 
 SECURE = True
-HASHES_JSON = os.path.join(SECURE_PLUGIN_DIR, "hashes.json")
-HASHES_SIG = os.path.join(SECURE_PLUGIN_DIR, "hashes.sig")
 
 PUBLIC_KEY = """
 -----BEGIN PUBLIC KEY-----

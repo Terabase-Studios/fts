@@ -6,8 +6,8 @@ import time
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 
-from fts.app.backend.plugins.config import PUBLIC_KEY, HASHES_JSON, HASHES_SIG, ERROR_FREEZE_TIME
-from fts.app.config import PLUGIN_DIR
+from fts.app.backend.plugins.config import PUBLIC_KEY, ERROR_FREEZE_TIME
+from fts.app.cache import PLUGIN_DIR, HASHES_JSON, HASHES_SIG
 
 
 def verify_plugins(plugin_files, public_key_string=PUBLIC_KEY,

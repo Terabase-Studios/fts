@@ -3,8 +3,7 @@ import os
 import urllib.request
 
 from fts.app.backend.plugins.config import GITHUB_PLUGIN_DIR
-from fts.app.backend.plugins.config import HASHES_JSON, HASHES_SIG, SECURE_PLUGIN_DIR
-from fts.app.config import PLUGIN_DIR
+from fts.app.cache import PLUGIN_DIR, HASHES_JSON, HASHES_SIG, SECURE_PLUGIN_DIR
 
 
 def download_hashes(logger=None):

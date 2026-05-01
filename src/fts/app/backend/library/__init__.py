@@ -3,7 +3,8 @@ import json
 import os
 from typing import Dict, Any
 
-from fts.app.backend.library.config import LIBRARY_PATH, LIBRARY_CACHE_FILE, IGNORE_HIDDEN_FOLDERS
+from fts.app.backend.library.config import IGNORE_HIDDEN_FOLDERS
+from fts.app.cache import LIBRARY_PATH, LIBRARY_CACHE_FILE
 
 
 class FTSLibrary:

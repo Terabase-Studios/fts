@@ -9,7 +9,7 @@ from fts.core.detatched import cmd_close
 from fts.core.logger import setup_logging
 from fts.core.secure import cmd_clear_fingerprint, is_public_network
 from fts.manager import Manager
-from fts.utilities import install_fast_event_loop
+from fts.core.utilities import install_fast_event_loop
 
 logger = setup_logging()
 

@@ -162,7 +162,7 @@ def setup_logging(verbose=False, quiet=False, logfile=None, line_sep=0, mode="tq
                 self.save_path = save_path
                 self.threshold = threshold
                 self.counter = 0
-                self.lock = FileLock(lock_path or logfile_path + ".lock")
+                self.lock = FileLock(lock_path or str(logfile_path) + ".lock")
 
             def emit(self, record):
                 self.counter += 1

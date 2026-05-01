@@ -4,7 +4,7 @@ from textual.containers import VerticalScroll, Container, Vertical, Horizontal
 from textual.widgets import Label, Button, Rule, Log
 
 from fts.app.backend.contacts import replace_with_contact
-from fts.utilities import format_bytes
+from fts.core.utilities import format_bytes
 
 
 class Request(Vertical):

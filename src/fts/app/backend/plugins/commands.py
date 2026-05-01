@@ -6,7 +6,7 @@ import textwrap
 
 from fts import __version__
 from fts.app.backend.plugins.installer import fetch_manifest, list_available_plugins, install_plugin, download_hashes
-from fts.app.config import PLUGIN_DIR, CONFIG_PATH
+from fts.app.cache import PLUGIN_DIR, CONFIG_DIR
 
 
 def cmd_plugins(args, logger):
@@ -18,68 +18,75 @@ def cmd_plugins(args, logger):
                 f"FTS out of date! New plugins may not be compatible.\n Installed version: {current_version} \n Remote version: {github_version}")
     except Exception:
         logger.warning("Unable to verify FTS version")
-    match args.subcommand:
-        case "show":
-            if not args.plugin:
-                try:
-                    list_plugins()
-                except Exception as e:
-                    logger.error(f"Failed to get plugins: {e}")
-            else:
-                show_plugin_details(args.plugin, logger)
-        case "install":
-            logger.info("Updating plugin hashes\nAny outdated plugins may not be compatible")
+    if args.subcommand == "show":
+        if not args.plugin:
             try:
-                success = download_hashes()
-            except:
-                success = False
+                list_plugins()
+            except Exception as e:
+                logger.error(f"Failed to get plugins: {e}")
+        else:
+            show_plugin_details(args.plugin, logger)
 
-            if not success:
-                logger.error("Failed to update plugin hashes!\nRun `fts plugins upgrade` to try again")
+    elif args.subcommand == "install":
+        logger.info("Updating plugin hashes\nAny outdated plugins may not be compatible")
+        try:
+            success = download_hashes()
+        except:
+            success = False
 
-            all = [i for i in args.plugin if i.lower() == "all"]
-            if all:
-                manifest = fetch_manifest()
-                args.plugin = {p['name'].lower(): p for p in manifest.get("plugins", []) if
-                               isinstance(p, dict) and "name" in p}
+        if not success:
+            logger.error("Failed to update plugin hashes!\nRun `fts plugins upgrade` to try again")
 
-            for plugin in args.plugin:
-                try:
-                    install_plugin(plugin, logger)
-                except Exception as e:
-                    logger.error(f"Failed to install plugin {args.plugin}: {e}")
-                print("-" * 80)
-        case "upgrade":
-            if args.force:
-                reinstall_plugins(get_installed_plugins(), logger)
-                return
+        all_plugins = [i for i in args.plugin if i.lower() == "all"]
+        if all_plugins:
+            manifest = fetch_manifest()
+            args.plugin = {
+                p['name'].lower(): p
+                for p in manifest.get("plugins", [])
+                if isinstance(p, dict) and "name" in p
+            }
 
-            logger.info("Updating plugin hashes")
+        for plugin in args.plugin:
             try:
-                success = download_hashes()
-            except:
-                success = False
+                install_plugin(plugin, logger)
+            except Exception as e:
+                logger.error(f"Failed to install plugin {plugin}: {e}")
+            print("-" * 80)
 
-            if not success:
-                logger.error("Failed to download plugin hashes")
+    elif args.subcommand == "upgrade":
+        if args.force:
+            reinstall_plugins(get_installed_plugins(), logger)
+            return
 
-            logger.info("Finding outdated plugins")
-            outdated = get_outdated_plugins(logger)
+        logger.info("Updating plugin hashes")
+        try:
+            success = download_hashes()
+        except:
+            success = False
 
-            if outdated:
-                logger.info("Updating outdated plugins")
-                reinstall_plugins(outdated, logger)
-            else:
-                logger.info("All plugins up-to-date")
-        case "uninstall":
-            all = [i for i in args.plugin if i.lower() == "all"]
-            if all:
-                args.plugin = [i["name"] for i in get_installed_plugins(logger=logger)]
-            for plugin in args.plugin:
-                uninstall_plugin(plugin, all_files=args.all, logger=logger)
-                print("-" * 80)
-        case _:
-            logger.error(f"Unknown subcommand : {args.subcommand}")
+        if not success:
+            logger.error("Failed to download plugin hashes")
+
+        logger.info("Finding outdated plugins")
+        outdated = get_outdated_plugins(logger)
+
+        if outdated:
+            logger.info("Updating outdated plugins")
+            reinstall_plugins(outdated, logger)
+        else:
+            logger.info("All plugins up-to-date")
+
+    elif args.subcommand == "uninstall":
+        all_plugins = [i for i in args.plugin if i.lower() == "all"]
+        if all_plugins:
+            args.plugin = [i["name"] for i in get_installed_plugins(logger=logger)]
+
+        for plugin in args.plugin:
+            uninstall_plugin(plugin, all_files=args.all, logger=logger)
+            print("-" * 80)
+
+    else:
+        logger.error(f"Unknown subcommand : {args.subcommand}")
 
 
 # ANSI color codes
@@ -341,15 +348,15 @@ def uninstall_plugin(plugin_name, all_files=False, logger=None):
     # Remove plugin from CONFIG_PATH [plugins] section
     try:
         cfg = configparser.ConfigParser()
-        cfg.read(CONFIG_PATH)
+        cfg.read(CONFIG_DIR)
 
         # normalize key names: remove case-insensitive match
         plugin_key = plugin_name.lower()
         if cfg.has_section("plugins") and plugin_key in cfg["plugins"]:
             cfg.remove_option("plugins", plugin_key)
-            with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+            with open(CONFIG_DIR, "w", encoding="utf-8") as f:
                 cfg.write(f)
-            if logger: logger.info(f"Removed '{plugin_name}' from config [{CONFIG_PATH}]")
+            if logger: logger.info(f"Removed '{plugin_name}' from config [{CONFIG_DIR}]")
     except Exception as e:
         if logger: logger.error(f"Failed to update CONFIG_PATH: {e}")
 

@@ -19,6 +19,8 @@ import platform
 import warnings
 from pathlib import Path
 
+from fts.cache import CONFIG_FILE
+
 # ======================================================
 # Default Configuration
 # ======================================================
@@ -118,20 +120,6 @@ UNCOMPRESSIBLE_EXTS = {
 }
 
 # -------------------------
-# Paths
-# -------------------------
-APP_DIR = os.path.expanduser("~/.fts")
-os.makedirs(APP_DIR, exist_ok=True)
-IN_PROGRESS_DIR = os.path.expanduser(os.path.join(APP_DIR, "in_progress"))
-os.makedirs(IN_PROGRESS_DIR, exist_ok=True)
-
-CERT_FILE = os.path.join(APP_DIR, "cert.pem")
-KEY_FILE = os.path.join(APP_DIR, "key.pem")
-FINGERPRINT_FILE = os.path.join(APP_DIR, "known_servers.json")
-ALIASES_FILE = os.path.join(APP_DIR, "aliases.json")
-RECEIVING_PID = os.path.join(APP_DIR, "fts_receiver.pid")
-
-# -------------------------
 # DDoS Protection
 # -------------------------
 DOSP_ENABLED = False
@@ -143,7 +131,6 @@ REQUEST_WINDOW = 600.0
 # -------------------------
 # Config File
 # -------------------------
-CONFIG_FILE = os.path.join(APP_DIR, "config.ini")
 
 
 # ======================================================
@@ -181,10 +168,6 @@ def _write_default_config(path: str):
         "max_send_retries": str(MAX_SEND_RETRIES),
         "progress_interval": str(PROGRESS_INTERVAL),
         "json_interval": str(JSON_PROGRESS_INTERVAL),
-    }
-
-    cp["paths"] = {
-        "app_dir": APP_DIR,
     }
 
     cp["ddos"] = {
@@ -260,42 +243,17 @@ def _load_config_from_ini(path: str):
 
 def load_or_create_config(path: str = CONFIG_FILE):
     """Ensure config.ini exists and load it."""
-    global CONFIG_FILE, CERT_FILE, KEY_FILE, FINGERPRINT_FILE, ALIASES_FILE, RECEIVING_PID
     p = Path(path)
     if not p.exists():
         _write_default_config(path)
     _load_config_from_ini(path)
-    CONFIG_FILE = os.path.join(APP_DIR, "config.ini")
-    CERT_FILE = os.path.join(APP_DIR, "cert.pem")
-    KEY_FILE = os.path.join(APP_DIR, "key.pem")
-    FINGERPRINT_FILE = os.path.join(APP_DIR, "known_servers.json")
-    ALIASES_FILE = os.path.join(APP_DIR, "aliases.json")
-    RECEIVING_PID = os.path.join(APP_DIR, "fts_receiver.pid")
-
-
-# ======================================================
-# Auto-run on import
-# ======================================================
-broken_config = False
-try:
-    last_config = CONFIG_FILE
-    load_or_create_config(CONFIG_FILE)
-    warned = False
-    while last_config != CONFIG_FILE:
-        if not warned:
-            print('WARNING: Changing APP_DIR is not recommended, as it may cause unpredictable behavior!')
-        load_or_create_config(CONFIG_FILE)
-        last_config = CONFIG_FILE
-except Exception as e:
-    print(f"ERROR: failed to load {CONFIG_FILE}: {e}")
-    broken_config = True
 
 
 def backup_config(path: str):
     if not os.path.exists(path):
         return
 
-    base = path + ".backup"
+    base = str(path) + ".backup"
     i = 0
 
     while True:
@@ -315,13 +273,27 @@ def resave_config(backup=True):
     CONFIG_VERSION = current_config_version
     _write_default_config(CONFIG_FILE)
 
+def init():
+    broken_config = False
+    try:
+        last_config = CONFIG_FILE
+        load_or_create_config(CONFIG_FILE)
+        warned = False
+        while last_config != CONFIG_FILE:
+            if not warned:
+                print('WARNING: Changing APP_DIR is not recommended, as it may cause unpredictable behavior!')
+            load_or_create_config(CONFIG_FILE)
+            last_config = CONFIG_FILE
+    except Exception as e:
+        print(f"ERROR: failed to load {CONFIG_FILE}: {e}")
+        broken_config = True
 
-if broken_config:
-    print("[FTS-TOOL][INFO]: Recreating config.ini with default settings, a backup will be saved in the same directory.")
-    resave_config()
-elif CONFIG_VERSION != current_config_version:
-    print("[FTS-TOOL][INFO]: Migrating config.ini to a new config version, a backup will be saved in the same directory.")
-    resave_config()
+    if broken_config:
+        print("[FTS-TOOL][INFO]: Recreating config.ini with default settings, a backup will be saved in the same directory.")
+        resave_config()
+    elif CONFIG_VERSION != current_config_version:
+        print("[FTS-TOOL][INFO]: Migrating config.ini to a new config version, a backup will be saved in the same directory.")
+        resave_config()
 
 
 # ======= OS Specific ========
@@ -335,3 +307,5 @@ IS_UNIX = operating_system == "Unix"
 # OS specific settings
 USE_UVLOOP = not IS_WINDOWS and UV_OR_WIN_LOOP_ACCELERATION_ENABLED
 USE_WINLOOP = IS_WINDOWS and UV_OR_WIN_LOOP_ACCELERATION_ENABLED
+
+init()

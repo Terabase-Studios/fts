@@ -6,7 +6,8 @@ import time
 from textual.app import App
 
 from fts.app.backend.contacts import get_broadcast_addresses, has_public_broadcast, replace_with_ip
-from fts.app.config import CHAT_PORT, MUTED_FILE
+from fts.app.config import CHAT_PORT
+from fts.app.cache import MUTED_FILE
 
 CHAT_KEY: bytes = b"FTSCHATMSG"
 

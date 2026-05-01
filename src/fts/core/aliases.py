@@ -4,7 +4,7 @@ import os
 import re
 from pathlib import Path
 
-from fts.config import ALIASES_FILE
+from fts.cache import ALIASES_FILE
 
 
 # --- Add / List / Remove Aliases ---

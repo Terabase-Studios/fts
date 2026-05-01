@@ -7,7 +7,8 @@ from textual.containers import Container, Vertical, Horizontal
 from textual.widgets import Button, ListView, Select, RichLog, ListItem, Label
 
 from fts.app.backend.debug import parse_log, colorize_log_line, filter_logs
-from fts.app.config import DEBUG_FILE, SAVE_DIR, EXPERIMENTAL_FEATURES_ENABLED
+from fts.app.cache import DEBUG_FILE
+from fts.app.config import SAVE_DIR, EXPERIMENTAL_FEATURES_ENABLED
 
 
 class DebugView(Container):

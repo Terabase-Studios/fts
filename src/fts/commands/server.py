@@ -17,6 +17,7 @@ from filelock import FileLock
 from tqdm.asyncio import tqdm_asyncio as tqdm
 
 import fts.flags as transferflags
+from fts.cache import IN_PROGRESS_DIR, RECEIVING_PID
 from fts.commands.resume import load_json_index
 from fts.config import (
     DEFAULT_FILE_PORT,
@@ -25,16 +26,14 @@ from fts.config import (
     BUFFER_SIZE,
     BATCH_SIZE,
     PROGRESS_INTERVAL,
-    RECEIVING_PID,
     MID_DOWNLOAD_EXT,
-    IN_PROGRESS_DIR,
     JSON_PROGRESS_INTERVAL,
 )
 from fts.core import secure as secure
 from fts.core.detatched import start_detached
 from fts.core.dosp import should_receive
 from fts.manager import Manager
-from fts.utilities import format_bytes, parse_byte_string, run_async
+from fts.core.utilities import format_bytes, parse_byte_string, run_async
 
 # Incrementing IDs for each client connection
 _client_ids = itertools.count(1)

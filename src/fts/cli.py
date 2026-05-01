@@ -3,7 +3,7 @@ import os
 import sys
 import traceback
 
-from fts import __version__, ICON
+from fts import __version__, ICON, cache
 from fts.core.aliases import resolve_alias, resolve_args
 from fts.core.logger import setup_logging
 from fts.core.parser import create_parser
@@ -114,16 +114,10 @@ def main():
     args = None
 
     if len(sys.argv) == 1:
-        try:
-            print(ICON)
-            from fts.app.main import start
-            start()
-            return
-        except ImportError as e:
-            print(f"Missing Fts-App!: {e}")
-        except Exception as e:
-            print(f"Unhandled FTS-App exception!:\n{traceback.format_exc()}")
-
+        print(ICON)
+        from fts.app.main import start
+        start()
+        return
     try:
         parser = create_parser()
         args = parser.parse_args()

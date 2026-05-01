@@ -7,7 +7,7 @@ import sys
 import psutil
 
 from fts.cli import create_parser
-from fts.config import RECEIVING_PID
+from fts.cache import RECEIVING_PID
 
 
 def cmd_close(args, logger=None):

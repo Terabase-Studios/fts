@@ -16,7 +16,7 @@ from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
 
-from fts.config import CERT_FILE, KEY_FILE, FINGERPRINT_FILE
+from fts.cache import CERT_FILE, KEY_FILE, FINGERPRINT_FILE
 
 
 # --------------------------

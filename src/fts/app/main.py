@@ -9,12 +9,14 @@ from textual.widgets import TabbedContent
 
 import fts.app.backend.transfer as transfer
 import fts.py as fts
+from fts.app import cache
 from fts.app.backend.contacts import start_discovery_responder
 from fts.app.backend.host import host_manager, host_watcher
 from fts.app.backend.library.network import start_library_responder
 from fts.app.backend.plugins.importer import load_plugins
 from fts.app.backend.transfer import TransferHandler
-from fts.app.config import LOCK_FILE, LOG_FILE, EXPERIMENTAL_FEATURES_ENABLED
+from fts.app.cache import LOCK_FILE
+from fts.app.config import LOG_FILE, EXPERIMENTAL_FEATURES_ENABLED, config
 from fts.app.frontend.chat import Chat
 from fts.app.frontend.contacts import Contacts
 from fts.app.frontend.debug import DebugView
@@ -100,6 +102,7 @@ class FTSApp(App):
 
 def start(print_icon=False):
     global fts_app
+
     fts.install_accelerated_event_loop()
     if print_icon:
         print(ICON)

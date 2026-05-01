@@ -87,7 +87,7 @@ def filter_in_progress(transfers):
 
 def retrieve_incomplete_transfers():
     from pathlib import Path
-    from fts.config import IN_PROGRESS_DIR
+    from fts.cache import IN_PROGRESS_DIR
     import json
 
     base = Path(IN_PROGRESS_DIR)
@@ -216,7 +216,7 @@ def print_incomplete_transfers(args, logger, manager=None):
 
 def fix_json_id_conflicts(start_id: int = 100):
     from pathlib import Path
-    from fts.config import IN_PROGRESS_DIR
+    from fts.cache import IN_PROGRESS_DIR
     import json
 
     base = Path(IN_PROGRESS_DIR)
@@ -261,7 +261,7 @@ def load_json_index(start_id: int = 100):
     fix_json_id_conflicts(start_id)
 
     from pathlib import Path
-    from fts.config import IN_PROGRESS_DIR
+    from fts.cache import IN_PROGRESS_DIR
     import json
 
     result = {}

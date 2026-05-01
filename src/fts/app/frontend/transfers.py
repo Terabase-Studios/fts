@@ -7,7 +7,7 @@ from textual.widgets import Collapsible, Label, Button, ProgressBar, Log
 from fts.app.backend.contacts import replace_with_contact
 from fts.app.backend.history import get_history
 from fts.app.config import LOGS
-from fts.utilities import format_bytes
+from fts.core.utilities import format_bytes
 
 
 class ActiveEntry(Container):
