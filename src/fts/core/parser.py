@@ -191,26 +191,32 @@ def cache_parser_add(parser, parents):
         restore_parser.add_argument("-y", "--yes", action="store_true", help="force command and ignore all warnings", )
 
     def clean_subparser_add(subparser, parents):
+        from fts.commands.cache import CLEAN_LEVEL_CHOICES, clean_level_help
+
         clean_parser = subparser.add_parser(
             "clean",
             help="Perform cache cleanup at various levels. Do NOT run while any instance of fts is running",
-            parents=parents
+            parents=parents,
+            formatter_class=argparse.RawTextHelpFormatter,
         )
 
         clean_parser.add_argument("-y", "--yes", action="store_true", help="force command and ignore all warnings", )
 
         clean_parser.add_argument(
+            "clean_level",
+            metavar="LEVEL",
+            nargs="?",
+            choices=CLEAN_LEVEL_CHOICES,
+            help=clean_level_help(),
+        )
+
+        clean_parser.add_argument(
             "-l",
             "--level",
-            choices=["clean", "clear", "reset", "purge"],
-            default="clean",
-            help=(
-                "Specifies cleanup depth (default: clean):\n"
-                "  clean - Remove chats, seen IPs, transfer logs.\n"
-                "  clear - Also remove debug logs, contacts, muted users.\n"
-                "  reset - Also remove configuration files, seen fingerprints, aliases, and the plugin dir.\n"
-                "  purge - Delete the entire ~/.fts directory."
-            )
+            dest="level",
+            choices=CLEAN_LEVEL_CHOICES,
+            default=None,
+            help="cleanup depth; same as LEVEL",
         )
 
     show_subparser_add(subparsers, parents)

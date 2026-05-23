@@ -85,6 +85,91 @@ MANAGED_PATHS = {
     ],
 }
 
+CLEAN_LEVELS = [
+    {
+        "name": "clean",
+        "description": "Remove transfer history, seen IPs, and chats.",
+        "paths": [
+            LOG_FILE,
+            SEEN_IPS_FILE,
+            CHAT_FILE,
+        ],
+    },
+    {
+        "name": "clear",
+        "description": "Also remove debug logs, contacts, and muted users.",
+        "paths": [
+            DEBUG_FILE,
+            CONTACTS_FILE,
+            MUTED_FILE,
+        ],
+        "before_remove": "close_app_logger",
+    },
+    {
+        "name": "reset",
+        "description": "Also remove config, aliases, fingerprints, plugins, library cache, and incomplete transfers.",
+        "paths": [
+            APP_CONFIG_FILE,
+            PLUGIN_DIR,
+            PLUGINS_DIR,
+            SECURE_PLUGIN_DIR,
+            HASHES_JSON,
+            HASHES_SIG,
+            LIBRARY_CACHE_DIR,
+            LIBRARY_CACHE_FILE,
+            LIBRARY_LOG_FILE,
+            MAC_FILE,
+            CONFIG_FILE,
+            ALIASES_FILE,
+            FINGERPRINT_FILE,
+            IN_PROGRESS_DIR,
+        ],
+    },
+    {
+        "name": "purge",
+        "description": "Also remove receiver state, identity keys/certs, and all FTS storage roots.",
+        "paths": [
+            RECEIVING_PID,
+            CERT_FILE,
+            KEY_FILE,
+            *STORAGE_ROOTS.values(),
+        ],
+        "confirm": True,
+    },
+]
+
+CLEAN_LEVEL_CHOICES = [level["name"] for level in CLEAN_LEVELS]
+CLEAN_LEVEL_INDEX = {name: index for index, name in enumerate(CLEAN_LEVEL_CHOICES)}
+
+
+def clean_level_help():
+    lines = ["cleanup depth (default: clean):"]
+    lines.extend(f"  {level['name']} - {level['description']}" for level in CLEAN_LEVELS)
+    return "\n".join(lines)
+
+
+def _close_app_logger():
+    try:
+        from fts.app.config import logger as app_logger
+
+        for handler in app_logger.handlers[:]:
+            app_logger.removeHandler(handler)
+            handler.close()
+    except (ModuleNotFoundError, ImportError, AttributeError):
+        pass
+
+
+def _requested_clean_level(args, logger):
+    clean_level = getattr(args, "clean_level", None)
+    option_level = getattr(args, "level", None)
+
+    if clean_level and option_level and clean_level != option_level:
+        logger.error(f"Conflicting clean levels: {clean_level} and {option_level}")
+        return None
+
+    return option_level or clean_level or "clean"
+
+
 FILE_PURPOSES = {
     "LOG.TXT": "History of transfers",
     "DEBUG.TXT": "Debug log file",
@@ -481,15 +566,22 @@ def backup(args, logger):
 
 
 def clean(args, logger, level=-1, yes=False):
-    levels = {"clean": 0, "clear": 1, "reset": 2, "purge": 3}
     if level == -1:
-        level = levels.get(args.level)
+        requested_level = _requested_clean_level(args, logger)
+        if requested_level is None:
+            return
+
+        level = CLEAN_LEVEL_INDEX.get(requested_level)
+    else:
+        requested_level = str(level)
 
     if level is None:
-        logger.error(f"Unknown level: {args.level}")
+        logger.error(f"Unknown level: {requested_level}")
         return
 
-    if level >= 3 and not args.yes and not yes:
+    selected_levels = CLEAN_LEVELS[:level + 1]
+
+    if any(clean_level.get("confirm") for clean_level in selected_levels) and not args.yes and not yes:
         confirm = input(
             f"WARNING: This will delete the FTS backup cache if it exists,\n"
             f"and remove all incomplete transfers,\n"
@@ -516,44 +608,9 @@ def clean(args, logger, level=-1, yes=False):
         except Exception as e:
             logger.error(f"Failed to remove '{path}': {e}")
 
-    if level >= 0:
-        for f in [LOG_FILE, SEEN_IPS_FILE, CHAT_FILE]:
-            safe_remove(f)
+    for clean_level in selected_levels:
+        if clean_level.get("before_remove") == "close_app_logger":
+            _close_app_logger()
 
-    if level >= 1:
-        try:
-            from fts.app.config import logger as app_logger
-
-            for handler in app_logger.handlers[:]:
-                app_logger.removeHandler(handler)
-                handler.close()
-        except (ModuleNotFoundError, ImportError, AttributeError):
-            pass
-
-        for f in [DEBUG_FILE, CONTACTS_FILE, MUTED_FILE]:
-            safe_remove(f)
-
-    if level >= 2:
-        for f in [
-            APP_CONFIG_FILE,
-            PLUGIN_DIR,
-            PLUGINS_DIR,
-            SECURE_PLUGIN_DIR,
-            HASHES_JSON,
-            HASHES_SIG,
-            LIBRARY_CACHE_DIR,
-            LIBRARY_CACHE_FILE,
-            LIBRARY_LOG_FILE,
-            MAC_FILE,
-            CONFIG_FILE,
-            ALIASES_FILE,
-            FINGERPRINT_FILE,
-            IN_PROGRESS_DIR,
-        ]:
-            safe_remove(f)
-
-    if level >= 3:
-        for f in [RECEIVING_PID, CERT_FILE, KEY_FILE]:
-            safe_remove(f)
-        for root in STORAGE_ROOTS.values():
-            safe_remove(root)
+        for path in clean_level["paths"]:
+            safe_remove(path)
