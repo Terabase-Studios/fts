@@ -10,17 +10,27 @@
       "title": "FTS Chat Meter Plugin",
       "authors": ["Terabase (terabasestudios@gmail.com)"],
       "description": "Protects FTS chat from flooding by rate-limiting messages per IP using a token bucket system.",
-      "version": "1.0.1",
+      "version": "1.0.0",
       "repo_path": "chat_meter/",
       "entry": "ChatMeter.py",
       "config": "ChatMeter.json"
+    },
+    {
+      "name": "ChatOnly",
+      "title": "FTS Chat-Only Plugin",
+      "authors": ["Terabase (terabasestudios@gmail.com)"],
+      "description": "Runs FTS in chat-only mode, disabling non-chat TUI components for a clean, focused interface with a !toggle_chat_mode command.",
+      "version": "1.1.1",
+      "repo_path": "chat_only/",
+      "entry": "ChatOnly.py",
+      "config": "ChatOnly.json"
     },
     {
       "name": "ImprovedChat",
       "title": "FTS Improved Chat Plugin",
       "authors": ["Terabase (terabasestudios@gmail.com)"],
       "description": "Adds multiline message support, persistent input history, and consistent user color mapping to FTS chat.",
-      "version": "1.0.2",
+      "version": "1.0.1",
       "repo_path": "improved_chat/",
       "entry": "ImprovedChat.py",
       "config": "ImprovedChat.json"
@@ -30,7 +40,7 @@
       "title": "FTS Blacklist Plugin",
       "authors": ["Terabase (terabasestudios@gmail.com)"],
       "description": "Blocks unwanted IPs from appearing in the TUI using an editable blacklist file and commands.",
-      "version": "1.1.4",
+      "version": "1.1.3",
       "repo_path": "blacklist/",
       "entry": "IpBlacklist.py",
       "config": "IpBlacklist.json"
@@ -40,7 +50,7 @@
       "title": "FTS Theme Plugin",
       "authors": ["Terabase (terabasestudios@gmail.com)"],
       "description": "Adds theming support to FTS via a `theme.ini` file with customizable colors and UI settings.",
-      "version": "1.0.2",
+      "version": "1.0.1",
       "repo_path": "theme/",
       "entry": "ThemeCustomizer.py",
       "config": "ThemeCustomizer.json"
@@ -50,7 +60,7 @@
       "title": "FTS Offline Chat Plugin",
       "authors": ["Terabase (terabasestudios@gmail.com)"],
       "description": "Keeps recording messages even when FTS-TUI is closed. Requires FTS-TUI to be launched once.\nNote: When this plugin is uninstalled it will keep recording messages until device restart!",
-      "version": "1.0.2",
+      "version": "1.0.1",
       "repo_path": "offline_chat/",
       "entry": "OfflineChat.py",
       "config": "OfflineChat.json"

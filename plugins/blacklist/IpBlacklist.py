@@ -47,7 +47,7 @@ from fts.app.backend.chat import MUTED_USERS
 from fts.app.backend.commands import _get_second_arg
 from fts.app.backend.contacts import replace_with_ip, get_seen_users, replace_with_contact
 from fts.app.backend.plugins.utils import copy_func
-from fts.app.cache import SEEN_IPS_FILE
+from fts.app.config import SEEN_IPS_FILE
 
 BLACKLIST_FILE = os.path.join(config.PLUGIN_DIR, "ip_blacklist.txt")
 blacklist = []

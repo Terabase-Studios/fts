@@ -38,8 +38,8 @@ from fts.app.backend.chat import send, CHAT_KEY
 from fts.app.backend.commands import execute
 from fts.app.backend.contacts import replace_with_contact
 from fts.app.backend.plugins.utils import copy_func
-from fts.app.cache import CHAT_FILE
-from fts.app.cache import PLUGIN_DIR
+from fts.app.config import CHAT_FILE
+from fts.app.config import PLUGIN_DIR
 
 INPUT_HISTORY_FILE = os.path.join(PLUGIN_DIR, "improved_chat_input_history.json")
 
