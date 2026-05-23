@@ -5,7 +5,7 @@ import socket
 import subprocess
 
 import fts.app.backend.chat as fts_chat
-from fts.app.config import PLUGIN_DIR, CHAT_FILE
+from fts.app.cache import PLUGIN_DIR, CHAT_FILE
 from textual.app import App
 
 from fts.app.backend.contacts import replace_with_ip

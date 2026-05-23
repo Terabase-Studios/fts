@@ -28,7 +28,7 @@ import os
 from textual.theme import Theme
 
 import fts.app.main as main
-from fts.app.config import PLUGIN_DIR
+from fts.app.cache import PLUGIN_DIR
 from fts.app.backend.plugins.utils import copy_func
 
 THEME_PATH = os.path.join(PLUGIN_DIR, "theme.ini")
