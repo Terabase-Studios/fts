@@ -44,6 +44,7 @@ BACKUP_NAME = "backup.zip"
 
 STORAGE_ROOTS = {
     "config": Path(CONFIG_DIR),
+    "plugins": Path(PLUGIN_DIR),
     "cache": Path(CACHE_DIR),
     "state": Path(STATE_DIR),
     "logs": Path(LOGS_DIR),
@@ -59,9 +60,11 @@ MANAGED_PATHS = {
         MAC_FILE,
         FINGERPRINT_FILE,
         ALIASES_FILE,
+        SECURE_PLUGIN_DIR,
+    ],
+    "plugins": [
         PLUGIN_DIR,
         PLUGINS_DIR,
-        SECURE_PLUGIN_DIR,
     ],
     "cache": [
         LIBRARY_CACHE_DIR,
@@ -184,12 +187,18 @@ def _backup_members():
             if not path.exists() or path.name in EXCLUDE_DIRS:
                 continue
 
+            base_arcname = PurePosixPath(label)
+            if path == root:
+                base_arcname = PurePosixPath(label)
+            else:
+                base_arcname = PurePosixPath(label) / path.relative_to(root).as_posix()
+
             if path.is_file():
                 resolved = path.resolve()
                 if resolved in seen or path == backup_path() or ".lock" in path.name:
                     continue
                 seen.add(resolved)
-                yield path, str(PurePosixPath(label) / path.relative_to(root).as_posix())
+                yield path, str(base_arcname)
                 continue
 
             for current_root, dirs, files in os.walk(path):
@@ -226,13 +235,18 @@ def _managed_entries(label):
         if not path.exists():
             continue
 
-        top = root / relative.parts[0]
-        resolved = top.resolve()
-        if resolved in seen:
-            continue
+        if path == root and path.is_dir():
+            candidates = [entry for entry in path.iterdir() if ".lock" not in entry.name]
+        else:
+            candidates = [root if not relative.parts else root / relative.parts[0]]
 
-        seen.add(resolved)
-        entries.append(top)
+        for top in candidates:
+            resolved = top.resolve()
+            if resolved in seen:
+                continue
+
+            seen.add(resolved)
+            entries.append(top)
 
     return sorted(entries, key=lambda p: p.name.lower())
 
@@ -355,6 +369,7 @@ def show(args, logger):
         else:
             print(f"{Color.DIM}`-- empty{Color.RESET}")
         total += sum(get_dir_size(entry) if entry.is_dir() else entry.stat().st_size for entry in entries)
+        print() # Newline
 
     print(f"\n{Color.BOLD}Total cache size:{Color.RESET} {Color.GREEN}{sizeof_fmt(total)}{Color.RESET}")
 
