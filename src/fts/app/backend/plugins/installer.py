@@ -53,6 +53,18 @@ def install_plugin(name, logger=None):
         urllib.request.urlretrieve(remote, local)
         if logger: logger.info(f"Downloaded {entry[key]}")
 
+    config_path = os.path.join(PLUGIN_DIR, entry["config"])
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            local_config = json.load(f)
+        if isinstance(local_config, dict):
+            local_config["installed_version"] = entry["version"]
+            with open(config_path, "w", encoding="utf-8") as f:
+                json.dump(local_config, f, indent=2)
+                f.write("\n")
+    except Exception as e:
+        if logger: logger.warning(f"Could not write installed version to {entry['config']}: {e}")
+
     if logger: logger.info(f"Installed {entry['name']}")
 
     return True

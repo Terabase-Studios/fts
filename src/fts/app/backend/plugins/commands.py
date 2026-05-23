@@ -99,6 +99,52 @@ MAGENTA = "\033[35m"
 GRAY = "\033[90m"
 
 
+def _plugin_name_from_config(config_path):
+    return os.path.splitext(os.path.basename(config_path))[0]
+
+
+def _get_remote_plugins(logger=None):
+    try:
+        manifest = fetch_manifest()
+        return {
+            p["name"].lower(): p
+            for p in manifest.get("plugins", [])
+            if isinstance(p, dict) and "name" in p
+        }
+    except Exception as e:
+        if logger:
+            logger.warning(f"Could not fetch remote plugin manifest: {e}")
+        return {}
+
+
+def _read_plugin_config(config_path, logger=None):
+    try:
+        with open(config_path, "r", encoding="utf-8") as cf:
+            data = json.load(cf)
+            if isinstance(data, dict):
+                return data
+    except Exception:
+        if logger:
+            logger.warning(f"Skipping invalid or unreadable plugin JSON: {os.path.basename(config_path)}")
+    return {}
+
+
+def _plugin_name(local_data, config_path):
+    return local_data.get("name") or _plugin_name_from_config(config_path)
+
+
+def _installed_version(local_data):
+    return local_data.get("installed_version") or local_data.get("version")
+
+
+def _entry_file(local_data, remote_info, config_path):
+    return (
+        local_data.get("entry")
+        or remote_info.get("entry")
+        or f"{_plugin_name(local_data, config_path)}.py"
+    )
+
+
 def list_plugins():
     """Fetch and pretty-print available FTS plugins with colors indicating install/update status."""
     plugins = list_available_plugins()
@@ -106,14 +152,7 @@ def list_plugins():
         print(f"{RED}No plugins available.{RESET}")
         return
 
-    # Fetch remote manifest once
-    try:
-        manifest = fetch_manifest()
-        remote_plugins = {
-            p["name"].lower(): p for p in manifest.get("plugins", [])
-        }
-    except Exception:
-        remote_plugins = {}
+    remote_plugins = _get_remote_plugins()
 
     print(f"\n{CYAN}=== Available FTS Plugins ==={RESET}\n")
 
@@ -125,11 +164,7 @@ def list_plugins():
 
         local_version = None
         if os.path.exists(config_file):
-            try:
-                with open(config_file, "r", encoding="utf-8") as f:
-                    local_version = json.load(f).get("version")
-            except Exception:
-                local_version = None
+            local_version = _installed_version(_read_plugin_config(config_file))
 
         remote_version = remote_plugins.get(name.lower(), {}).get("version")
 
@@ -176,16 +211,10 @@ def show_plugin_details(plugin_name, logger):
         logger.error(f"Failed to read plugin config: {e}")
         return
 
-    # Fetch remote version
-    try:
-        manifest = fetch_manifest()
-        remote_plugin = next((p for p in manifest.get("plugins", []) if p["name"].lower() == plugin_name.lower()), None)
-        remote_version = remote_plugin.get("version") if remote_plugin else "Unknown"
-    except Exception as e:
-        remote_version = "Unknown"
-        logger.warning(f"Could not fetch remote version: {e}")
+    remote_plugin = _get_remote_plugins(logger).get(plugin_name.lower(), {})
+    remote_version = remote_plugin.get("version", "Unknown")
 
-    local_version = details.get("version", "Unknown")
+    local_version = _installed_version(details) or "Unknown"
     if remote_version == "Unknown":
         status_text = f"{GRAY}Installed{RESET}"
     elif local_version == remote_version:
@@ -195,12 +224,16 @@ def show_plugin_details(plugin_name, logger):
 
     # Print plugin info
     print(f"\n{CYAN}=== Plugin Details: {plugin_name} ==={RESET}\n")
-    print(f"Title: {CYAN}{details.get('title', plugin_name)}{RESET}")
+    print(f"Title: {CYAN}{details.get('title') or remote_plugin.get('title', plugin_name)}{RESET}")
     print(f"Installed Version: {YELLOW}{local_version}{RESET}")
     print(f"Remote Version: {YELLOW}{remote_version}{RESET}")
     print(f"Status: {status_text}")
-    print(f"Author(s): {MAGENTA}{details.get('authors', 'Unknown')}{RESET}")
-    print(f"Description:\n{textwrap.fill(details.get('description', 'No description.'), width=80)}")
+    authors = details.get("authors") or remote_plugin.get("authors", ["Unknown"])
+    if isinstance(authors, list):
+        authors = ", ".join(authors)
+    print(f"Author(s): {MAGENTA}{authors}{RESET}")
+    description = details.get("description") or remote_plugin.get("description", "No description.")
+    print(f"Description:\n{textwrap.fill(description, width=80)}")
     print(f"Path: {PLUGIN_DIR}")
     print("-" * 80)
 
@@ -209,13 +242,8 @@ def get_outdated_plugins(logger=None):
     """Return list of installed plugin info that are outdated (dicts with name, local and remote version)."""
     outdated = []
 
-    # Load remote manifest
-    try:
-        manifest = fetch_manifest()
-        remote_plugins = {p['name'].lower(): p for p in manifest.get("plugins", []) if
-                          isinstance(p, dict) and "name" in p}
-    except Exception as e:
-        if logger: logger.error(f"Failed to fetch manifest: {e}")
+    remote_plugins = _get_remote_plugins(logger)
+    if not remote_plugins:
         return outdated
 
     # Scan installed plugins (all .json files in PLUGIN_DIR)
@@ -224,16 +252,12 @@ def get_outdated_plugins(logger=None):
         plugin_name = os.path.splitext(f)[0]  # preserve casing from file
         config_path = os.path.join(PLUGIN_DIR, f)
 
-        try:
-            with open(config_path, "r", encoding="utf-8") as cf:
-                local_data = json.load(cf)
-                if not isinstance(local_data, dict):
-                    continue
-        except Exception:
-            if logger: logger.warning(f"Skipping unreadable JSON: {f}")
+        local_data = _read_plugin_config(config_path, logger)
+        if not local_data:
             continue
 
-        local_version = local_data.get("version", "0.0.0")
+        plugin_name = _plugin_name(local_data, config_path)
+        local_version = _installed_version(local_data) or "0.0.0"
         remote_info = remote_plugins.get(plugin_name.lower())
         if not remote_info:
             continue
@@ -241,7 +265,7 @@ def get_outdated_plugins(logger=None):
         remote_version = remote_info.get("version", "0.0.0")
         if local_version != remote_version:
             outdated.append({
-                "name": plugin_name,
+                "name": remote_info.get("name", plugin_name),
                 "local_version": local_version,
                 "remote_version": remote_version,
                 "remote_info": remote_info
@@ -280,10 +304,14 @@ def get_installed_plugins(logger=None):
         try:
             with open(config_path, "r", encoding="utf-8") as cf:
                 data = json.load(cf)
-                if isinstance(data, dict) and "name" in data and "version" in data:
+                if isinstance(data, dict):
+                    name = _plugin_name(data, config_path)
+                    version = _installed_version(data)
+                    if not version:
+                        continue
                     installed.append({
-                        "name": data["name"],
-                        "version": data["version"],
+                        "name": name,
+                        "version": version,
                         "path": config_path
                     })
         except Exception:
@@ -318,8 +346,10 @@ def uninstall_plugin(plugin_name, all_files=False, logger=None):
         if logger: logger.error(f"Failed to read config for '{plugin_name}': {e}")
         return
 
+    remote_info = _get_remote_plugins(logger).get(plugin_name.lower(), {})
+
     # Delete the main .py entry file
-    py_file = os.path.join(PLUGIN_DIR, data.get("entry", ""))
+    py_file = os.path.join(PLUGIN_DIR, _entry_file(data, remote_info, config_path))
     if os.path.exists(py_file):
         try:
             os.remove(py_file)
