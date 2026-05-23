@@ -6,7 +6,7 @@ import traceback
 
 from fts.app.backend.plugins.config import SECURE, ERROR_FREEZE_TIME
 from fts.app.backend.plugins.verifier import verify_plugins
-from fts.app.cache import PLUGIN_DIR, CONFIG_DIR
+from fts.app.cache import PLUGIN_DIR, CONFIG_FILE
 from fts.app.config import PLUGINS_ENABLED
 
 DEFAULT_PRIORITY = 5  # Default boot priority if plugin doesn't define BOOT_PRIORITY
@@ -29,8 +29,8 @@ def load_plugins():
 
     # Load or create config.ini
     config = configparser.ConfigParser()
-    if os.path.exists(CONFIG_DIR):
-        config.read(CONFIG_DIR)
+    if os.path.exists(CONFIG_FILE):
+        config.read(CONFIG_FILE)
     if "plugins" not in config:
         config["plugins"] = {}
 
@@ -42,7 +42,7 @@ def load_plugins():
             config["plugins"][
                 plugin_name] = "false" if answer.lower().strip() == "n" or answer.lower().strip() == "no" else "true"
 
-    with open(CONFIG_DIR, "w") as f:
+    with open(CONFIG_FILE, "w") as f:
         config.write(f)
 
     # Step 4: Import enabled plugins
