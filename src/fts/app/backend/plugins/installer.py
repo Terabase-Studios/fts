@@ -68,7 +68,13 @@ def install_plugin(name, logger=None):
 
     if not entry:
         if logger:
-            logger.error(f"Plugin '{name}' not found in manifest.")
+            logger.error(f"Plugin '{name}' not found in manifest and will be removed")
+            path = os.path.join(PLUGIN_DIR, name + ".py")
+            if os.path.exists(path):
+                os.remove(path)
+            path = os.path.join(PLUGIN_DIR, name + ".json")
+            if os.path.exists(path):
+                os.remove(path)
         return False
 
     os.makedirs(PLUGIN_DIR, exist_ok=True)

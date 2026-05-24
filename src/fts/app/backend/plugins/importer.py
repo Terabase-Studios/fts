@@ -42,6 +42,16 @@ def load_plugins():
             config["plugins"][
                 plugin_name] = "false" if answer.lower().strip() == "n" or answer.lower().strip() == "no" else "true"
 
+
+    # Find any plugins that are missing but still in the config
+    broken_plugins = [x for x in config["plugins"] if x not in plugin_files]
+    for plugin in broken_plugins:
+        if plugin in config["plugins"]:
+            plugin_path = os.path.join(PLUGIN_DIR, plugin) + ".json"
+            if not os.path.exists(plugin_path):
+                del config["plugins"][plugin]
+
+
     with open(CONFIG_FILE, "w") as f:
         config.write(f)
 
