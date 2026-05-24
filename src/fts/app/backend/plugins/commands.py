@@ -1,21 +1,36 @@
 import configparser
 import json
 import os
+import re
 import shutil
 import textwrap
+
+import requests
 
 from fts import __version__
 from fts.app.backend.plugins.installer import fetch_manifest, list_available_plugins, install_plugin, download_hashes
 from fts.app.cache import PLUGIN_DIR, CONFIG_DIR
 
 
+def get_latest_version(repo: str):
+    url = f"https://api.github.com/repos/{repo}/releases/latest"
+    r = requests.get(url, timeout=10)
+    r.raise_for_status()
+    tag = r.json()["tag_name"]
+    match = re.search(r"(\d+)\.(\d+)", tag)
+    if not match:
+        return None
+    version = tuple(map(int, match.groups()))
+    return f"{version[0]}.{version[1]}"
+
+
 def cmd_plugins(args, logger):
     try:
-        github_version = fetch_manifest()["metadata"][0]["version"]
+        api_version = get_latest_version("terabase-studios/fts")
         current_version = __version__()
-        if current_version != github_version:
+        if current_version != api_version:
             logger.warning(
-                f"FTS out of date! New plugins may not be compatible.\n Installed version: {current_version} \n Remote version: {github_version}")
+                f"FTS out of date! Some plugins may be outdated or unavailable.\n Installed version: {current_version} \n Remote version: {api_version}")
     except Exception:
         logger.warning("Unable to verify FTS version")
     if args.subcommand == "show":

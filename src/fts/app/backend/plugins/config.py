@@ -1,8 +1,17 @@
-GITHUB_BASE = "https://raw.githubusercontent.com/Terabase-Studios/fts/refs/heads/main/"
-GITHUB_PLUGIN_DIR = GITHUB_BASE + "plugins/"
+from fts import __version__
+fts_version = __version__()
+fts_release_version = ".".join(fts_version.split(".")[:2])
+
+API_BASE = "https://api.terabasestudios.com/"
+API_PLUGIN_DIR = API_BASE + f"plugins/{fts_release_version}/"
+API_PLUGIN_ARGS = "?service=fts&version=v1"
+API_PLUGIN_HEADERS={
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Accept": "application/json,text/html,*/*",
+    "Referer": "https://terabasestudios.com/"
+}
 
 ERROR_FREEZE_TIME = 3
-
 
 SECURE = True
 
