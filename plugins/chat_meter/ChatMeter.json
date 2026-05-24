@@ -1,0 +1,9 @@
+{
+  "name": "ChatMeter",
+  "title": "FTS Chat Meter Plugin",
+  "version": "1.0.0",
+  "authors": ["Terabase (terabasestudios@gmail.com)"],
+  "description": "Protects FTS chat from flooding by rate-limiting messages per IP using a token bucket system.",
+  "entry": "ChatMeter.py",
+  "dependencies": []
+}

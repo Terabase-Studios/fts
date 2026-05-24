@@ -1,0 +1,10 @@
+{
+  "name": "OfflineChat",
+  "title": "FTS Offline Chat Plugin",
+  "version": "1.0.1",
+  "authors": ["Terabase (terabasestudios@gmail.com)"],
+  "description": "Keeps recording messages even when FTS-TUI is closed. Requires FTS-TUI to be launched once.\nNote: When this plugin is uninstalled it will keep recording messages until device restart!",
+  "entry": "OfflineChat.py",
+  "addons": ["offline_config.json", "offline_listener.pid", "offline_listener.lock", "offline_chat.json", "offline_chat_bg_no_include.py"],
+  "dependencies": []
+}
