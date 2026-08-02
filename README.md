@@ -87,8 +87,7 @@ From here you can:
 ---
 
 ## Project State
-
-FTS development remains active, and future updates will be released. All issues and pull requests will be addressed promptly.
+This project **is** active! I cycle back to this project here or there, so if you see a lag in commits don't worry about the project being abandoned. All issues and pull requests will be addressed promptly.
 
 ---
 
