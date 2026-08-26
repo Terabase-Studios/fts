@@ -103,3 +103,6 @@ Pull requests are welcome! For major changes, please open an issue first to disc
 
 * **Please do not run FTS on public networks** without proper authorization.
 * FTS is intended for **LAN environments only**.
+
+## Related Blogs
+* [The FTS-Tool Protocol](https://terabasestudios.com/the-fts-tool-protocol/)
