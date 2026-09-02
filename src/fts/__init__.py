@@ -1,5 +1,5 @@
 def __version__():
-    return "2.5.1-rc.1"
+    return "2.5.1-rc.2"
 
 def colorize_icon(icon: str, version: str) -> str:
     RESET = "\033[0m"
