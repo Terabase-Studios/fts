@@ -9,7 +9,6 @@ from textual.widgets import TabbedContent
 
 import fts.app.backend.transfer as transfer
 import fts.py as fts
-from fts.app import cache
 from fts.app.backend.contacts import start_discovery_responder
 from fts.app.backend.host import host_manager, host_watcher
 from fts.app.backend.library.network import start_library_responder
@@ -27,18 +26,19 @@ from fts.app.frontend.settings import SettingsView
 from fts.app.frontend.transfers import Transfers
 from fts.app.style.tcss import css
 from fts.cli import ICON
+from fts.core.logger import setup_logging
 
 fts_app = None
 USE_INDIVIDUAL_TCSS = False
 
 
 def setup(transfer_ui: Transfers, requests_ui: Requests) -> None:
-    fts.logger = LOG_FILE
+    fts.logger = setup_logging(logfile=str(LOG_FILE))
     start_discovery_responder()
     start_library_responder()
     transfer.transfer_handler = TransferHandler(transfer_ui, requests_ui)
-    host_manager.start()
-    host_watcher.start()
+    #host_manager.start()
+    #host_watcher.start()
 
 
 class FTSApp(App):

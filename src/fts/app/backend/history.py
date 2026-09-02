@@ -2,7 +2,7 @@ import os
 import re
 from datetime import datetime
 from typing import List, Dict, Any
-
+from fts.app.config import logger
 
 def parse_transfers(log_text: str) -> List[Dict[str, Any]]:
     """
@@ -28,7 +28,6 @@ def parse_transfers(log_text: str) -> List[Dict[str, Any]]:
     # Split into lines, ignoring START/END markers
     lines = [l for l in log_text.splitlines() if
              "========== START OF LOG ==========" not in l and "========== END OF LOG ==========" not in l]
-
     blocks = []
     current_block = None
     for line in lines:
@@ -209,8 +208,8 @@ def get_history(log_paths: list[str], allow_no_type=False, add_type=True) -> lis
         try:
             with open(path, "r") as f:
                 logs.extend(parse_transfers(f.read()))
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f"[History] Error reading log file {path}: {e}")
 
     if add_type:
         for index in range(len(logs)):
@@ -226,3 +225,9 @@ def get_history(log_paths: list[str], allow_no_type=False, add_type=True) -> lis
     sorted_entries = sort_entries(logs)
 
     return sorted_entries
+
+if __name__ == "__main__":
+    # Example usage
+    log_files = [r"C:\Users\cybor\AppData\Local\Terabase\Fts-Tool\Logs/log.txt"]  # Replace with actual log file paths
+    history = get_history(log_files)
+    print_entries(history)

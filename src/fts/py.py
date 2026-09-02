@@ -1,3 +1,4 @@
+import logging
 import sys
 from argparse import Namespace
 
@@ -13,25 +14,25 @@ from fts.core.utilities import install_fast_event_loop
 
 logger = setup_logging()
 
+def get_logger_file_path(logger):
+    # Check handlers on the current logger, and fall back to the root logger if needed
+    for handler in logger.handlers if logger.handlers else logging.root.handlers:
+        if isinstance(handler, logging.FileHandler):
+            return handler.baseFilename
+    return None
 
-def _get_logger(base_logger, id: str):
+def _get_logger(base_logger, logger_id: str):
     """
     Resolve or create a logger instance.
 
     Args:
         base_logger: Either a logger instance, a logfile path (str), or None.
-        id (str): Identifier used to tag the logger instance.
+        logger_id (str): Identifier used to tag the logger instance.
 
     Returns:
         Logger: A configured logger instance.
     """
-    if isinstance(base_logger, str):
-        return setup_logging(logfile=base_logger, id=id)
-    elif base_logger is None:
-        return setup_logging(id=id)
-    else:
-        return base_logger
-
+    return setup_logging(logfile=get_logger_file_path(base_logger), id=logger_id)
 
 
 def install_accelerated_event_loop(debug_prints=False) -> bool:

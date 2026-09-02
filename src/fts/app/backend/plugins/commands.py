@@ -27,7 +27,7 @@ def get_latest_version(repo: str):
 def cmd_plugins(args, logger):
     try:
         api_version = get_latest_version("terabase-studios/fts")
-        current_version = __version__()
+        current_version = '.'.join(__version__().split('.')[:2])
         if current_version != api_version:
             logger.warning(
                 f"FTS out of date! Some plugins may be outdated or unavailable.\n Installed version: {current_version} \n Remote version: {api_version}")

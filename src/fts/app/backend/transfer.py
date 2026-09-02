@@ -211,7 +211,7 @@ class TransferHandler:
                 loop = asyncio.get_running_loop()
                 loop.call_soon_threadsafe(self.transfer_ui.add_active, entry, transfer, manager)
 
-                await self.run_in_thread(fts.open, SAVE_DIR, "0.0.0.0", new_port, protected=False,
+                await self.run_in_thread(fts.open, str(SAVE_DIR), "0.0.0.0", new_port, protected=False,
                                          max_concurrent_transfers=1, max_transfers=1, progress=True, manager=manager)
                 manager.progress = manager.max_progress
                 if manager.cancelled:
@@ -223,7 +223,7 @@ class TransferHandler:
 
             except Exception as e:
                 self.transfer_ui.notify(f"{e}", title="Error receiving transfer", severity="error", timeout=30)
-                logger.error(f"[TransferHandler][Receive] Receive failed: {e}")
+                logger.error(f"[TransferHandler][Receive] Receive failed: {e} on line {e.__traceback__.tb_lineno} in {e.__traceback__.tb_frame.f_code.co_name}")
 
             finally:
                 writer.close()
@@ -360,7 +360,7 @@ class TransferHandler:
             loop = asyncio.get_running_loop()
             loop.call_soon_threadsafe(self.transfer_ui.add_active, entry, transfer, manager)
 
-            await self.run_in_thread(fts.send, filepath, target, new_port, manager=manager, progress=True)
+            await self.run_in_thread(fts.send, str(filepath), target, new_port, manager=manager, progress=True)
             manager.progress = manager.max_progress
             if manager.cancelled:
                 writer.write(REJECT_MSG + b"\n")
@@ -371,7 +371,7 @@ class TransferHandler:
 
         except Exception as e:
             self.transfer_ui.notify(f"{e}", title="Error sending transfer", severity="error", timeout=30)
-            logger.error(f"[TransferHandler][Send] Send failed: {e}")
+            logger.error(f"[TransferHandler][Send] Send failed: {e} on line {e.__traceback__.tb_lineno} in {e.__traceback__.tb_frame.f_code.co_name}")
 
         finally:
             if writer:

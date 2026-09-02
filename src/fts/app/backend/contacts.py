@@ -15,6 +15,7 @@ from fts.core.secure import get_ip_to_mac
 from fts.core.utilities import run_async
 
 FILES_TO_UPDATE_IP = [CONTACTS_FILE, MUTED_FILE, SEEN_IPS_FILE, os.path.join(PLUGIN_DIR, "ip_blacklist.txt")]
+DISCOVERY_TIMEOUT = 1.0  # seconds
 
 VIRTUAL_IP_RANGES = [
     ipaddress.ip_network("192.168.56.0/24"),
@@ -27,7 +28,7 @@ VIRTUAL_IP_RANGES = [
 DISCOVERY_MESSAGE = b"FTSCHECK123"
 DISCOVERY_RESPOND = b"FTSRECIEVE456"
 WHO_IS_MESSAGE = b"FTSWHOIS123"
-WHO_IS_RESPOND = b"FTSTHISISE456"
+WHO_IS_RESPOND = b"FTSTHISIS456"
 
 
 class OnlineUsers:
@@ -235,7 +236,7 @@ class DiscoveryCollector(asyncio.DatagramProtocol):
             self.responses.append(addr[0])
 
 
-def discover(timeout=0.1, get_macs=True):
+def discover(timeout=DISCOVERY_TIMEOUT, get_macs=True):
     class DiscoveryCollector:
         def __init__(self):
             self.responses = []
