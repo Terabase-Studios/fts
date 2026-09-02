@@ -15,7 +15,7 @@ from fts.core.secure import get_ip_to_mac
 from fts.core.utilities import run_async
 
 FILES_TO_UPDATE_IP = [CONTACTS_FILE, MUTED_FILE, SEEN_IPS_FILE, os.path.join(PLUGIN_DIR, "ip_blacklist.txt")]
-DISCOVERY_TIMEOUT = 1.0  # seconds
+DISCOVERY_TIMEOUT = 3.0  # seconds
 
 VIRTUAL_IP_RANGES = [
     ipaddress.ip_network("192.168.56.0/24"),
