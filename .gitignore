@@ -187,3 +187,4 @@ secure/
 assets/elevator_pitch.txt
 *.svg
 /.idea/
+desktop.ini
